@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import mockApplications, { getApplicationStatusColor } from '@/lib/mockData';
+import { mockApplications, getApplicationStatusColor } from '@/lib/mockData';
 import { formatDate } from '@/lib/utils';
 
 export default function ApplicationsPage() {

@@ -140,7 +140,3 @@ export default function MilestoneItem({ milestone, amount, currency, userRole }:
     </div>
   );
 }
-
-function useState<T>(initialValue: T): [T, (value: T) => void] {
-  return [initialValue, () => {}];
-}

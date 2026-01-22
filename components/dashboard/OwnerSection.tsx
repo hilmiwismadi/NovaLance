@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import mockJobs, { getJobsByOwner } from '@/lib/mockData';
+import { mockJobs, getJobsByOwner, mockUser } from '@/lib/mockData';
 
 export default function OwnerSection() {
   const postedJobs = getJobsByOwner(mockUser.address);

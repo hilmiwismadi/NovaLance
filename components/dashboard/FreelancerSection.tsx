@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
-import mockApplications from '@/lib/mockData';
-import { mockProjects } from '@/lib/mockData';
+import Button from '@/components/ui/Button';
+import { mockApplications, mockProjects, mockUser } from '@/lib/mockData';
 
 export default function FreelancerSection() {
   const pendingApplications = mockApplications.filter(a => a.status === 'pending');

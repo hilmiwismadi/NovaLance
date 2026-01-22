@@ -81,7 +81,3 @@ export default function JobFilters({ onFilterChange }: JobFiltersProps) {
     </Card>
   );
 }
-
-function useState<T>(initialValue: T): [T, (value: T) => void] {
-  return [initialValue, () => {}];
-}

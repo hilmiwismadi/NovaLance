@@ -1,11 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import NotificationBell from './NotificationBell';
-import mockUser from '@/lib/mockData';
+import { mockUser } from '@/lib/mockData';
 
 export default function Header() {
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected] = useState(true);
 
   return (
     <header className="sticky top-0 z-40 glass-card border-t-0 border-x-0 rounded-none">
@@ -46,8 +47,4 @@ export default function Header() {
       </div>
     </header>
   );
-}
-
-function useState<T>(initialValue: T): [T, (value: T) => void] {
-  return [initialValue, () => {}];
 }

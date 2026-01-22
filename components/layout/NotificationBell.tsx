@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import mockNotifications from '@/lib/mockData';
+import { mockNotifications } from '@/lib/mockData';
 
 interface Notification {
   id: string;

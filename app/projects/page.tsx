@@ -101,7 +101,3 @@ export default function ProjectsPage() {
     </div>
   );
 }
-
-function useState<T>(initialValue: T): [T, (value: T) => void] {
-  return [initialValue, () => {}];
-}

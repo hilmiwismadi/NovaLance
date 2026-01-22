@@ -231,7 +231,3 @@ export default function CreateJobPage() {
     </div>
   );
 }
-
-function useState<T>(initialValue: T): [T, (value: T) => void] {
-  return [initialValue, () => {}];
-}
