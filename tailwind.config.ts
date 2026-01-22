@@ -31,9 +31,9 @@ const config: Config = {
         xs: '2px',
       },
       boxShadow: {
-        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-        'glass-hover': '0 8px 32px 0 rgba(29, 173, 206, 0.25)',
-        'neon': '0 0 20px rgba(29, 173, 206, 0.5)',
+        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.12)',
+        'glass-hover': '0 8px 32px 0 rgba(29, 173, 206, 0.15)',
+        'neon': '0 0 20px rgba(29, 173, 206, 0.3)',
       },
     },
   },

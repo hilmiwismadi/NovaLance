@@ -11,7 +11,7 @@ export default function ExperienceCard({ experience }: ExperienceCardProps) {
     <Card>
       <div className="flex items-start justify-between mb-2">
         <div>
-          <h4 className="font-semibold text-white">{experience.role}</h4>
+          <h4 className="font-semibold text-slate-800">{experience.role}</h4>
           <p className="text-brand-300">{experience.company}</p>
         </div>
         {experience.current && (
@@ -20,8 +20,8 @@ export default function ExperienceCard({ experience }: ExperienceCardProps) {
           </span>
         )}
       </div>
-      <p className="text-sm text-white/60 mb-3">{experience.description}</p>
-      <p className="text-xs text-white/40">
+      <p className="text-sm text-slate-600 mb-3">{experience.description}</p>
+      <p className="text-xs text-slate-400">
         {formatDate(experience.startDate)} - {experience.current ? 'Present' : formatDate(experience.endDate || '')}
       </p>
     </Card>

@@ -55,13 +55,13 @@ export default function NotificationBell() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-full hover:bg-white/10 transition-colors"
+        className="relative p-2 rounded-full hover:bg-slate-100 transition-colors"
       >
-        <svg className="w-6 h-6 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 w-5 h-5 bg-brand-500 rounded-full text-xs flex items-center justify-center font-medium">
+          <span className="absolute top-0 right-0 w-5 h-5 bg-brand-500 rounded-full text-xs flex items-center justify-center font-medium text-white">
             {unreadCount}
           </span>
         )}
@@ -73,36 +73,36 @@ export default function NotificationBell() {
             className="fixed inset-0 z-10"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto glass-card z-20">
-            <div className="p-4 border-b border-white/10">
-              <h3 className="font-semibold text-white">Notifications</h3>
+          <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto glass-card z-20 bg-white/90">
+            <div className="p-4 border-b border-slate-200">
+              <h3 className="font-semibold text-slate-800">Notifications</h3>
             </div>
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-slate-100">
               {notifications.length === 0 ? (
-                <div className="p-4 text-center text-white/50">
+                <div className="p-4 text-center text-slate-500">
                   No notifications
                 </div>
               ) : (
                 notifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`p-4 hover:bg-white/5 transition-colors ${
-                      !notification.read ? 'bg-brand-500/5' : ''
+                    className={`p-4 hover:bg-slate-50 transition-colors ${
+                      !notification.read ? 'bg-brand-50' : ''
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`p-2 rounded-lg ${
-                        notification.type === 'application' ? 'bg-blue-500/20 text-blue-400' :
-                        notification.type === 'milestone' ? 'bg-green-500/20 text-green-400' :
-                        notification.type === 'payment' ? 'bg-yellow-500/20 text-yellow-400' :
-                        'bg-purple-500/20 text-purple-400'
+                        notification.type === 'application' ? 'bg-blue-100 text-blue-600' :
+                        notification.type === 'milestone' ? 'bg-green-100 text-green-600' :
+                        notification.type === 'payment' ? 'bg-amber-100 text-amber-600' :
+                        'bg-purple-100 text-purple-600'
                       }`}>
                         {getIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white/90">{notification.message}</p>
+                        <p className="text-sm text-slate-700">{notification.message}</p>
                         {notification.createdAt && (
-                          <p className="text-xs text-white/40 mt-1">
+                          <p className="text-xs text-slate-400 mt-1">
                             {new Date(notification.createdAt).toLocaleDateString()}
                           </p>
                         )}

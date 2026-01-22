@@ -12,7 +12,7 @@ export default function Badge({ children, variant = 'default', className = '' }:
     warning: 'badge-warning',
     pending: 'badge-pending',
     error: 'badge-error',
-    default: 'bg-white/10 text-white/70 border border-white/10',
+    default: 'bg-slate-200 text-slate-700 border border-slate-300',
   };
 
   return (

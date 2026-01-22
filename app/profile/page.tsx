@@ -51,9 +51,9 @@ export default function ProfilePage() {
               </span>
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">{mockUser.ens || 'Anonymous'}</h1>
-              <p className="text-white/60 text-sm">{formatAddress(mockUser.address)}</p>
-              <p className="text-white/40 text-sm mt-1">Member since {mockUser.memberSince}</p>
+              <h1 className="text-2xl font-bold text-slate-900">{mockUser.ens || 'Anonymous'}</h1>
+              <p className="text-slate-600 text-sm">{formatAddress(mockUser.address)}</p>
+              <p className="text-slate-400 text-sm mt-1">Member since {mockUser.memberSince}</p>
             </div>
           </div>
           <Button variant="outline">
@@ -65,15 +65,15 @@ export default function ProfilePage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-white/10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200">
           <div className="text-center">
-            <p className="text-2xl font-bold text-white">{mockUser.rating}</p>
-            <p className="text-xs text-white/60 mt-1">Rating</p>
+            <p className="text-2xl font-bold text-slate-900">{mockUser.rating}</p>
+            <p className="text-xs text-slate-600 mt-1">Rating</p>
             <div className="flex items-center justify-center gap-0.5 mt-1">
               {[...Array(5)].map((_, i) => (
                 <svg
                   key={i}
-                  className={`w-3 h-3 ${i < Math.floor(mockUser.rating) ? 'text-yellow-400' : 'text-white/20'}`}
+                  className={`w-3 h-3 ${i < Math.floor(mockUser.rating) ? 'text-yellow-500' : 'text-slate-300'}`}
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -83,16 +83,16 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-white">{mockUser.reviewCount}</p>
-            <p className="text-xs text-white/60 mt-1">Reviews</p>
+            <p className="text-2xl font-bold text-slate-900">{mockUser.reviewCount}</p>
+            <p className="text-xs text-slate-600 mt-1">Reviews</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-white">{mockUser.completedProjects}</p>
-            <p className="text-xs text-white/60 mt-1">Completed</p>
+            <p className="text-2xl font-bold text-slate-900">{mockUser.completedProjects}</p>
+            <p className="text-xs text-slate-600 mt-1">Completed</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-white">{mockUser.managedProjects}</p>
-            <p className="text-xs text-white/60 mt-1">Managed</p>
+            <p className="text-2xl font-bold text-slate-900">{mockUser.managedProjects}</p>
+            <p className="text-xs text-slate-600 mt-1">Managed</p>
           </div>
         </div>
       </Card>
@@ -101,23 +101,23 @@ export default function ProfilePage() {
         {/* As Freelancer Section */}
         <div className="space-y-6">
           <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            <h2 className="text-xl font-semibold text-white">As a Freelancer</h2>
+            <h2 className="text-xl font-semibold text-slate-900">As a Freelancer</h2>
           </div>
 
           {/* Bio */}
           {mockUser.bio && (
             <Card>
-              <h3 className="text-sm font-medium text-white/70 mb-2">About</h3>
-              <p className="text-sm text-white/80">{mockUser.bio}</p>
+              <h3 className="text-sm font-medium text-slate-700 mb-2">About</h3>
+              <p className="text-sm text-slate-800">{mockUser.bio}</p>
             </Card>
           )}
 
           {/* Skills */}
           <Card>
-            <h3 className="text-sm font-medium text-white/70 mb-3">Skills</h3>
+            <h3 className="text-sm font-medium text-slate-700 mb-3">Skills</h3>
             <div className="flex flex-wrap gap-2">
               {mockUser.skills.map((skill) => (
                 <SkillTag key={skill} skill={skill} verified />
@@ -127,7 +127,7 @@ export default function ProfilePage() {
 
           {/* Experience */}
           <div>
-            <h3 className="text-sm font-medium text-white/70 mb-3">Work Experience</h3>
+            <h3 className="text-sm font-medium text-slate-700 mb-3">Work Experience</h3>
             <div className="space-y-3">
               {mockUser.experience.map((exp) => (
                 <ExperienceCard key={exp.id} experience={exp} />
@@ -142,21 +142,21 @@ export default function ProfilePage() {
         {/* As Project Owner Section */}
         <div className="space-y-6">
           <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            <h2 className="text-xl font-semibold text-white">As a Project Owner</h2>
+            <h2 className="text-xl font-semibold text-slate-900">As a Project Owner</h2>
           </div>
 
           {/* Owner Stats */}
           <div className="grid grid-cols-2 gap-4">
             <Card className="text-center">
-              <p className="text-2xl font-bold text-white">{mockUser.managedProjects}</p>
-              <p className="text-xs text-white/60 mt-1">Projects Managed</p>
+              <p className="text-2xl font-bold text-slate-900">{mockUser.managedProjects}</p>
+              <p className="text-xs text-slate-600 mt-1">Projects Managed</p>
             </Card>
             <Card className="text-center">
-              <p className="text-2xl font-bold text-brand-300">$4,500</p>
-              <p className="text-xs text-white/60 mt-1">Total Spent</p>
+              <p className="text-2xl font-bold text-brand-600">$4,500</p>
+              <p className="text-xs text-slate-600 mt-1">Total Spent</p>
             </Card>
           </div>
 
@@ -165,23 +165,23 @@ export default function ProfilePage() {
 
           {/* Hiring Activity */}
           <Card>
-            <h3 className="text-sm font-medium text-white/70 mb-3">Hiring Activity</h3>
+            <h3 className="text-sm font-medium text-slate-700 mb-3">Hiring Activity</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-white/60">Jobs Posted</span>
-                <span className="text-white">5</span>
+                <span className="text-slate-600">Jobs Posted</span>
+                <span className="text-slate-900">5</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-white/60">Freelancers Hired</span>
-                <span className="text-white">4</span>
+                <span className="text-slate-600">Freelancers Hired</span>
+                <span className="text-slate-900">4</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-white/60">Avg. Time to Hire</span>
-                <span className="text-white">2.3 days</span>
+                <span className="text-slate-600">Avg. Time to Hire</span>
+                <span className="text-slate-900">2.3 days</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-white/60">Repeat Hire Rate</span>
-                <span className="text-white">60%</span>
+                <span className="text-slate-600">Repeat Hire Rate</span>
+                <span className="text-slate-900">60%</span>
               </div>
             </div>
           </Card>
@@ -189,13 +189,13 @@ export default function ProfilePage() {
       </div>
 
       {/* Verification Requests */}
-      <Card className="border-yellow-500/20">
+      <Card className="border-amber-200">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
             </svg>
-            <h2 className="text-lg font-semibold text-white">Pending Verifications</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Pending Verifications</h2>
           </div>
           <Link href="/verify">
             <Button size="sm" variant="outline">
@@ -204,21 +204,21 @@ export default function ProfilePage() {
           </Link>
         </div>
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-200">
             <div>
-              <p className="text-sm font-medium text-white">Verify "React Development" skill</p>
-              <p className="text-xs text-white/40 mt-1">Awaiting manual review</p>
+              <p className="text-sm font-medium text-slate-900">Verify "React Development" skill</p>
+              <p className="text-xs text-slate-400 mt-1">Awaiting manual review</p>
             </div>
-            <span className="px-2 py-1 text-xs rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+            <span className="px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-600 border border-amber-300">
               Pending
             </span>
           </div>
-          <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
             <div>
-              <p className="text-sm font-medium text-white">Verify completed project</p>
-              <p className="text-xs text-white/40 mt-1">"DeFi Dashboard Frontend"</p>
+              <p className="text-sm font-medium text-slate-900">Verify completed project</p>
+              <p className="text-xs text-slate-400 mt-1">"DeFi Dashboard Frontend"</p>
             </div>
-            <span className="px-2 py-1 text-xs rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-600 border border-blue-300">
               Action Required
             </span>
           </div>

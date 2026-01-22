@@ -29,27 +29,27 @@ export default function ProjectsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-white">My Projects</h1>
-        <p className="text-white/60 mt-1">Manage your projects as both owner and freelancer</p>
+        <h1 className="text-2xl md:text-3xl font-bold text-slate-900">My Projects</h1>
+        <p className="text-slate-600 mt-1">Manage your projects as both owner and freelancer</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="text-center">
-          <p className="text-3xl font-bold text-white">{stats.total}</p>
-          <p className="text-sm text-white/60 mt-1">Total Projects</p>
+          <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
+          <p className="text-sm text-slate-600 mt-1">Total Projects</p>
         </Card>
         <Card className="text-center">
-          <p className="text-3xl font-bold text-green-400">{stats.active}</p>
-          <p className="text-sm text-white/60 mt-1">Active</p>
+          <p className="text-3xl font-bold text-green-600">{stats.active}</p>
+          <p className="text-sm text-slate-600 mt-1">Active</p>
         </Card>
         <Card className="text-center">
-          <p className="text-3xl font-bold text-brand-300">{stats.asOwner}</p>
-          <p className="text-sm text-white/60 mt-1">As Owner</p>
+          <p className="text-3xl font-bold text-brand-600">{stats.asOwner}</p>
+          <p className="text-sm text-slate-600 mt-1">As Owner</p>
         </Card>
         <Card className="text-center">
-          <p className="text-3xl font-bold text-purple-400">{stats.asFreelancer}</p>
-          <p className="text-sm text-white/60 mt-1">As Freelancer</p>
+          <p className="text-3xl font-bold text-purple-600">{stats.asFreelancer}</p>
+          <p className="text-sm text-slate-600 mt-1">As Freelancer</p>
         </Card>
       </div>
 
@@ -66,8 +66,8 @@ export default function ProjectsPage() {
               onClick={() => setActiveTab(tab.value as TabValue)}
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
                 activeTab === tab.value
-                  ? 'bg-brand-500/20 text-brand-300 border border-brand-500/30'
-                  : 'bg-transparent text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-brand-100 text-brand-600 border border-brand-200'
+                  : 'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               {tab.label}
@@ -85,11 +85,11 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <Card className="text-center py-12">
-          <svg className="w-16 h-16 mx-auto text-white/20 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
-          <h3 className="text-lg font-semibold text-white mb-2">No projects yet</h3>
-          <p className="text-white/60 mb-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">No projects yet</h3>
+          <p className="text-slate-600 mb-6">
             {activeTab === 'owner'
               ? "You haven't posted any jobs yet."
               : activeTab === 'freelancer'

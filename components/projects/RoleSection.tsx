@@ -23,12 +23,12 @@ export default function RoleSection({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-brand-500/20 text-brand-300">
+        <div className="p-2 rounded-lg bg-brand-100 text-brand-600">
           {icon}
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
-          <p className="text-sm text-white/60">{description}</p>
+          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+          <p className="text-sm text-slate-600">{description}</p>
         </div>
       </div>
 

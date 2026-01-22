@@ -20,7 +20,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
   return (
     <div className="space-y-6">
       {/* Back Button */}
-      <Link href="/projects" className="inline-flex items-center text-white/60 hover:text-white transition-colors">
+      <Link href="/projects" className="inline-flex items-center text-slate-600 hover:text-slate-900 transition-colors">
         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
@@ -32,52 +32,52 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-bold text-white">{project.title}</h1>
+              <h1 className="text-2xl font-bold text-slate-900">{project.title}</h1>
               <Badge variant={getJobStatusColor(project.status) as any}>
                 {project.status === 'in-progress' ? 'Active' : project.status}
               </Badge>
             </div>
-            <p className="text-white/60">{project.description}</p>
+            <p className="text-slate-600">{project.description}</p>
           </div>
           <div className="text-left sm:text-right">
-            <p className="text-3xl font-bold text-brand-300">{formatCurrency(project.totalBudget, project.currency)}</p>
-            <p className="text-sm text-white/40">Total Budget</p>
+            <p className="text-3xl font-bold text-brand-600">{formatCurrency(project.totalBudget, project.currency)}</p>
+            <p className="text-sm text-slate-400">Total Budget</p>
           </div>
         </div>
 
         {/* Project Meta */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-white/10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-200">
           <div>
-            <p className="text-xs text-white/40 mb-1">Owner</p>
-            <p className="text-sm text-white/90">
+            <p className="text-xs text-slate-400 mb-1">Owner</p>
+            <p className="text-sm text-slate-700">
               {project.ownerEns || `${project.owner.slice(0, 6)}...${project.owner.slice(-4)}`}
             </p>
           </div>
           {project.freelancer && (
             <div>
-              <p className="text-xs text-white/40 mb-1">Freelancer</p>
-              <p className="text-sm text-white/90">
+              <p className="text-xs text-slate-400 mb-1">Freelancer</p>
+              <p className="text-sm text-slate-700">
                 {project.freelancerEns || `${project.freelancer.slice(0, 6)}...${project.freelancer.slice(-4)}`}
               </p>
             </div>
           )}
           <div>
-            <p className="text-xs text-white/40 mb-1">Milestones</p>
-            <p className="text-sm text-white/90">{project.milestones.length}</p>
+            <p className="text-xs text-slate-400 mb-1">Milestones</p>
+            <p className="text-sm text-slate-700">{project.milestones.length}</p>
           </div>
           <div>
-            <p className="text-xs text-white/40 mb-1">Started</p>
-            <p className="text-sm text-white/90">{formatDate(project.createdAt)}</p>
+            <p className="text-xs text-slate-400 mb-1">Started</p>
+            <p className="text-sm text-slate-700">{formatDate(project.createdAt)}</p>
           </div>
         </div>
 
         {/* Role badges */}
-        <div className="flex items-center gap-2 pt-4 mt-4 border-t border-white/10">
-          <span className="text-sm text-white/60">Your role:</span>
+        <div className="flex items-center gap-2 pt-4 mt-4 border-t border-slate-200">
+          <span className="text-sm text-slate-600">Your role:</span>
           {project.userRole === 'both' ? (
             <>
               <Badge variant="default">Owner</Badge>
-              <span className="text-white/40">&</span>
+              <span className="text-slate-400">&</span>
               <Badge variant="default">Freelancer</Badge>
             </>
           ) : (
@@ -88,16 +88,16 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 
       {/* Milestone Progress Overview */}
       <Card>
-        <h2 className="text-lg font-semibold text-white mb-4">Overall Progress</h2>
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Overall Progress</h2>
         <div className="space-y-4">
           <div>
             <div className="flex items-center justify-between text-sm mb-2">
-              <span className="text-white/60">Completed Milestones</span>
-              <span className="text-white">
+              <span className="text-slate-600">Completed Milestones</span>
+              <span className="text-slate-900">
                 {project.milestones.filter(m => m.status === 'approved' || m.status === 'completed').length} / {project.milestones.length}
               </span>
             </div>
-            <div className="h-3 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-3 bg-slate-200 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-brand-500 to-brand-400 transition-all duration-500"
                 style={{
@@ -113,22 +113,22 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 
           <div className="grid grid-cols-3 gap-4 pt-2">
             <div className="text-center">
-              <p className="text-2xl font-bold text-green-400">
+              <p className="text-2xl font-bold text-green-600">
                 {project.milestones.filter(m => m.status === 'approved').length}
               </p>
-              <p className="text-xs text-white/40">Approved</p>
+              <p className="text-xs text-slate-400">Approved</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-blue-400">
+              <p className="text-2xl font-bold text-blue-600">
                 {project.milestones.filter(m => m.status === 'in-progress').length}
               </p>
-              <p className="text-xs text-white/40">In Progress</p>
+              <p className="text-xs text-slate-400">In Progress</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-white/60">
+              <p className="text-2xl font-bold text-slate-600">
                 {project.milestones.filter(m => m.status === 'pending').length}
               </p>
-              <p className="text-xs text-white/40">Pending</p>
+              <p className="text-xs text-slate-400">Pending</p>
             </div>
           </div>
         </div>
@@ -138,7 +138,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
       <div className="space-y-6">
         {/* As Owner Section */}
         {isOwner && (
-          <Card className="border-brand-500/20">
+          <Card className="border-brand-200">
             <RoleSection
               title="As Project Owner"
               description="Review freelancer work and approve milestones"
@@ -157,7 +157,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 
         {/* As Freelancer Section */}
         {isFreelancer && (
-          <Card className="border-purple-500/20">
+          <Card className="border-purple-200">
             <RoleSection
               title="As Freelancer"
               description="Track your progress and submit milestone completions"
@@ -177,7 +177,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 
       {/* Actions */}
       <Card>
-        <h2 className="text-lg font-semibold text-white mb-4">Project Actions</h2>
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Project Actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {isOwner && project.freelancer && (
             <Button variant="outline" className="w-full">
@@ -195,7 +195,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
               Message Client
             </Button>
           )}
-          <Button variant="ghost" className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10">
+          <Button variant="ghost" className="w-full text-red-600 hover:text-red-700 hover:bg-red-50">
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>

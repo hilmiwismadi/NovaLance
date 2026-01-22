@@ -14,15 +14,15 @@ export function Input({ label, error, className = '', ...props }: InputProps) {
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-medium text-white/70 mb-1.5">
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">
           {label}
         </label>
       )}
       <input
-        className={`w-full px-4 py-2.5 rounded-xl text-white placeholder-white/30
+        className={`w-full px-4 py-2.5 rounded-xl text-slate-800 placeholder-slate-400
                    focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/50
                    disabled:opacity-50 disabled:cursor-not-allowed
-                   ${error ? 'border-red-500/50' : 'border-white/10'}
+                   ${error ? 'border-red-500/50' : 'border-slate-200'}
                    glass-input ${className}`}
         {...props}
       />
@@ -37,15 +37,15 @@ export function Textarea({ label, error, className = '', ...props }: TextareaPro
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-medium text-white/70 mb-1.5">
+        <label className="block text-sm font-medium text-slate-700 mb-1.5">
           {label}
         </label>
       )}
       <textarea
-        className={`w-full px-4 py-2.5 rounded-xl text-white placeholder-white/30
+        className={`w-full px-4 py-2.5 rounded-xl text-slate-800 placeholder-slate-400
                    focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500/50
                    disabled:opacity-50 disabled:cursor-not-allowed resize-none
-                   ${error ? 'border-red-500/50' : 'border-white/10'}
+                   ${error ? 'border-red-500/50' : 'border-slate-200'}
                    glass-input ${className}`}
         rows={4}
         {...props}

@@ -12,8 +12,8 @@ export default function JobsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white">Browse Jobs</h1>
-          <p className="text-white/60 mt-1">Find your next freelance opportunity</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Browse Jobs</h1>
+          <p className="text-slate-600 mt-1">Find your next freelance opportunity</p>
         </div>
         <Link href="/create-job">
           <Button className="w-full sm:w-auto">

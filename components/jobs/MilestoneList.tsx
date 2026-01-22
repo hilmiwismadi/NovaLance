@@ -21,7 +21,7 @@ export default function MilestoneList({ milestones, totalBudget, currency }: Mil
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-medium text-white/70">Milestones</h3>
+      <h3 className="text-sm font-medium text-slate-700">Milestones</h3>
       {sortedMilestones.map((milestone, index) => {
         const amount = (totalBudget * milestone.percentage) / 100;
         const statusColor = getMilestoneStatusColor(milestone.status);
@@ -39,7 +39,7 @@ export default function MilestoneList({ milestones, totalBudget, currency }: Mil
                   ? 'bg-blue-500/20 text-blue-400'
                   : milestone.status === 'rejected'
                   ? 'bg-red-500/20 text-red-400'
-                  : 'bg-white/10 text-white/40'
+                  : 'bg-slate-200 text-slate-500'
               }`}>
                 {milestone.status === 'approved' || milestone.status === 'completed' ? (
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,32 +57,32 @@ export default function MilestoneList({ milestones, totalBudget, currency }: Mil
 
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2 mb-1">
-                <h4 className="font-medium text-white">{milestone.name}</h4>
+                <h4 className="font-medium text-slate-800">{milestone.name}</h4>
                 <Badge variant={statusColor as any} className="flex-shrink-0">
                   {milestone.status}
                 </Badge>
               </div>
 
               {milestone.description && (
-                <p className="text-sm text-white/60 mb-2">{milestone.description}</p>
+                <p className="text-sm text-slate-600 mb-2">{milestone.description}</p>
               )}
 
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 text-sm text-white/50">
+                <div className="flex items-center gap-4 text-sm text-slate-500">
                   <span>{milestone.percentage}% of budget</span>
-                  <span className="text-brand-300 font-medium">{formatCurrency(amount, currency)}</span>
+                  <span className="text-brand-600 font-medium">{formatCurrency(amount, currency)}</span>
                 </div>
               </div>
 
               {/* Progress bar */}
-              <div className="mt-2 h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all duration-500 ${
                     milestone.status === 'approved' || milestone.status === 'completed'
                       ? 'bg-green-500'
                       : milestone.status === 'in-progress'
                       ? 'bg-blue-500'
-                      : 'bg-white/20'
+                      : 'bg-slate-300'
                   }`}
                   style={{
                     width:
