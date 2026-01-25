@@ -9,6 +9,7 @@ interface Notification {
   message: string;
   read: boolean;
   link?: string;
+  createdAt?: string;
 }
 
 export default function NotificationBell() {
