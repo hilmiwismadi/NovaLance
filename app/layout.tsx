@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import RootLayout from "@/components/layout/RootLayout";
-import { OnchainKitProvider } from '@coinbase/onchainkit';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,12 +18,7 @@ export default function Layout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <OnchainKitProvider
-          miniKit={{ enabled: true }}
-          apiKey={process.env.NEXT_PUBLIC_CDP_API_KEY}
-        >
-          <RootLayout>{children}</RootLayout>
-        </OnchainKitProvider>
+        <RootLayout>{children}</RootLayout>
       </body>
     </html>
   );

@@ -1,7 +1,3 @@
-'use client';
-
-import { useEffect } from 'react';
-import { useMiniKit } from '@coinbase/onchainkit/minikit';
 import Card from '@/components/ui/Card';
 import StatsCard from '@/components/dashboard/StatsCard';
 import OwnerSection from '@/components/dashboard/OwnerSection';
@@ -9,25 +5,11 @@ import FreelancerSection from '@/components/dashboard/FreelancerSection';
 import { mockUser } from '@/lib/mockData';
 
 export default function DashboardPage() {
-  const { setFrameReady, isFrameReady, context } = useMiniKit();
-
-  // Signal frame readiness when component mounts
-  useEffect(() => {
-    if (!isFrameReady) {
-      setFrameReady();
-    }
-  }, [setFrameReady, isFrameReady]);
-
-  // Get user context from MiniKit
-  const userFid = context?.user?.fid;
-  const username = context?.user?.username || mockUser.ens || 'User';
-
-  return (
     <div className="space-y-8">
       {/* Welcome Section */}
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2">
-          Welcome back, {username}!
+          Welcome back, {mockUser.ens || 'User'}!
         </h1>
         <p className="text-slate-600">Here's what's happening with your projects and applications.</p>
       </div>
