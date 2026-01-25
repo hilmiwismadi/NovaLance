@@ -5,6 +5,7 @@ import FreelancerSection from '@/components/dashboard/FreelancerSection';
 import { mockUser } from '@/lib/mockData';
 
 export default function DashboardPage() {
+  return (
     <div className="space-y-8">
       {/* Welcome Section */}
       <div>
