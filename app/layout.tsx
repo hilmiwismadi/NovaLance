@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/layout/Header";
-import BottomNav from "@/components/layout/BottomNav";
+import RootLayout from "@/components/layout/RootLayout";
+import { OnchainKitProvider } from '@coinbase/onchainkit';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -11,21 +11,20 @@ export const metadata: Metadata = {
   description: "A futuristic freelance marketplace powered by Base blockchain",
 };
 
-export default function RootLayout({
+export default function Layout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <div className="min-h-screen pb-24 md:pb-8">
-          <Header />
-          <main className="max-w-6xl mx-auto px-4 py-6">
-            {children}
-          </main>
-        </div>
-        <BottomNav />
+        <OnchainKitProvider
+          miniKit={{ enabled: true }}
+          apiKey={process.env.NEXT_PUBLIC_CDP_API_KEY}
+        >
+          <RootLayout>{children}</RootLayout>
+        </OnchainKitProvider>
       </body>
     </html>
   );

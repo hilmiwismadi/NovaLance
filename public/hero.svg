@@ -1,0 +1,15 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="heroGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0052FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0033CC;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#heroGrad)"/>
+  <circle cx="200" cy="200" r="150" fill="white" opacity="0.05"/>
+  <circle cx="1720" cy="880" r="200" fill="white" opacity="0.05"/>
+  <circle cx="960" cy="540" r="100" fill="white" opacity="0.1"/>
+  <text x="960" y="500" text-anchor="middle" fill="white" font-size="96" font-weight="bold" font-family="Arial, sans-serif">NovaLance</text>
+  <text x="960" y="600" text-anchor="middle" fill="white" font-size="42" font-family="Arial, sans-serif" opacity="0.9">Web3 Freelance Marketplace on Base</text>
+  <text x="960" y="660" text-anchor="middle" fill="white" font-size="28" font-family="Arial, sans-serif" opacity="0.7">Freelance reimagined onchain</text>
+</svg>
