@@ -17,14 +17,10 @@ export default function FreelancerSection() {
         As Freelancer
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="text-center">
           <p className="text-3xl font-bold text-brand-600">{mockUser.completedProjects}</p>
           <p className="text-sm text-slate-600 mt-1">Completed</p>
-        </Card>
-        <Card className="text-center">
-          <p className="text-3xl font-bold text-green-600">{mockUser.rating}</p>
-          <p className="text-sm text-slate-600 mt-1">Rating</p>
         </Card>
         <Card className="text-center">
           <p className="text-3xl font-bold text-amber-600">{activeWork.length}</p>

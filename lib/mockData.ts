@@ -72,7 +72,6 @@ export interface Experience {
 export interface UserProfile {
   address: string;
   ens?: string;
-  rating: number;
   reviewCount: number;
   memberSince: string;
   bio?: string;
@@ -97,7 +96,6 @@ export interface Notification {
 export const mockUser: UserProfile = {
   address: '0x1234567890abcdef1234567890abcdef12345678',
   ens: 'alice.eth',
-  rating: 4.8,
   reviewCount: 24,
   memberSince: 'January 2026',
   bio: 'Full-stack developer specializing in Web3 and DeFi applications.',
@@ -365,4 +363,15 @@ export function getProjectsByRole(role: ProjectRole): Project[] {
     if (role === 'freelancer') return p.userRole === 'freelancer' || p.userRole === 'both';
     return true;
   });
+}
+
+export function getApplicationStatusColor(status: ApplicationStatus): 'success' | 'warning' | 'destructive' {
+  switch (status) {
+    case 'accepted':
+      return 'success';
+    case 'pending':
+      return 'warning';
+    case 'rejected':
+      return 'destructive';
+  }
 }

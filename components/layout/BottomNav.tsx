@@ -37,7 +37,7 @@ export default function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 glass-card border-b-0 border-x-0 rounded-t-2xl bg-white/80 border-t border-slate-200/50">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-card border-b-0 border-x-0 rounded-t-2xl bg-white/80 border-t border-slate-200/50">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-around py-2">
           {navItems.map((item) => {

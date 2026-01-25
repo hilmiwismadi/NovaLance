@@ -14,7 +14,19 @@
       "Bash(where npm)",
       "Bash(npx next dev --help:*)",
       "Bash(where next)",
-      "Bash(npm update:*)"
+      "Bash(npm update:*)",
+      "Bash(timeout:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "WebSearch",
+      "Bash(npm run build:*)",
+      "Bash(npx next build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(npm i:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm view:*)"
     ]
   }
 }

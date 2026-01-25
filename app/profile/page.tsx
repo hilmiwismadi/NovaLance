@@ -15,7 +15,7 @@ const completedAsFreelancer = [
     role: 'freelancer' as const,
     status: 'completed',
     completionDate: '2025-12-20',
-    review: { rating: 5, comment: 'Excellent work! Delivered on time with great quality.' },
+    review: { comment: 'Excellent work! Delivered on time with great quality.' },
   },
   {
     id: 'p-hist-2',
@@ -23,7 +23,7 @@ const completedAsFreelancer = [
     role: 'freelancer' as const,
     status: 'completed',
     completionDate: '2025-11-15',
-    review: { rating: 4.5, comment: 'Very knowledgeable developer.' },
+    review: { comment: 'Very knowledgeable developer.' },
   },
 ];
 
@@ -34,7 +34,7 @@ const managedAsOwner = [
     role: 'owner' as const,
     status: 'completed',
     completionDate: '2025-12-15',
-    review: { rating: 5, comment: 'Great designer to work with!' },
+    review: { comment: 'Great designer to work with!' },
   },
 ];
 
@@ -57,7 +57,7 @@ export default function ProfilePage() {
             </div>
           </div>
           <Button variant="outline">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
             Edit Profile
@@ -65,23 +65,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-slate-900">{mockUser.rating}</p>
-            <p className="text-xs text-slate-600 mt-1">Rating</p>
-            <div className="flex items-center justify-center gap-0.5 mt-1">
-              {[...Array(5)].map((_, i) => (
-                <svg
-                  key={i}
-                  className={`w-3 h-3 ${i < Math.floor(mockUser.rating) ? 'text-yellow-500' : 'text-slate-300'}`}
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-              ))}
-            </div>
-          </div>
+        <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-slate-200">
           <div className="text-center">
             <p className="text-2xl font-bold text-slate-900">{mockUser.reviewCount}</p>
             <p className="text-xs text-slate-600 mt-1">Reviews</p>

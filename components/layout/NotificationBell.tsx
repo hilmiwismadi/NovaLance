@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { mockNotifications } from '@/lib/mockData';
 
 interface Notification {
@@ -13,8 +13,13 @@ interface Notification {
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const notifications: Notification[] = mockNotifications;
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -67,7 +72,7 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {isOpen && (
+      {mounted && isOpen && (
         <>
           <div
             className="fixed inset-0 z-10"

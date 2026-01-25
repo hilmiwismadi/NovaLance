@@ -17,7 +17,7 @@ export default function JobsPage() {
         </div>
         <Link href="/create-job">
           <Button className="w-full sm:w-auto">
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Post a Job
@@ -29,7 +29,7 @@ export default function JobsPage() {
       <JobFilters onFilterChange={() => {}} />
 
       {/* Job Listings */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {mockJobs.map((job) => (
           <JobCard key={job.id} job={job} />
         ))}
