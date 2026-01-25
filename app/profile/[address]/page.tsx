@@ -50,8 +50,9 @@ const managedAsOwner = [
   },
 ];
 
-export default function UserProfilePage({ params }: { params: { address: string } }) {
-  const isOwnProfile = params.address === '0x1234567890abcdef1234567890abcdef12345678';
+export default async function UserProfilePage({ params }: { params: Promise<{ address: string }> }) {
+  const { address } = await params;
+  const isOwnProfile = address === '0x1234567890abcdef1234567890abcdef12345678';
 
   return (
     <div className="space-y-6">

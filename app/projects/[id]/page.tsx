@@ -7,8 +7,9 @@ import RoleSection from '@/components/projects/RoleSection';
 import { getProjectById } from '@/lib/mockData';
 import { formatCurrency, formatDate, getJobStatusColor } from '@/lib/utils';
 
-export default function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const project = getProjectById(params.id);
+export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const project = getProjectById(id);
 
   if (!project) {
     notFound();

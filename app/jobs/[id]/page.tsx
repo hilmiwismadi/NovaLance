@@ -7,8 +7,9 @@ import MilestoneList from '@/components/jobs/MilestoneList';
 import { getJobById, mockJobs } from '@/lib/mockData';
 import { formatCurrency, formatDate, getJobStatusColor } from '@/lib/utils';
 
-export default function JobDetailPage({ params }: { params: { id: string } }) {
-  const job = getJobById(params.id);
+export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const job = getJobById(id);
 
   if (!job) {
     notFound();
