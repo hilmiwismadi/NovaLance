@@ -1,6 +1,53 @@
 // Mock data for NovaLance frontend
 
-export type MilestoneStatus = 'pending' | 'in-progress' | 'completed' | 'approved' | 'rejected';
+export type KPIStatus = 'pending' | 'in-progress' | 'completed' | 'approved' | 'rejected';
+
+// KPI - Key Performance Indicator (milestone with % and deadline)
+export interface KPI {
+  id: string;
+  name: string;
+  percentage: number; // % of role budget
+  description?: string;
+  status: KPIStatus;
+  deadline?: string; // ISO date string
+  completedAt?: string;
+}
+
+// RoleInProject - A specific role within a project (e.g., FE, BE, Designer)
+export interface RoleInProject {
+  id: string;
+  title: string; // e.g., "Frontend Developer"
+  description: string; // Role requirements
+  skills: string[]; // Required skills
+  budget: number; // Budget for this role
+  currency: string;
+  kpis: KPI[]; // KPIs for this role
+  assignedTo?: string; // Freelancer address (when hired)
+  assignedToEns?: string;
+  status: 'hiring' | 'in-progress' | 'completed';
+}
+
+export type ProjectStatus = 'draft' | 'hiring' | 'in-progress' | 'completed' | 'cancelled';
+
+// Project - The main project containing multiple roles
+export interface POProject {
+  id: string;
+  title: string;
+  description: string;
+  features?: string[]; // List of features
+  totalBudget: number; // Sum of all role budgets
+  currency: string;
+  roles: RoleInProject[]; // Multiple roles
+  owner: string;
+  ownerEns?: string;
+  status: ProjectStatus;
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
+}
+
+// Legacy types for backward compatibility
+export type MilestoneStatus = KPIStatus;
 
 export interface Milestone {
   id: string;
@@ -198,7 +245,171 @@ export const mockJobs: Job[] = [
   },
 ];
 
-// Mock projects where user is owner or freelancer
+// Mock PO Projects (with hierarchical structure)
+export const mockPOProjects: POProject[] = [
+  {
+    id: 'proj-1',
+    title: 'Money Tracker App',
+    description: 'Build a comprehensive money tracking application with expense categorization, budget planning, and financial insights dashboard.',
+    features: [
+      'Expense tracking with categorization',
+      'Budget planning and alerts',
+      'Financial insights dashboard',
+      'Multi-currency support',
+      'Export reports (PDF, CSV)',
+    ],
+    totalBudget: 4000000,
+    currency: 'IDRX',
+    startDate: '2026-02-01',
+    endDate: '2026-04-30',
+    status: 'hiring',
+    owner: '0x1234567890abcdef1234567890abcdef12345678',
+    ownerEns: 'alice.eth',
+    createdAt: '2026-01-25',
+    roles: [
+      {
+        id: 'role-1',
+        title: 'Frontend Developer',
+        description: 'Build responsive React Native UI with excellent UX. Experience with mobile state management and animations required.',
+        skills: ['React Native', 'TypeScript', 'Redux', 'Reanimated', 'Tailwind'],
+        budget: 2000000,
+        currency: 'IDRX',
+        status: 'hiring',
+        kpis: [
+          {
+            id: 'kpi-1-1',
+            name: 'Project Setup & Architecture',
+            percentage: 20,
+            description: 'Setup React Native project, configure navigation, state management, and folder structure',
+            status: 'pending',
+            deadline: '2026-02-07',
+          },
+          {
+            id: 'kpi-1-2',
+            name: 'Core UI Components',
+            percentage: 25,
+            description: 'Build reusable UI components (buttons, cards, forms, charts)',
+            status: 'pending',
+            deadline: '2026-02-21',
+          },
+          {
+            id: 'kpi-1-3',
+            name: 'Feature Implementation',
+            percentage: 35,
+            description: 'Implement expense tracking, budget planning, and dashboard features',
+            status: 'pending',
+            deadline: '2026-03-21',
+          },
+          {
+            id: 'kpi-1-4',
+            name: 'Testing & Polish',
+            percentage: 20,
+            description: 'Unit tests, E2E tests, performance optimization, and bug fixes',
+            status: 'pending',
+            deadline: '2026-04-14',
+          },
+        ],
+      },
+      {
+        id: 'role-2',
+        title: 'Backend Developer',
+        description: 'Build scalable Node.js backend with PostgreSQL. Experience with REST APIs, authentication, and data modeling required.',
+        skills: ['Node.js', 'TypeScript', 'PostgreSQL', 'Prisma', 'JWT'],
+        budget: 2000000,
+        currency: 'IDRX',
+        status: 'hiring',
+        kpis: [
+          {
+            id: 'kpi-2-1',
+            name: 'API Design & Setup',
+            percentage: 20,
+            description: 'Design database schema, setup Prisma, configure authentication',
+            status: 'pending',
+            deadline: '2026-02-07',
+          },
+          {
+            id: 'kpi-2-2',
+            name: 'Core Endpoints',
+            percentage: 30,
+            description: 'Implement CRUD operations for transactions, budgets, categories',
+            status: 'pending',
+            deadline: '2026-02-28',
+          },
+          {
+            id: 'kpi-2-3',
+            name: 'Advanced Features',
+            percentage: 30,
+            description: 'Currency conversion, report generation, analytics endpoints',
+            status: 'pending',
+            deadline: '2026-03-31',
+          },
+          {
+            id: 'kpi-2-4',
+            name: 'Testing & Deployment',
+            percentage: 20,
+            description: 'API tests, documentation, deployment to production',
+            status: 'pending',
+            deadline: '2026-04-14',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'proj-2',
+    title: 'DeFi Swap Interface',
+    description: 'Modern DEX frontend with real-time prices, slippage settings, and transaction history.',
+    features: ['Swap interface', 'Price charts', 'Liquidity pools', 'Transaction history'],
+    totalBudget: 3000,
+    currency: 'USDC',
+    status: 'in-progress',
+    owner: '0x1234567890abcdef1234567890abcdef12345678',
+    ownerEns: 'alice.eth',
+    createdAt: '2026-01-15',
+    roles: [
+      {
+        id: 'role-3',
+        title: 'React Developer',
+        description: 'Build DeFi swap UI with Web3 integration.',
+        skills: ['React', 'TypeScript', 'Ethers.js', 'Wagmi'],
+        budget: 3000,
+        currency: 'USDC',
+        status: 'in-progress',
+        assignedTo: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+        assignedToEns: 'bob.eth',
+        kpis: [
+          {
+            id: 'kpi-3-1',
+            name: 'Setup & Wallet Connection',
+            percentage: 25,
+            description: 'Project setup, wallet connection, basic layout',
+            status: 'approved',
+            deadline: '2026-01-20',
+            completedAt: '2026-01-19',
+          },
+          {
+            id: 'kpi-3-2',
+            name: 'Swap Interface',
+            percentage: 40,
+            description: 'Build swap form with price estimation and slippage',
+            status: 'in-progress',
+            deadline: '2026-02-05',
+          },
+          {
+            id: 'kpi-3-3',
+            name: 'Charts & History',
+            percentage: 35,
+            description: 'Price charts and transaction history',
+            status: 'pending',
+            deadline: '2026-02-20',
+          },
+        ],
+      },
+    ],
+  },
+];
+
+// Mock projects where user is owner or freelancer (legacy)
 export const mockProjects: Project[] = [
   {
     id: 'p1',
@@ -345,6 +556,10 @@ export function getProjectById(id: string): Project | undefined {
   return mockProjects.find(project => project.id === id);
 }
 
+export function getPOProjectById(id: string): POProject | undefined {
+  return mockPOProjects.find(project => project.id === id);
+}
+
 export function getApplicationsByJobId(jobId: string): Application[] {
   return mockApplications.filter(app => app.jobId === jobId);
 }
@@ -374,4 +589,43 @@ export function getApplicationStatusColor(status: ApplicationStatus): 'success' 
     case 'rejected':
       return 'destructive';
   }
+}
+
+// PO Project helpers
+export function getPOProjectsByOwner(address: string): POProject[] {
+  return mockPOProjects.filter(p => p.owner.toLowerCase() === address.toLowerCase());
+}
+
+export function getRoleById(projectId: string, roleId: string): RoleInProject | undefined {
+  const project = getPOProjectById(projectId);
+  return project?.roles.find(r => r.id === roleId);
+}
+
+export function getKPIById(projectId: string, roleId: string, kpiId: string): KPI | undefined {
+  const role = getRoleById(projectId, roleId);
+  return role?.kpis.find(k => k.id === kpiId);
+}
+
+export function calculateProjectProgress(project: POProject): number {
+  if (!project.roles.length) return 0;
+
+  const totalKPIs = project.roles.reduce((sum, role) => sum + role.kpis.length, 0);
+  const completedKPIs = project.roles.reduce(
+    (sum, role) => sum + role.kpis.filter(k => k.status === 'completed' || k.status === 'approved').length,
+    0
+  );
+
+  return totalKPIs > 0 ? Math.round((completedKPIs / totalKPIs) * 100) : 0;
+}
+
+export function formatCurrency(amount: number, currency: string): string {
+  if (currency === 'IDRX') {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  }
+  return `${new Intl.NumberFormat('en-US').format(amount)} ${currency}`;
 }
