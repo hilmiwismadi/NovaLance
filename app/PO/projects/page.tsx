@@ -209,7 +209,7 @@ export default function POProjectsPage() {
                       </span>
                     </div>
                     <span className="font-semibold text-brand-600">
-                      {formatCurrency(project.totalBudget, project.currency)}
+                      {formatCurrency(project.totalBudget, 'IDRX')}
                     </span>
                   </div>
                 </Card>

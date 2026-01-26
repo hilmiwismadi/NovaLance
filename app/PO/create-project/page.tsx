@@ -7,6 +7,206 @@ import Button from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
 
+// Dummy data generators
+const projectTitles = [
+  'DeFi Trading Platform',
+  'NFT Marketplace',
+  'DAO Governance System',
+  'Yield Aggregator',
+  'Cross-chain Bridge',
+  'Wallet Integration',
+  'Token Staking Platform',
+  'Smart Contract Audit Tool',
+  'Crypto Payment Gateway',
+  'Blockchain Analytics Dashboard'
+];
+
+const projectDescriptions = [
+  'Build a comprehensive decentralized finance platform with advanced trading features, liquidity provision, and yield farming capabilities. The platform should support multiple chains and provide real-time market data.',
+  'Create an intuitive NFT marketplace where creators can mint, list, and sell their digital assets. Include features like auctions, royalties, and cross-chain compatibility.',
+  'Develop a decentralized autonomous organization governance system with proposal creation, voting mechanisms, and treasury management capabilities.',
+  'Build a yield aggregator that automatically finds and allocates funds to the highest yielding protocols across multiple chains while optimizing gas fees.',
+  'Create a secure cross-chain bridge enabling seamless asset transfers between different blockchain networks with minimal fees and fast finality.'
+];
+
+const roleTitles = [
+  'Smart Contract Developer',
+  'Frontend Developer',
+  'Backend Developer',
+  'Full Stack Developer',
+  'Blockchain Engineer',
+  'UI/UX Designer',
+  'DevOps Engineer',
+  'Security Auditor',
+  'Product Manager',
+  'QA Engineer'
+];
+
+const roleDescriptions = [
+  'Develop and audit smart contracts using Solidity. Ensure security best practices and optimize gas usage. Experience with DeFi protocols required.',
+  'Build responsive and intuitive user interfaces using React and TypeScript. Integrate with Web3 libraries and ensure seamless user experience.',
+  'Design and implement scalable backend services. Work with databases, APIs, and blockchain indexing solutions. Ensure high availability and performance.',
+  'Handle both frontend and backend development. Full-stack development with modern web technologies and blockchain integration.',
+  'Design and implement blockchain solutions. Work with various chains and develop custom smart contracts and integration layers.',
+  'Create beautiful and user-friendly interfaces. Conduct user research and design intuitive workflows for complex Web3 applications.',
+  'Set up and maintain CI/CD pipelines. Manage infrastructure and ensure smooth deployment processes. Monitor system performance.',
+  'Conduct security audits of smart contracts and identify vulnerabilities. Provide recommendations and implement security best practices.',
+  'Define product roadmap and requirements. Work with engineering teams to deliver features on time and within budget.',
+  'Develop comprehensive test suites and conduct manual and automated testing. Ensure quality and identify bugs before deployment.'
+];
+
+const skills = [
+  'Solidity', 'React', 'TypeScript', 'Node.js', 'Python', 'Rust', 'Go',
+  'Web3.js', 'Ethers.js', 'Hardhat', 'Foundry', 'GraphQL', 'PostgreSQL',
+  'MongoDB', 'Redis', 'Docker', 'Kubernetes', 'AWS', 'Git', 'CI/CD',
+  'Tailwind CSS', 'Next.js', 'Vue.js', 'Security Auditing', 'Smart Contracts'
+];
+
+const kpiNames = [
+  'Project Setup & Architecture',
+  'Smart Contract Development',
+  'Core Features Implementation',
+  'Integration & Testing',
+  'Security Audit & Fixes',
+  'UI/UX Design',
+  'Frontend Implementation',
+  'Backend Development',
+  'API Integration',
+  'Documentation & Deployment'
+];
+
+const kpiDescriptions = [
+  'Set up the project structure, configure development environment, and define the technical architecture.',
+  'Develop and deploy smart contracts with all required functionality and security measures.',
+  'Implement core features and user flows according to specifications.',
+  'Integrate all components and conduct thorough testing including unit tests and integration tests.',
+  'Complete security audit, address all findings, and implement necessary fixes.',
+  'Design user interface and user experience based on requirements and best practices.',
+  'Build responsive frontend with all UI components and integrate with smart contracts.',
+  'Develop backend services, APIs, and database integrations.',
+  'Integrate with external APIs and services, ensure seamless data flow.',
+  'Complete documentation, deploy to production, and provide maintenance guidelines.'
+];
+
+const featureList = [
+  'User authentication & wallet connection',
+  'Real-time price feeds & charts',
+  'Multi-chain support',
+  'Staking & rewards',
+  'Governance voting',
+  'Token swap functionality',
+  'Liquidity provision',
+  'Yield farming',
+  'Portfolio tracking',
+  'Transaction history',
+  'Notification system',
+  'Dark mode support',
+  'Mobile responsive design',
+  'Multi-language support',
+  'Referral program'
+];
+
+const currencies = ['IDRX', 'USDC', 'USDT', 'ETH'];
+
+function getRandomItem<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function getRandomItems<T>(arr: T[], min: number, max: number): T[] {
+  const count = Math.floor(Math.random() * (max - min + 1)) + min;
+  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+function generateKPIs(count: number, startDate: string): Array<{
+  id: string;
+  name: string;
+  percentage: number;
+  description: string;
+  deadline: string;
+}> {
+  const kpis: Array<{ id: string; name: string; percentage: number; description: string; deadline: string }> = [];
+  const names = getRandomItems(kpiNames, count, count);
+  const descriptions = getRandomItems(kpiDescriptions, count, count);
+
+  let baseDate = new Date(startDate);
+  const totalDuration = 90; // days
+  const interval = Math.floor(totalDuration / count);
+
+  let remainingPercentage = 100;
+
+  for (let i = 0; i < count; i++) {
+    const isLast = i === count - 1;
+    const percentage = isLast ? remainingPercentage : Math.floor(Math.random() * (remainingPercentage - (count - i - 1) * 5)) + 5;
+    remainingPercentage -= percentage;
+
+    const deadline = new Date(baseDate);
+    deadline.setDate(deadline.getDate() + interval);
+    const deadlineStr = deadline.toISOString().split('T')[0];
+
+    kpis.push({
+      id: `kpi-${Date.now()}-${i}`,
+      name: names[i],
+      percentage,
+      description: descriptions[i],
+      deadline: deadlineStr
+    });
+
+    baseDate = deadline;
+  }
+
+  return kpis;
+}
+
+function generateDummyData() {
+  const title = getRandomItem(projectTitles);
+  const description = getRandomItem(projectDescriptions);
+  const currency = getRandomItem(currencies);
+
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() + 7);
+  const startDateStr = startDate.toISOString().split('T')[0];
+
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 90);
+  const endDateStr = endDate.toISOString().split('T')[0];
+
+  const features = getRandomItems(featureList, 3, 6).map((text, i) => ({
+    id: `f-${Date.now()}-${i}`,
+    text
+  }));
+
+  const roleCount = Math.floor(Math.random() * 4) + 2; // 2-5 roles
+  const roles = [];
+
+  for (let i = 0; i < roleCount; i++) {
+    const kpiCount = Math.floor(Math.random() * 8) + 3; // 3-10 KPIs
+    const budget = (Math.floor(Math.random() * 80) + 20) * 1000000; // 20M-100M
+
+    roles.push({
+      id: `role-${Date.now()}-${i}`,
+      title: getRandomItem(roleTitles),
+      description: getRandomItem(roleDescriptions),
+      budget: budget.toString(),
+      currency,
+      skills: getRandomItems(skills, 3, 6),
+      skillInput: '',
+      kpis: generateKPIs(kpiCount, startDateStr)
+    });
+  }
+
+  return {
+    title,
+    description,
+    currency,
+    startDate: startDateStr,
+    endDate: endDateStr,
+    features,
+    roles
+  };
+}
+
 interface FeatureInput {
   id: string;
   text: string;
@@ -59,6 +259,18 @@ export default function CreateProjectPage() {
       ],
     },
   ]);
+
+  // Fill dummy data
+  const fillDummyData = () => {
+    const dummyData = generateDummyData();
+    setTitle(dummyData.title);
+    setDescription(dummyData.description);
+    setCurrency(dummyData.currency);
+    setStartDate(dummyData.startDate);
+    setEndDate(dummyData.endDate);
+    setFeatures(dummyData.features);
+    setRoles(dummyData.roles as RoleInput[]);
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -208,9 +420,17 @@ export default function CreateProjectPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Create New Project</h1>
-        <p className="text-slate-600 mt-1">Define your project, team roles, and KPIs</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Create New Project</h1>
+          <p className="text-slate-600 mt-1">Define your project, team roles, and KPIs</p>
+        </div>
+        <Button type="button" variant="secondary" onClick={fillDummyData}>
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+          </svg>
+          Fill Dummy Data
+        </Button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -308,14 +528,14 @@ export default function CreateProjectPage() {
                   placeholder="Add a feature (e.g., Expense tracking)"
                   className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
                 />
-                <Button type="button" variant="outline" onClick={addFeature}>
+                <Button type="button" variant="default" onClick={addFeature}>
                   Add
                 </Button>
               </div>
               {features.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {features.map((feature) => (
-                    <Badge key={feature.id} variant="outline" className="cursor-pointer" onClick={() => removeFeature(feature.id)}>
+                    <Badge key={feature.id} variant="default" className="cursor-pointer" onClick={() => removeFeature(feature.id)}>
                       {feature.text}
                       <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -337,7 +557,7 @@ export default function CreateProjectPage() {
               </div>
               <h2 className="text-xl font-bold text-slate-900">Team Roles</h2>
             </div>
-            <Button type="button" variant="outline" onClick={addRole}>
+            <Button type="button" variant="default" onClick={addRole}>
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
@@ -427,7 +647,7 @@ export default function CreateProjectPage() {
                         placeholder="Add skills (e.g., React, TypeScript)"
                         className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
                       />
-                      <Button type="button" variant="outline" onClick={() => addSkill(roleIndex)}>
+                      <Button type="button" variant="default" onClick={() => addSkill(roleIndex)}>
                         Add
                       </Button>
                     </div>
@@ -455,7 +675,7 @@ export default function CreateProjectPage() {
                         <span className={`text-sm font-medium ${totalKPIPercentage === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
                           {totalKPIPercentage}% / 100%
                         </span>
-                        <Button type="button" variant="outline" size="sm" onClick={() => addKPI(roleIndex)}>
+                        <Button type="button" variant="default" size="sm" onClick={() => addKPI(roleIndex)}>
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                           </svg>
