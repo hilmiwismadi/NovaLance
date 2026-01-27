@@ -40,8 +40,8 @@ export default function FLActiveJobsPage() {
   // Smart contract hooks
   const { submit: submitKPI, isPending: isSubmitPending, error: submitError, hash: submitHash, isSuccess: isSubmitSuccess } = useSubmitKPI();
   const { approve: approveKPIContract, isPending: isApprovePending, error: approveError, hash: approveHash, isSuccess: isApproveSuccess } = useApproveKPI();
-  const { isLoading: isSubmitConfirming, isSuccess: isSubmitConfirmed } = useTransactionWait(submitHash);
-  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash);
+  const { isLoading: isSubmitConfirming, isSuccess: isSubmitConfirmed } = useTransactionWait(submitHash ?? undefined);
+  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash ?? undefined);
 
   useEffect(() => {
     setMounted(true);

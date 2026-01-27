@@ -33,7 +33,8 @@
       "Bash(ls:*)",
       "Bash(npm ci:*)",
       "Bash(echo:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(tasklist:*)"
     ]
   }
 }

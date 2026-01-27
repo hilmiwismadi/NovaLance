@@ -8,7 +8,7 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
-import Input from '@/components/ui/Input';
+import { Input } from '@/components/ui/Input';
 import { mockJobs, getJobById } from '@/lib/mockData';
 import { useApplyForJob, useTransactionWait } from '@/lib/hooks';
 import {

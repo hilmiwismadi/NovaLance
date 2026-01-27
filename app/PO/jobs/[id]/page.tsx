@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import { Input } from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import { mockProjects, getProjectById, mockApplications } from '@/lib/mockData';
 
