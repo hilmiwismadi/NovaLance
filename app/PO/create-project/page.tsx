@@ -2,10 +2,70 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
+import { useCreateProject, useTransactionWait } from '@/lib/hooks';
+import {
+  showTransactionPending,
+  showTransactionSuccess,
+  showTransactionError,
+  showInfo,
+  showSuccess,
+  showError,
+} from '@/lib/transactions';
+
+// Accordion component for collapsible sections
+interface AccordionProps {
+  title: string;
+  subtitle?: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+  actionButton?: React.ReactNode;
+  badge?: React.ReactNode;
+}
+
+function Accordion({ title, subtitle, isOpen, onToggle, children, actionButton, badge }: AccordionProps) {
+  return (
+    <div className="border border-slate-200/60 rounded-xl overflow-hidden bg-white/40 backdrop-blur-sm">
+      <div
+        onClick={onToggle}
+        className="w-full px-4 py-3.5 sm:px-5 sm:py-4 flex items-center justify-between text-left hover:bg-white/50 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <svg
+            className={`w-5 h-5 text-slate-500 transition-transform duration-200 flex-shrink-0 ${isOpen ? 'rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-slate-900 text-base sm:text-lg">{title}</span>
+              {badge}
+            </div>
+            {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+          </div>
+        </div>
+        {actionButton && (
+          <div onClick={(e) => e.stopPropagation()}>
+            {actionButton}
+          </div>
+        )}
+      </div>
+      {isOpen && (
+        <div className="px-4 pb-4 sm:px-5 sm:pb-5 border-t border-slate-200/60">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Dummy data generators
 const projectTitles = [
@@ -233,7 +293,31 @@ interface RoleInput {
 
 export default function CreateProjectPage() {
   const router = useRouter();
+  const { address, chain } = useAccount();
   const [mounted, setMounted] = useState(false);
+
+  // Smart contract hooks
+  const { createProject, isPending, error, hash, isSuccess } = useCreateProject();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
+
+  // Expanded state for accordions
+  const [expandedSections, setExpandedSections] = useState({
+    projectInfo: true,
+    roles: [] as string[],
+  });
+
+  const toggleSection = (section: string, roleId?: string) => {
+    if (section === 'projectInfo') {
+      setExpandedSections(prev => ({ ...prev, projectInfo: !prev.projectInfo }));
+    } else if (section === 'role' && roleId) {
+      setExpandedSections(prev => {
+        const roles = prev.roles.includes(roleId)
+          ? prev.roles.filter(id => id !== roleId)
+          : [...prev.roles, roleId];
+        return { ...prev, roles };
+      });
+    }
+  };
 
   // Project level
   const [title, setTitle] = useState('');
@@ -377,14 +461,26 @@ export default function CreateProjectPage() {
     setRoles(updated);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check wallet connection
+    if (!address) {
+      showError('Wallet Not Connected', 'Please connect your wallet to create a project');
+      return;
+    }
+
+    // Check if we're on a supported chain
+    if (!chain || (chain.id !== 8453 && chain.id !== 84532)) {
+      showError('Wrong Network', 'Please switch to Base or Base Sepolia');
+      return;
+    }
 
     // Validate all role KPIs add up to 100
     for (let i = 0; i < roles.length; i++) {
       const totalPercentage = roles[i].kpis.reduce((sum, kpi) => sum + kpi.percentage, 0);
       if (totalPercentage !== 100) {
-        alert(`Role "${roles[i].title || 'Role ' + (i + 1)}" KPIs must add up to 100%. Currently: ${totalPercentage}%`);
+        showError('Invalid KPI Percentages', `Role "${roles[i].title || 'Role ' + (i + 1)}" KPIs must add up to 100%. Currently: ${totalPercentage}%`);
         return;
       }
     }
@@ -392,58 +488,104 @@ export default function CreateProjectPage() {
     // Calculate total budget
     const totalBudget = roles.reduce((sum, role) => sum + parseFloat(role.budget || '0'), 0);
 
-    // TODO: Create project via API
-    console.log({
-      title,
-      description,
-      currency,
-      startDate,
-      endDate,
-      features: features.map(f => f.text),
-      roles: roles.map(role => ({
-        title: role.title,
-        description: role.description,
-        budget: parseFloat(role.budget),
-        currency: role.currency,
-        skills: role.skills,
-        kpis: role.kpis,
-      })),
-      totalBudget,
-    });
+    if (totalBudget <= 0) {
+      showError('Invalid Budget', 'Total budget must be greater than 0');
+      return;
+    }
 
-    // Navigate to projects list
-    router.push('/PO/projects');
+    try {
+      // Call smart contract
+      showInfo('Creating Project', 'Preparing transaction...');
+
+      const projectData = {
+        title,
+        description,
+        currency,
+        startDate,
+        endDate,
+        features: features.map(f => f.text),
+        roles: roles.map(role => ({
+          title: role.title,
+          description: role.description,
+          budget: parseFloat(role.budget),
+          currency: role.currency,
+          skills: role.skills,
+          kpis: role.kpis,
+        })),
+        totalBudget,
+      };
+
+      await createProject(projectData);
+
+      // Transaction submitted - will be handled by useEffect below
+    } catch (err) {
+      const error = err as Error;
+      showError('Failed to Create Project', error.message);
+    }
   };
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isSuccess && hash) {
+      showTransactionPending(hash, 'Create Project', chain?.id || 84532);
+    }
+  }, [isSuccess, hash, chain]);
+
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      showTransactionSuccess(hash, 'Project created successfully!');
+      // Navigate to projects list after a short delay
+      setTimeout(() => {
+        router.push('/PO/projects');
+      }, 1500);
+    }
+  }, [isConfirmed, hash, router]);
+
+  // Handle transaction error
+  useEffect(() => {
+    if (error) {
+      showTransactionError(hash || '0x0', error, 'Failed to create project');
+    }
+  }, [error, hash]);
 
   if (!mounted) return null;
 
+  const totalBudget = roles.reduce((sum, role) => sum + parseFloat(role.budget || '0'), 0);
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Create New Project</h1>
-          <p className="text-slate-600 mt-1">Define your project, team roles, and KPIs</p>
+    <div className="min-h-screen pb-safe">
+      {/* Mobile Header */}
+      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-slate-200/60 px-4 py-3">
+        <div className="flex items-center justify-between max-w-4xl mx-auto">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-slate-900">New Project</h1>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={fillDummyData}
+            className="text-xs sm:text-sm"
+          >
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+            </svg>
+            <span className="hidden sm:inline ml-1.5">Fill Data</span>
+          </Button>
         </div>
-        <Button type="button" variant="secondary" onClick={fillDummyData}>
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-          </svg>
-          Fill Dummy Data
-        </Button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Step 1: Project Information */}
-        <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center">
-              <span className="text-sm font-bold text-brand-600">1</span>
-            </div>
-            <h2 className="text-xl font-bold text-slate-900">Project Information</h2>
-          </div>
-
+      <form onSubmit={handleSubmit} className="max-w-4xl mx-auto px-4 py-4 space-y-4">
+        {/* Step 1: Project Information - Collapsible */}
+        <Accordion
+          title="Project Information"
+          subtitle="Basic details about your project"
+          isOpen={expandedSections.projectInfo}
+          onToggle={() => toggleSection('projectInfo')}
+        >
           <div className="space-y-4">
+            {/* Title */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Project Title *
@@ -452,12 +594,13 @@ export default function CreateProjectPage() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Money Tracker App"
-                className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
+                placeholder="e.g., DeFi Platform"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input"
                 required
               />
             </div>
 
+            {/* Description */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Description *
@@ -465,14 +608,15 @@ export default function CreateProjectPage() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe your project in detail..."
-                className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none"
-                rows={4}
+                placeholder="What does your project do?"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none glass-input"
+                rows={3}
                 required
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Currency & Dates - Stacked on mobile */}
+            <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Currency
@@ -480,7 +624,7 @@ export default function CreateProjectPage() {
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input"
                 >
                   <option value="IDRX">IDRX</option>
                   <option value="USDC">USDC</option>
@@ -489,53 +633,68 @@ export default function CreateProjectPage() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
-                />
-              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Start
+                  </label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
-                />
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    End
+                  </label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Features */}
+            {/* Features - Compact */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Features
               </label>
-              <div className="flex gap-2 mb-3">
+              <div className="flex gap-2 mb-2">
                 <input
                   type="text"
                   value={featureInput}
                   onChange={(e) => setFeatureInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
-                  placeholder="Add a feature (e.g., Expense tracking)"
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
+                  placeholder="e.g., Wallet connect"
+                  className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input text-sm"
                 />
-                <Button type="button" variant="default" onClick={addFeature}>
-                  Add
+                <Button
+                  type="button"
+                  variant="default"
+                  size="md"
+                  onClick={addFeature}
+                  className="px-4 h-11"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
                 </Button>
               </div>
               {features.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {features.map((feature) => (
-                    <Badge key={feature.id} variant="default" className="cursor-pointer" onClick={() => removeFeature(feature.id)}>
+                    <Badge
+                      key={feature.id}
+                      variant="default"
+                      className="cursor-pointer text-xs py-1 px-2"
+                      onClick={() => removeFeature(feature.id)}
+                    >
                       {feature.text}
                       <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -546,268 +705,325 @@ export default function CreateProjectPage() {
               )}
             </div>
           </div>
-        </Card>
+        </Accordion>
 
         {/* Step 2: Team Roles */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center">
-                <span className="text-sm font-bold text-brand-600">2</span>
-              </div>
-              <h2 className="text-xl font-bold text-slate-900">Team Roles</h2>
-            </div>
-            <Button type="button" variant="default" onClick={addRole}>
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-lg font-semibold text-slate-900">Team Roles</h2>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={addRole}
+              className="h-9 px-3 text-sm"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Add Role
             </Button>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-3">
             {roles.map((role, roleIndex) => {
               const totalKPIPercentage = role.kpis.reduce((sum, kpi) => sum + kpi.percentage, 0);
+              const isExpanded = expandedSections.roles.includes(role.id);
+              const roleDisplayTitle = role.title || `Role ${roleIndex + 1}`;
 
               return (
-                <div key={role.id} className="border border-slate-200 rounded-xl p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-slate-900">Role {roleIndex + 1}</h3>
-                    {roles.length > 1 && (
+                <Accordion
+                  key={role.id}
+                  title={roleDisplayTitle}
+                  subtitle={role.budget ? `${parseInt(role.budget).toLocaleString()} ${currency}` : 'Set budget and details'}
+                  isOpen={isExpanded}
+                  onToggle={() => toggleSection('role', role.id)}
+                  badge={
+                    role.skills.length > 0 ? (
+                      <span className="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full">
+                        {role.skills.length} skills
+                      </span>
+                    ) : null
+                  }
+                  actionButton={
+                    roles.length > 1 ? (
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => removeRole(roleIndex)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeRole(roleIndex);
+                        }}
+                        className="h-8 w-8 p-0 flex-shrink-0"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </Button>
-                    )}
-                  </div>
-
-                  {/* Role Info */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Role Title *
-                      </label>
-                      <input
-                        type="text"
-                        value={role.title}
-                        onChange={(e) => updateRole(roleIndex, 'title', e.target.value)}
-                        placeholder="e.g., Frontend Developer"
-                        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Budget ({currency}) *
-                      </label>
-                      <input
-                        type="number"
-                        value={role.budget}
-                        onChange={(e) => updateRole(roleIndex, 'budget', e.target.value)}
-                        placeholder="2000000"
-                        min="0"
-                        className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Role Description *
-                    </label>
-                    <textarea
-                      value={role.description}
-                      onChange={(e) => updateRole(roleIndex, 'description', e.target.value)}
-                      placeholder="Describe the role requirements and responsibilities..."
-                      className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none"
-                      rows={3}
-                      required
-                    />
-                  </div>
-
-                  {/* Skills */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Required Skills
-                    </label>
-                    <div className="flex gap-2 mb-3">
-                      <input
-                        type="text"
-                        value={role.skillInput}
-                        onChange={(e) => updateRole(roleIndex, 'skillInput', e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill(roleIndex))}
-                        placeholder="Add skills (e.g., React, TypeScript)"
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
-                      />
-                      <Button type="button" variant="default" onClick={() => addSkill(roleIndex)}>
-                        Add
-                      </Button>
-                    </div>
-                    {role.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {role.skills.map((skill) => (
-                          <Badge key={skill} variant="default" className="cursor-pointer" onClick={() => removeSkill(roleIndex, skill)}>
-                            {skill}
-                            <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </Badge>
-                        ))}
+                    ) : null
+                  }
+                >
+                  <div className="space-y-4">
+                    {/* Role Title & Budget - Stacked */}
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Role Title *
+                        </label>
+                        <input
+                          type="text"
+                          value={role.title}
+                          onChange={(e) => updateRole(roleIndex, 'title', e.target.value)}
+                          placeholder="e.g., Frontend Developer"
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input"
+                          required
+                        />
                       </div>
-                    )}
-                  </div>
 
-                  {/* KPIs */}
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <label className="block text-sm font-medium text-slate-700">
-                        KPIs (Key Performance Indicators)
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Budget ({currency}) *
+                        </label>
+                        <input
+                          type="number"
+                          value={role.budget}
+                          onChange={(e) => updateRole(roleIndex, 'budget', e.target.value)}
+                          placeholder="2000000"
+                          min="0"
+                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Role Description *
                       </label>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-sm font-medium ${totalKPIPercentage === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                          {totalKPIPercentage}% / 100%
-                        </span>
-                        <Button type="button" variant="default" size="sm" onClick={() => addKPI(roleIndex)}>
+                      <textarea
+                        value={role.description}
+                        onChange={(e) => updateRole(roleIndex, 'description', e.target.value)}
+                        placeholder="What will this role do?"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none glass-input"
+                        rows={2}
+                        required
+                      />
+                    </div>
+
+                    {/* Skills */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">
+                        Required Skills
+                      </label>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={role.skillInput}
+                          onChange={(e) => updateRole(roleIndex, 'skillInput', e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill(roleIndex))}
+                          placeholder="e.g., React"
+                          className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input text-sm"
+                        />
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="md"
+                          onClick={() => addSkill(roleIndex)}
+                          className="px-4 h-11"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                        </Button>
+                      </div>
+                      {role.skills.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {role.skills.map((skill) => (
+                            <Badge
+                              key={skill}
+                              variant="default"
+                              className="cursor-pointer text-xs py-1 px-2"
+                              onClick={() => removeSkill(roleIndex, skill)}
+                            >
+                              {skill}
+                              <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* KPIs Section */}
+                    <div className="border-t border-slate-200/60 pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">
+                            KPIs
+                          </label>
+                          <span className={`text-xs font-medium ${totalKPIPercentage === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            {totalKPIPercentage}% / 100%
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          onClick={() => addKPI(roleIndex)}
+                          className="h-9 px-3 text-sm"
+                        >
                           <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                           </svg>
                           Add KPI
                         </Button>
                       </div>
-                    </div>
 
-                    <div className="space-y-3">
-                      {role.kpis.map((kpi, kpiIndex) => (
-                        <div key={kpi.id} className="border border-slate-200 rounded-lg p-4 bg-slate-50">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-medium text-slate-900">KPI {kpiIndex + 1}</span>
-                            {role.kpis.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeKPI(roleIndex, kpiIndex)}
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </Button>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-                            <div className="sm:col-span-2">
-                              <label className="block text-xs font-medium text-slate-700 mb-1">
-                                KPI Name *
-                              </label>
-                              <input
-                                type="text"
-                                value={kpi.name}
-                                onChange={(e) => updateKPI(roleIndex, kpiIndex, 'name', e.target.value)}
-                                placeholder="e.g., Setup & Architecture"
-                                className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm"
-                                required
-                              />
+                      <div className="space-y-3">
+                        {role.kpis.map((kpi, kpiIndex) => (
+                          <div key={kpi.id} className="border border-slate-200/60 rounded-xl p-3 bg-white/30 backdrop-blur-sm">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-sm font-semibold text-slate-900">KPI {kpiIndex + 1}</span>
+                              {role.kpis.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeKPI(roleIndex, kpiIndex)}
+                                  className="h-7 w-7 p-0"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </Button>
+                              )}
                             </div>
 
-                            <div>
-                              <label className="block text-xs font-medium text-slate-700 mb-1">
-                                Percentage *
-                              </label>
-                              <input
-                                type="number"
-                                value={kpi.percentage || ''}
-                                onChange={(e) => updateKPI(roleIndex, kpiIndex, 'percentage', parseInt(e.target.value) || 0)}
-                                placeholder="20"
-                                min="0"
-                                max="100"
-                                className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm"
-                                required
-                              />
-                            </div>
+                            {/* KPI Inputs - Stacked on mobile, 2x2 on tablet+ */}
+                            <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-2 sm:space-y-0">
+                              <div className="sm:col-span-2">
+                                <label className="block text-xs font-medium text-slate-700 mb-1">
+                                  Name *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={kpi.name}
+                                  onChange={(e) => updateKPI(roleIndex, kpiIndex, 'name', e.target.value)}
+                                  placeholder="e.g., Setup & Architecture"
+                                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm glass-input"
+                                  required
+                                />
+                              </div>
 
-                            <div>
-                              <label className="block text-xs font-medium text-slate-700 mb-1">
-                                Deadline *
-                              </label>
-                              <input
-                                type="date"
-                                value={kpi.deadline}
-                                onChange={(e) => updateKPI(roleIndex, kpiIndex, 'deadline', e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm"
-                                required
-                              />
+                              <div>
+                                <label className="block text-xs font-medium text-slate-700 mb-1">
+                                  % *
+                                </label>
+                                <input
+                                  type="number"
+                                  value={kpi.percentage || ''}
+                                  onChange={(e) => updateKPI(roleIndex, kpiIndex, 'percentage', parseInt(e.target.value) || 0)}
+                                  placeholder="20"
+                                  min="0"
+                                  max="100"
+                                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm glass-input"
+                                  required
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-medium text-slate-700 mb-1">
+                                  Deadline *
+                                </label>
+                                <input
+                                  type="date"
+                                  value={kpi.deadline}
+                                  onChange={(e) => updateKPI(roleIndex, kpiIndex, 'deadline', e.target.value)}
+                                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all text-sm glass-input"
+                                  required
+                                />
+                              </div>
+
+                              <div className="sm:col-span-2">
+                                <label className="block text-xs font-medium text-slate-700 mb-1">
+                                  Description
+                                </label>
+                                <textarea
+                                  value={kpi.description}
+                                  onChange={(e) => updateKPI(roleIndex, kpiIndex, 'description', e.target.value)}
+                                  placeholder="What needs to be done?"
+                                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none text-sm glass-input"
+                                  rows={2}
+                                />
+                              </div>
                             </div>
                           </div>
-
-                          <div>
-                            <label className="block text-xs font-medium text-slate-700 mb-1">
-                              Description
-                            </label>
-                            <textarea
-                              value={kpi.description}
-                              onChange={(e) => updateKPI(roleIndex, kpiIndex, 'description', e.target.value)}
-                              placeholder="Describe what needs to be completed..."
-                              className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all resize-none text-sm"
-                              rows={2}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
+                </Accordion>
               );
             })}
           </div>
-        </Card>
+        </div>
 
-        {/* Budget Summary */}
-        <Card className="p-6">
-          <h2 className="text-xl font-bold text-slate-900 mb-4">Budget Summary</h2>
-          <div className="space-y-3">
+        {/* Budget Summary - Compact Card */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-slate-900">Budget Summary</h3>
+            <span className="text-lg font-bold text-brand-600">
+              {totalBudget.toLocaleString()} {currency}
+            </span>
+          </div>
+          <div className="space-y-2">
             {roles.map((role, i) => (
               <div key={role.id} className="flex justify-between text-sm">
-                <span className="text-slate-600">
+                <span className="text-slate-600 truncate mr-2">
                   {role.title || `Role ${i + 1}`}
                 </span>
-                <span className="font-medium text-slate-900">
-                  {parseInt(role.budget || '0').toLocaleString()} {currency}
+                <span className="font-medium text-slate-900 flex-shrink-0">
+                  {parseInt(role.budget || '0').toLocaleString()}
                 </span>
               </div>
             ))}
-            <div className="pt-3 border-t border-slate-200 flex justify-between">
-              <span className="font-semibold text-slate-900">Total Budget</span>
-              <span className="text-xl font-bold text-brand-600">
-                {roles.reduce((sum, role) => sum + parseInt(role.budget || '0'), 0).toLocaleString()} {currency}
-              </span>
-            </div>
           </div>
         </Card>
 
-        {/* Submit */}
-        <div className="flex gap-3">
+        {/* Submit Buttons - Stacked on mobile */}
+        <div className="space-y-2 pt-2">
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full h-12 text-base font-semibold"
+            disabled={isPending || isConfirming}
+          >
+            {isPending || isConfirming ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                {isPending ? 'Confirming...' : 'Creating...'}
+              </span>
+            ) : (
+              'Create Project'
+            )}
+          </Button>
           <Button
             type="button"
             variant="ghost"
             onClick={() => router.back()}
-            className="flex-1"
+            className="w-full h-11 text-sm"
+            disabled={isPending || isConfirming}
           >
             Cancel
           </Button>
-          <Button type="submit" variant="primary" className="flex-1">
-            Create Project
-          </Button>
         </div>
       </form>
+
+      {/* Bottom padding for mobile safe area */}
+      <div className="h-4 sm:h-0" />
     </div>
   );
 }

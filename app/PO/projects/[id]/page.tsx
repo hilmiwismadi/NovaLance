@@ -3,21 +3,42 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import { getPOProjectById, formatCurrency } from '@/lib/mockData';
+import { useDepositKPI, useApproveKPI, useCancelProject, useTransactionWait } from '@/lib/hooks';
+import {
+  showTransactionPending,
+  showTransactionSuccess,
+  showTransactionError,
+  showInfo,
+  showSuccess,
+  showError,
+} from '@/lib/transactions';
 
 export default function POProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { address, chain } = useAccount();
   const [mounted, setMounted] = useState(false);
   const [depositModalOpen, setDepositModalOpen] = useState(false);
   const [approveKPIModalOpen, setApproveKPIModalOpen] = useState(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [selectedKPI, setSelectedKPI] = useState<{ roleIndex: number; kpiIndex: number } | null>(null);
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
   const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set());
+
+  // Smart contract hooks
+  const { deposit: depositKPI, approveToken, isPending, error, hash, isSuccess } = useDepositKPI();
+  const { approve: approveKPIContract, isPending: isApprovePending, error: approveError, hash: approveHash, isSuccess: isApproveSuccess } = useApproveKPI();
+  const { cancel: cancelProject, isPending: isCancelPending, error: cancelError, hash: cancelHash, isSuccess: isCancelSuccess } = useCancelProject();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
+  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash);
+  const { isLoading: isCancelConfirming, isSuccess: isCancelConfirmed } = useTransactionWait(cancelHash);
 
   const projectId = params.id as string;
   const project = getPOProjectById(projectId);
@@ -25,6 +46,80 @@ export default function POProjectDetailPage() {
   useEffect(() => {
     setMounted(true);
   }, [projectId]);
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isSuccess && hash) {
+      showTransactionPending(hash, 'Deposit to Escrow', chain?.id || 84532);
+    }
+  }, [isSuccess, hash, chain]);
+
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      showTransactionSuccess(hash, 'Funds deposited successfully!');
+      setDepositModalOpen(false);
+      // TODO: Refresh project data from smart contract
+      // For now, just show success
+    }
+  }, [isConfirmed, hash]);
+
+  // Handle transaction error
+  useEffect(() => {
+    if (error) {
+      showTransactionError(hash || '0x0', error, 'Failed to deposit funds');
+    }
+  }, [error, hash]);
+
+  // Handle approve transaction success
+  useEffect(() => {
+    if (isApproveSuccess && approveHash) {
+      showTransactionPending(approveHash, 'Approve KPI', chain?.id || 84532);
+    }
+  }, [isApproveSuccess, approveHash, chain]);
+
+  // Handle approve transaction confirmation
+  useEffect(() => {
+    if (isApproveConfirmed && approveHash) {
+      showTransactionSuccess(approveHash, 'KPI approved successfully!');
+      setApproveKPIModalOpen(false);
+      setSelectedKPI(null);
+      // TODO: Refresh project data from smart contract
+    }
+  }, [isApproveConfirmed, approveHash]);
+
+  // Handle approve transaction error
+  useEffect(() => {
+    if (approveError) {
+      showTransactionError(approveHash || '0x0', approveError, 'Failed to approve KPI');
+    }
+  }, [approveError, approveHash]);
+
+  // Handle cancel transaction success
+  useEffect(() => {
+    if (isCancelSuccess && cancelHash) {
+      showTransactionPending(cancelHash, 'Cancel Project', chain?.id || 84532);
+    }
+  }, [isCancelSuccess, cancelHash, chain]);
+
+  // Handle cancel transaction confirmation
+  useEffect(() => {
+    if (isCancelConfirmed && cancelHash) {
+      showTransactionSuccess(cancelHash, 'Project cancelled successfully!');
+      setCancelModalOpen(false);
+      setCancelReason('');
+      setTimeout(() => {
+        router.push('/PO/projects');
+      }, 1500);
+    }
+  }, [isCancelConfirmed, cancelHash, router]);
+
+  // Handle cancel transaction error
+  useEffect(() => {
+    if (cancelError) {
+      showTransactionError(cancelHash || '0x0', cancelError, 'Failed to cancel project');
+    }
+  }, [cancelError, cancelHash]);
 
   if (!mounted) return null;
 
@@ -40,17 +135,124 @@ export default function POProjectDetailPage() {
     );
   }
 
-  const handleDeposit = () => {
-    // TODO: Implement deposit logic
-    setDepositModalOpen(false);
+  const handleDeposit = async () => {
+    if (!address || !chain) {
+      showError('Wallet Not Connected', 'Please connect your wallet to deposit funds');
+      return;
+    }
+
+    if (!project) return;
+
+    try {
+      // Calculate total budget for all KPIs
+      let totalDeposit = 0;
+
+      for (const role of project.roles) {
+        for (const kpi of role.kpis) {
+          if (kpi.status === 'pending') {
+            const kpiAmount = (role.budget * kpi.percentage) / 100;
+            totalDeposit += kpiAmount;
+          }
+        }
+      }
+
+      if (totalDeposit <= 0) {
+        showError('No KPIs to Fund', 'All KPIs are already funded or in progress');
+        setDepositModalOpen(false);
+        return;
+      }
+
+      showInfo('Depositing to Escrow', 'Preparing transaction...');
+
+      // For simplicity, we're depositing for all KPIs at once
+      // In production, you might want to do this KPI by KPI or role by role
+      // Here we'll use the first pending KPI as an example
+      const firstPendingKPI = project.roles
+        .flatMap((r) => r.kpis.map((k) => ({ kpi: k, role: r })))
+        .find(({ kpi }) => kpi.status === 'pending');
+
+      if (!firstPendingKPI) {
+        showError('No KPIs to Fund', 'All KPIs are already funded');
+        setDepositModalOpen(false);
+        return;
+      }
+
+      const kpiAmount = (firstPendingKPI.role.budget * firstPendingKPI.kpi.percentage) / 100;
+
+      // TODO: Check and handle token approval if needed for ERC20 tokens
+      // For now, assuming USDC/IDRX has infinite approval or is handled elsewhere
+
+      await depositKPI({
+        projectId: projectId as `0x${string}`,
+        kpiId: firstPendingKPI.kpi.id as `0x${string}`,
+        amount: kpiAmount,
+        currency: project.currency,
+      });
+
+      // Transaction submitted - will be handled by useEffect below
+    } catch (err) {
+      const error = err as Error;
+      showTransactionError(hash || '0x0', error, 'Failed to deposit');
+      setDepositModalOpen(false);
+    }
   };
 
-  const handleApproveKPI = () => {
-    if (selectedKPI) {
-      // TODO: Implement approval logic
-      console.log('Approving KPI:', selectedKPI);
+  const handleApproveKPI = async () => {
+    if (!address || !chain) {
+      showError('Wallet Not Connected', 'Please connect your wallet to approve KPIs');
+      return;
+    }
+
+    if (!selectedKPI || !project) return;
+
+    const { roleIndex, kpiIndex } = selectedKPI;
+    const role = project.roles[roleIndex];
+    const kpi = role.kpis[kpiIndex];
+
+    try {
+      showInfo('Approving KPI', 'Processing approval...');
+
+      await approveKPIContract({
+        projectId: projectId as `0x${string}`,
+        kpiId: kpi.id as `0x${string}`,
+        isPO: true, // This is PO approval
+      });
+
+      // Transaction submitted - will be handled by useEffect below
+    } catch (err) {
+      const error = err as Error;
+      showTransactionError(approveHash || '0x0', error, 'Failed to approve KPI');
       setApproveKPIModalOpen(false);
       setSelectedKPI(null);
+    }
+  };
+
+  // Cancel Project Handlers
+  const handleCancelProject = async () => {
+    if (!address || !chain) {
+      showError('Wallet Not Connected', 'Please connect your wallet to cancel project');
+      return;
+    }
+
+    if (!project) return;
+
+    if (!cancelReason.trim()) {
+      showError('Reason Required', 'Please provide a reason for cancellation');
+      return;
+    }
+
+    try {
+      showInfo('Cancelling Project', 'Processing cancellation...');
+
+      await cancelProject({
+        projectId: projectId as `0x${string}`,
+        reason: cancelReason,
+      });
+
+      // Transaction submitted - will be handled by useEffect below
+    } catch (err) {
+      const error = err as Error;
+      showTransactionError(cancelHash || '0x0', error, 'Failed to cancel project');
     }
   };
 
@@ -572,6 +774,22 @@ export default function POProjectDetailPage() {
               </Link>
             )}
           </Card>
+
+          {/* Cancel Project Card */}
+          <Card className="p-6 bg-red-50 border-red-200">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Cancel Project</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              Permanently cancel this project and refund remaining funds.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full border-red-300 text-red-700 hover:bg-red-100"
+              onClick={() => setCancelModalOpen(true)}
+              disabled={isCancelPending || isCancelConfirming}
+            >
+              {isCancelPending || isCancelConfirming ? 'Cancelling...' : 'Cancel Project'}
+            </Button>
+          </Card>
         </div>
       </div>
 
@@ -579,19 +797,46 @@ export default function POProjectDetailPage() {
       <Modal isOpen={depositModalOpen} onClose={() => setDepositModalOpen(false)} title="Deposit to Escrow">
         <div className="space-y-4">
           <p className="text-slate-600">
-            Funds will be held in escrow and released as KPIs are approved.
+            Funds will be automatically split between escrow and yield generation.
           </p>
-          <div className="bg-slate-50 rounded-lg p-4">
-            <p className="text-sm text-slate-600">
-              Total project budget: <strong>{formatCurrency(project.totalBudget, 'IDRX')}</strong>
-            </p>
+
+          <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+            <div className="flex justify-between">
+              <span className="text-sm text-slate-600">Total project budget:</span>
+              <span className="font-semibold text-slate-900">{formatCurrency(project.totalBudget, project.currency)}</span>
+            </div>
+
+            <div className="border-t border-slate-200 pt-3">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm text-slate-600">Vault (Escrow - 90%):</span>
+                <span className="font-semibold text-brand-600">{formatCurrency(project.totalBudget * 0.9, project.currency)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-600">LP Allocation (10%):</span>
+                <span className="font-semibold text-blue-600">{formatCurrency(project.totalBudget * 0.1, project.currency)}</span>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 rounded-lg p-3 mt-2">
+              <p className="text-xs text-blue-800">
+                <strong>LP Allocation:</strong> 10% of each deposit is allocated to DeFi protocols (Aave, Nusa Finance, or Morpho) to generate yield.
+              </p>
+            </div>
           </div>
+
           <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => setDepositModalOpen(false)} className="flex-1">
+            <Button variant="ghost" onClick={() => setDepositModalOpen(false)} className="flex-1" disabled={isPending || isConfirming}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleDeposit} className="flex-1">
-              Deposit
+            <Button variant="primary" onClick={handleDeposit} className="flex-1" disabled={isPending || isConfirming}>
+              {isPending || isConfirming ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  Depositing...
+                </span>
+              ) : (
+                'Deposit'
+              )}
             </Button>
           </div>
         </div>
@@ -603,17 +848,147 @@ export default function POProjectDetailPage() {
           <p className="text-slate-600">
             Are you sure you want to approve this KPI and release the payment to the freelancer?
           </p>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <p className="text-sm text-amber-800">
-              <strong>Warning:</strong> This action cannot be undone. Payment will be released from escrow.
+
+          {selectedKPI && project && (
+            <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-slate-600">KPI:</span>
+                <span className="font-medium text-slate-900">{project.roles[selectedKPI.roleIndex].kpis[selectedKPI.kpiIndex].name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-slate-600">Role:</span>
+                <span className="font-medium text-slate-900">{project.roles[selectedKPI.roleIndex].title}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+            <p className="text-sm text-emerald-800 font-medium mb-2">Yield Distribution (upon FL approval):</p>
+            <div className="space-y-1 text-xs text-emerald-700">
+              <div className="flex justify-between">
+                <span>• PO Share (40% of yield):</span>
+                <span className="font-semibold">Your yield earnings</span>
+              </div>
+              <div className="flex justify-between">
+                <span>• FL Share (40% of yield):</span>
+                <span className="font-semibold">Freelancer bonus</span>
+              </div>
+              <div className="flex justify-between">
+                <span>• Platform Fee (20% of yield):</span>
+                <span className="font-semibold">NovaLance fee</span>
+              </div>
+            </div>
+            <p className="text-xs text-emerald-600 mt-2">
+              Note: If yield is negative, freelancer bears the loss. You receive your principal back.
             </p>
           </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <p className="text-sm text-amber-800">
+              <strong>Warning:</strong> This action cannot be undone. Payment will be released from escrow after both approvals.
+            </p>
+          </div>
+
           <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => setApproveKPIModalOpen(false)} className="flex-1">
+            <Button variant="ghost" onClick={() => setApproveKPIModalOpen(false)} className="flex-1" disabled={isApprovePending || isApproveConfirming}>
               Cancel
             </Button>
-            <Button variant="success" onClick={handleApproveKPI} className="flex-1">
-              Approve & Release
+            <Button variant="success" onClick={handleApproveKPI} className="flex-1" disabled={isApprovePending || isApproveConfirming}>
+              {isApprovePending || isApproveConfirming ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  Approving...
+                </span>
+              ) : (
+                'Approve'
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Cancel Project Modal */}
+      <Modal isOpen={cancelModalOpen} onClose={() => setCancelModalOpen(false)} title="Cancel Project">
+        <div className="space-y-4">
+          <p className="text-slate-600">
+            Are you sure you want to cancel this project? This action cannot be undone.
+          </p>
+
+          {/* Cancellation Breakdown */}
+          <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+            <h4 className="font-semibold text-slate-900">Refund Breakdown</h4>
+
+            {/* Scenario A: Before KPI completion */}
+            {project.roles.every(r => r.kpis.every(k => k.status !== 'approved' && k.status !== 'completed')) ? (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Vault Refund (90%):</span>
+                  <span className="font-semibold text-brand-600">{formatCurrency(project.totalBudget * 0.9, project.currency)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">LP Allocation (10%):</span>
+                  <span className="font-semibold text-blue-600">Platform keeps</span>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  No KPIs have been completed. You'll receive 90% of deposits back.
+                </p>
+              </div>
+            ) : (
+              /* Scenario B: After some KPIs completed */
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Completed KPIs:</span>
+                  <span className="font-semibold text-emerald-600">Paid to freelancers</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Remaining Vault:</span>
+                  <span className="font-semibold text-brand-600">Refunded to you</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">LP Allocation (10%):</span>
+                  <span className="font-semibold text-blue-600">Platform keeps</span>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  Some KPIs are completed. Freelancers will be paid for completed work.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Reason Input */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              Reason for Cancellation *
+            </label>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Please explain why you're cancelling this project..."
+              className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all resize-none"
+              rows={3}
+              required
+            />
+          </div>
+
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-sm text-red-800">
+              <strong>Warning:</strong> This will permanently cancel the project. All remaining funds will be refunded according to the breakdown above.
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="ghost" onClick={() => setCancelModalOpen(false)} className="flex-1" disabled={isCancelPending || isCancelConfirming}>
+              Keep Project
+            </Button>
+            <Button variant="outline" onClick={handleCancelProject} className="flex-1 border-red-300 text-red-700 hover:bg-red-50" disabled={!cancelReason.trim() || isCancelPending || isCancelConfirming}>
+              {isCancelPending || isCancelConfirming ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full border-2 border-red-700 border-t-transparent animate-spin" />
+                  Cancelling...
+                </span>
+              ) : (
+                'Confirm Cancellation'
+              )}
             </Button>
           </div>
         </div>

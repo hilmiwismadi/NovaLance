@@ -3,19 +3,33 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Input from '@/components/ui/Input';
 import { mockJobs, getJobById } from '@/lib/mockData';
+import { useApplyForJob, useTransactionWait } from '@/lib/hooks';
+import {
+  showTransactionPending,
+  showTransactionSuccess,
+  showTransactionError,
+  showInfo,
+  showError,
+} from '@/lib/transactions';
 
 export default function FLJobDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { address, chain } = useAccount();
   const [mounted, setMounted] = useState(false);
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
+
+  // Smart contract hooks
+  const { apply, isPending, error, hash, isSuccess } = useApplyForJob();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
 
   const jobId = params.id as string;
   const job = getJobById(jobId);
@@ -38,14 +52,57 @@ export default function FLJobDetailPage() {
     );
   }
 
-  const handleApply = () => {
-    // TODO: Submit application via API
-    console.log('Applying with cover letter:', coverLetter);
-    setApplyModalOpen(false);
-    setCoverLetter('');
-    // Navigate to applications page
-    router.push('/FL/applications');
+  const handleApply = async () => {
+    if (!address || !chain) {
+      showError('Wallet Not Connected', 'Please connect your wallet to apply');
+      return;
+    }
+
+    if (!job) return;
+
+    try {
+      showInfo('Submitting Application', 'Please confirm the transaction...');
+
+      // For this mock implementation, we'll use the job ID as project ID
+      // In production, you'd have separate project/role IDs
+      await apply({
+        projectId: `0x${jobId}0000000000000000000000000000000000000000000000000000000000000000` as `0x${string}`,
+        roleId: `0x${jobId}0000000000000000000000000000000000000000000000000000000000000000` as `0x${string}`,
+        coverLetter: coverLetter.trim(),
+      });
+
+      // Transaction submitted - will be handled by useEffect below
+    } catch (err) {
+      const error = err as Error;
+      showTransactionError(hash || '0x0', error, 'Failed to submit application');
+    }
   };
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isSuccess && hash) {
+      showTransactionPending(hash, 'Submit Job Application', chain?.id || 84532);
+    }
+  }, [isSuccess, hash, chain]);
+
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      showTransactionSuccess(hash, 'Application submitted successfully!');
+      setApplyModalOpen(false);
+      setCoverLetter('');
+      setTimeout(() => {
+        router.push('/FL/applications');
+      }, 1500);
+    }
+  }, [isConfirmed, hash, router]);
+
+  // Handle transaction error
+  useEffect(() => {
+    if (error) {
+      showTransactionError(hash || '0x0', error, 'Failed to submit application');
+    }
+  }, [error, hash]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -227,11 +284,18 @@ export default function FLJobDetailPage() {
           </div>
 
           <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => setApplyModalOpen(false)} className="flex-1">
+            <Button variant="ghost" onClick={() => setApplyModalOpen(false)} className="flex-1" disabled={isPending || isConfirming}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleApply} className="flex-1" disabled={!coverLetter.trim()}>
-              Submit Application
+            <Button variant="primary" onClick={handleApply} className="flex-1" disabled={!coverLetter.trim() || isPending || isConfirming}>
+              {isPending || isConfirming ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  Submitting...
+                </span>
+              ) : (
+                'Submit Application'
+              )}
             </Button>
           </div>
         </div>

@@ -26,7 +26,14 @@
       "Bash(powershell:*)",
       "Bash(npm i:*)",
       "Bash(npm ls:*)",
-      "Bash(npm view:*)"
+      "Bash(npm view:*)",
+      "Bash(test:*)",
+      "Bash(npm --version:*)",
+      "Bash(node:*)",
+      "Bash(ls:*)",
+      "Bash(npm ci:*)",
+      "Bash(echo:*)",
+      "Bash(tree:*)"
     ]
   }
 }

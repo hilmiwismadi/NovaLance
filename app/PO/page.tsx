@@ -2,18 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
-import { mockPOProjects, mockUser, calculateProjectProgress, formatCurrency } from '@/lib/mockData';
-
-// Get projects owned by current user
-const ownerProjects = mockPOProjects.filter(
-  p => p.owner.toLowerCase() === mockUser.address.toLowerCase()
-);
-
-// Active projects (hiring or in-progress)
-const activeProjects = ownerProjects.filter(p => p.status === 'hiring' || p.status === 'in-progress');
+import { POProject, mockPOProjects, calculateProjectProgress as calculateProjectProgressUtil, formatCurrency } from '@/lib/mockData';
 
 // Track expansion state for each project, role, and KPI
 interface ExpansionState {
@@ -40,6 +33,22 @@ export default function PODashboard() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const { address } = useAccount();
+
+  // Get projects from mock data
+  const ownerProjects = address
+    ? mockPOProjects.filter(p => p.owner.toLowerCase() === address.toLowerCase())
+    : mockPOProjects;
+
+  const activeProjects = ownerProjects.filter(p =>
+    p.status === 'in-progress' || p.status === 'hiring'
+  );
+
+  // Local helper to calculate project progress
+  const calculateProjectProgress = (project: POProject): number => {
+    return calculateProjectProgressUtil(project);
+  };
 
   // Simulate live yield fluctuations for in-progress KPIs
   useEffect(() => {

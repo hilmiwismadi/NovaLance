@@ -1,10 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import { mockUser, mockProjects } from '@/lib/mockData';
+import { useWithdrawableBalance, useWithdraw, useTransactionWait } from '@/lib/hooks';
+import {
+  showTransactionPending,
+  showTransactionSuccess,
+  showTransactionError,
+  showError,
+} from '@/lib/transactions';
+import { formatCurrency } from '@/lib/contract';
 
 // Filter projects where user is freelancer
 const freelancerProjects = mockProjects.filter(p => p.userRole === 'freelancer');
@@ -20,11 +29,57 @@ const pendingEarnings = freelancerProjects
   .reduce((sum, p) => sum + p.totalBudget, 0);
 
 export default function FLProfilePage() {
+  const { address, chain } = useAccount();
   const [mounted, setMounted] = useState(false);
+
+  // Smart contract hooks
+  const { balance, isLoading: isBalanceLoading } = useWithdrawableBalance();
+  const { withdraw, isPending, error, hash, isSuccess } = useWithdraw();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
+
+  // Calculate real withdrawable balance from smart contract or fall back to mock
+  const withdrawableBalance = balance
+    ? Number(balance.totalWithdrawerable) / 1e6 // Assuming USDC/IDRX decimals (6)
+    : totalEarnings;
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isSuccess && hash) {
+      showTransactionPending(hash, 'Withdraw Earnings', chain?.id || 84532);
+    }
+  }, [isSuccess, hash, chain]);
+
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      showTransactionSuccess(hash, 'Earnings withdrawn successfully!');
+    }
+  }, [isConfirmed, hash]);
+
+  // Handle transaction error
+  useEffect(() => {
+    if (error) {
+      showTransactionError(hash || '0x0', error, 'Failed to withdraw earnings');
+    }
+  }, [error, hash]);
+
+  const handleWithdraw = async () => {
+    if (!address || !chain) {
+      showError('Wallet Not Connected', 'Please connect your wallet to withdraw');
+      return;
+    }
+
+    try {
+      await withdraw();
+    } catch (err) {
+      const error = err as Error;
+      showError('Withdrawal Failed', error.message);
+    }
+  };
 
   if (!mounted) return null;
 
@@ -135,7 +190,21 @@ export default function FLProfilePage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm text-slate-600">Available to Withdraw</p>
-              <p className="text-3xl font-bold text-slate-900">${totalEarnings}</p>
+              <p className="text-3xl font-bold text-slate-900">
+                {isBalanceLoading ? '...' : `$${withdrawableBalance.toLocaleString()}`}
+              </p>
+              {balance && (
+                <div className="text-xs text-slate-500 mt-1 space-y-0.5">
+                  <div className="flex justify-between">
+                    <span>Escrow:</span>
+                    <span>${(Number(balance.escrowAmount) / 1e6).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Yield:</span>
+                    <span>${(Number(balance.yieldAmount) / 1e6).toLocaleString()}</span>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,9 +218,21 @@ export default function FLProfilePage() {
             <p className="font-mono text-slate-900 text-sm">{mockUser.address}</p>
           </div>
 
-          {totalEarnings > 0 ? (
-            <Button variant="success" className="w-full">
-              Withdraw to Wallet
+          {withdrawableBalance > 0 ? (
+            <Button
+              variant="success"
+              className="w-full"
+              onClick={handleWithdraw}
+              disabled={isPending || isConfirming}
+            >
+              {isPending || isConfirming ? (
+                <span className="flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  Withdrawing...
+                </span>
+              ) : (
+                'Withdraw to Wallet'
+              )}
             </Button>
           ) : (
             <Button variant="outline" className="w-full" disabled>
