@@ -5,7 +5,15 @@ import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import WalletConnectModal from '@/components/auth/WalletConnectModal';
 import { mockPOProjects, mockUser, calculateProjectProgress, formatCurrency } from '@/lib/mockData';
+import { useWithdrawableBalance, useWithdraw, useTransactionWait } from '@/lib/hooks';
+import {
+  showTransactionPending,
+  showTransactionSuccess,
+  showTransactionError,
+  showError,
+} from '@/lib/transactions';
 
 // Get projects owned by current user
 const ownerProjects = mockPOProjects.filter(
@@ -56,10 +64,89 @@ const filters: FilterConfig[] = [
 export default function POProjectsPage() {
   const [mounted, setMounted] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [showWalletModal, setShowWalletModal] = useState(false);
+
+  // Smart contract hooks
+  const { balance, isLoading: isBalanceLoading } = useWithdrawableBalance();
+  const { withdraw, isPending, error, hash, isSuccess } = useWithdraw();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
 
   useEffect(() => {
     setMounted(true);
+
+    // Check wallet connection status
+    if (typeof window !== 'undefined') {
+      const isWalletConnected = localStorage.getItem('po-wallet-connected');
+      const storedWalletAddress = localStorage.getItem('po-wallet-address');
+      if (isWalletConnected && storedWalletAddress) {
+        setWalletConnected(true);
+        setWalletAddress(storedWalletAddress);
+      }
+    }
   }, []);
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isSuccess && hash) {
+      const chainId = 84532; // Base sepolia
+      showTransactionPending(hash, 'Withdraw Earnings', chainId);
+    }
+  }, [isSuccess, hash]);
+
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      showTransactionSuccess(hash, 'Earnings withdrawn successfully!');
+    }
+  }, [isConfirmed, hash]);
+
+  // Handle transaction error
+  useEffect(() => {
+    if (error) {
+      showTransactionError(hash || '0x0', error, 'Failed to withdraw earnings');
+    }
+  }, [error, hash]);
+
+  const handleWalletConnected = () => {
+    setWalletConnected(true);
+    setWalletAddress(localStorage.getItem('po-wallet-address') || '');
+    setShowWalletModal(false);
+  };
+
+  const handleDisconnectWallet = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('po-wallet-connected');
+      localStorage.removeItem('po-wallet-address');
+    }
+    setWalletConnected(false);
+    setWalletAddress('');
+  };
+
+  const handleWithdraw = async () => {
+    if (!walletConnected) {
+      showError('Wallet Not Connected', 'Please connect your wallet to withdraw');
+      return;
+    }
+
+    try {
+      await withdraw();
+    } catch (err) {
+      const error = err as Error;
+      showError('Withdrawal Failed', error.message);
+    }
+  };
+
+  const formatWalletAddress = (addr: string) => {
+    if (!addr) return '';
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  // Calculate withdrawable balance from smart contract or fall back to mock
+  const withdrawableBalance = balance
+    ? Number(balance.totalWithdrawable) / 1e6 // Assuming USDC/IDRX decimals (6)
+    : 0;
 
   const filteredProjects = ownerProjects.filter(project => {
     if (filter === 'all') return true;
@@ -85,23 +172,112 @@ export default function POProjectsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Projects</h1>
-          <p className="text-slate-600 text-sm mt-0.5 sm:mt-1 hidden sm:block">Manage your projects and teams</p>
+    <>
+      <WalletConnectModal
+        isOpen={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+        onConnected={handleWalletConnected}
+      />
+
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Projects</h1>
+            <p className="text-slate-600 text-sm mt-0.5 sm:mt-1 hidden sm:block">Manage your projects and teams</p>
+          </div>
+          <Link href="/PO/create-project">
+            <Button variant="primary" size="sm" className="gap-2 sm:text-sm">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="hidden sm:inline">Create Project</span>
+              <span className="sm:hidden">Create</span>
+            </Button>
+          </Link>
         </div>
-        <Link href="/PO/create-project">
-          <Button variant="primary" size="sm" className="gap-2 sm:text-sm">
-            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="hidden sm:inline">Create Project</span>
-            <span className="sm:hidden">Create</span>
-          </Button>
-        </Link>
-      </div>
+
+        {/* Compact Wallet & Earnings Card */}
+        <Card className={`p-4 border-2 transition-all ${
+          walletConnected
+            ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200'
+            : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
+        }`}>
+          <div className="flex items-center justify-between gap-4">
+            {/* Left: Wallet Status */}
+            <div className="flex items-center gap-3 flex-1">
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center shadow-md flex-shrink-0 ${
+                walletConnected
+                  ? 'bg-gradient-to-br from-emerald-400 to-green-600'
+                  : 'bg-gradient-to-br from-amber-400 to-orange-600'
+              }`}>
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-sm font-semibold text-slate-900">Wallet</p>
+                  {walletConnected ? (
+                    <Badge variant="success" className="text-xs">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </Badge>
+                  ) : (
+                    <Badge variant="warning" className="text-xs">Not Connected</Badge>
+                  )}
+                </div>
+                {walletConnected ? (
+                  <p className="font-mono text-xs text-slate-700 truncate">{formatWalletAddress(walletAddress)}</p>
+                ) : (
+                  <button
+                    onClick={() => setShowWalletModal(true)}
+                    className="text-xs font-medium text-amber-700 hover:text-amber-800 transition-colors"
+                  >
+                    Connect to earn yield →
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="hidden sm:block w-px h-12 bg-gradient-to-b from-transparent via-slate-300 to-transparent" />
+
+            {/* Right: Yield Earnings */}
+            <div className="flex items-center gap-3 flex-1">
+              <div className="flex-1">
+                <p className="text-xs text-slate-600 mb-1">Yield Earnings</p>
+                <p className="text-lg sm:text-xl font-bold text-slate-900">
+                  {isBalanceLoading ? '...' : `$${withdrawableBalance.toLocaleString()}`}
+                </p>
+              </div>
+              {walletConnected && withdrawableBalance > 0 && (
+                <Button
+                  variant="success"
+                  size="sm"
+                  onClick={handleWithdraw}
+                  disabled={isPending || isConfirming}
+                  className="text-xs"
+                >
+                  {isPending || isConfirming ? '...' : 'Withdraw'}
+                </Button>
+              )}
+            </div>
+
+            {/* Action Button for Disconnected State */}
+            {!walletConnected && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowWalletModal(true)}
+                className="text-xs shrink-0"
+              >
+                Connect
+              </Button>
+            )}
+          </div>
+        </Card>
 
       {/* Overview Card */}
       <Card className="p-5 bg-gradient-to-br from-slate-50 to-brand-50/30 border-brand-200/30">
@@ -268,5 +444,6 @@ export default function POProjectsPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

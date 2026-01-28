@@ -2,18 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import WalletConnectModal from '@/components/auth/WalletConnectModal';
 import { mockUser, mockPOProjects, calculateProjectProgress, formatCurrency } from '@/lib/mockData';
-import { useWithdrawableBalance, useWithdraw, useTransactionWait } from '@/lib/hooks';
-import {
-  showTransactionPending,
-  showTransactionSuccess,
-  showTransactionError,
-  showError,
-} from '@/lib/transactions';
 
 // Get projects owned by current user
 const ownerProjects = mockPOProjects.filter(
@@ -25,69 +18,167 @@ const activeProjects = ownerProjects.filter(p => p.status === 'hiring' || p.stat
 const completedProjects = ownerProjects.filter(p => p.status === 'completed');
 
 export default function POProfilePage() {
-  const { address, chain } = useAccount();
   const [mounted, setMounted] = useState(false);
-
-  // Smart contract hooks
-  const { balance, isLoading: isBalanceLoading } = useWithdrawableBalance();
-  const { withdraw, isPending, error, hash, isSuccess } = useWithdraw();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
-
-  // Calculate withdrawable balance from smart contract or fall back to mock
-  const withdrawableBalance = balance
-    ? Number(balance.totalWithdrawable) / 1e6 // Assuming USDC/IDRX decimals (6)
-    : 0;
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [showWalletModal, setShowWalletModal] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+
+    // Check wallet connection status
+    if (typeof window !== 'undefined') {
+      const isWalletConnected = localStorage.getItem('po-wallet-connected');
+      const storedWalletAddress = localStorage.getItem('po-wallet-address');
+      if (isWalletConnected && storedWalletAddress) {
+        setWalletConnected(true);
+        setWalletAddress(storedWalletAddress);
+      }
+    }
   }, []);
 
-  // Handle transaction success
-  useEffect(() => {
-    if (isSuccess && hash) {
-      showTransactionPending(hash, 'Withdraw Earnings', chain?.id || 84532);
-    }
-  }, [isSuccess, hash, chain]);
+  const handleWalletConnected = () => {
+    setWalletConnected(true);
+    setWalletAddress(localStorage.getItem('po-wallet-address') || '');
+    setShowWalletModal(false);
+  };
 
-  // Handle transaction confirmation
-  useEffect(() => {
-    if (isConfirmed && hash) {
-      showTransactionSuccess(hash, 'Earnings withdrawn successfully!');
+  const handleDisconnectWallet = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('po-wallet-connected');
+      localStorage.removeItem('po-wallet-address');
     }
-  }, [isConfirmed, hash]);
+    setWalletConnected(false);
+    setWalletAddress('');
+  };
 
-  // Handle transaction error
-  useEffect(() => {
-    if (error) {
-      showTransactionError(hash || '0x0', error, 'Failed to withdraw earnings');
-    }
-  }, [error, hash]);
-
-  const handleWithdraw = async () => {
-    if (!address || !chain) {
-      showError('Wallet Not Connected', 'Please connect your wallet to withdraw');
-      return;
-    }
-
-    try {
-      await withdraw();
-    } catch (err) {
-      const error = err as Error;
-      showError('Withdrawal Failed', error.message);
-    }
+  const formatWalletAddress = (addr: string) => {
+    if (!addr) return '';
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
   if (!mounted) return null;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">Profile</h1>
-        <p className="text-slate-600 text-xs sm:text-sm mt-0.5 sm:mt-1">
-          Manage your profile and earnings as a Project Owner
-        </p>
-      </div>
+    <>
+      <WalletConnectModal
+        isOpen={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+        onConnected={handleWalletConnected}
+      />
+
+      <div className="space-y-4 sm:space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">Profile</h1>
+          <p className="text-slate-600 text-xs sm:text-sm mt-0.5 sm:mt-1">
+            Manage your profile and earnings as a Project Owner
+          </p>
+        </div>
+
+        {/* Wallet Connection Status Card - Prominently Displayed */}
+        <Card className={`p-4 sm:p-6 border-2 transition-all ${
+          walletConnected
+            ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200'
+            : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200'
+        }`}>
+          <div className="flex items-start gap-4">
+            {/* Wallet Icon */}
+            <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 ${
+              walletConnected
+                ? 'bg-gradient-to-br from-emerald-400 to-green-600'
+                : 'bg-gradient-to-br from-amber-400 to-orange-600'
+            }`}>
+              <svg className="w-7 h-7 sm:w-8 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900">
+                  Wallet Connection
+                </h2>
+                {walletConnected && (
+                  <Badge variant="success" className="text-xs sm:text-sm">
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Connected
+                    </span>
+                  </Badge>
+                )}
+              </div>
+
+              {walletConnected ? (
+                <>
+                  <p className="text-sm text-slate-600 mb-2">Your wallet is connected and ready for transactions</p>
+                  <div className="bg-white/60 rounded-lg p-3 mb-3 border border-emerald-200">
+                    <p className="text-xs text-slate-600 mb-1">Connected Address</p>
+                    <p className="font-mono text-sm sm:text-base font-semibold text-slate-900 break-all">
+                      {walletAddress}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs sm:text-sm"
+                      onClick={handleDisconnectWallet}
+                    >
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Disconnect
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="text-xs sm:text-sm"
+                    >
+                      View on Explorer
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-slate-600 mb-3">
+                    Connect your wallet to manage payments, earn yield, and interact with smart contracts
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      className="text-xs sm:text-sm"
+                      onClick={() => setShowWalletModal(true)}
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Connect Wallet
+                    </Button>
+                  </div>
+                  <div className="mt-3 bg-amber-100/50 rounded-lg p-3 border border-amber-200">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="text-xs text-amber-800">
+                        <p className="font-semibold mb-1">Why connect your wallet?</p>
+                        <ul className="space-y-0.5 text-amber-700">
+                          <li>• Secure project escrow payments</li>
+                          <li>• Automatic milestone releases</li>
+                          <li>• Earn yield on deposited funds (up to 15% APY)</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </Card>
 
       {/* Profile Card */}
       <Card className="p-4 sm:p-6">
@@ -99,9 +190,31 @@ export default function POProfilePage() {
           </div>
 
           <div className="flex-1 min-w-0">
-            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 truncate">
-              {mockUser.ens || `${mockUser.address.slice(0, 8)}...${mockUser.address.slice(-4)}`}
-            </h2>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 truncate">
+                {mockUser.ens || `${mockUser.address.slice(0, 8)}...${mockUser.address.slice(-4)}`}
+              </h2>
+              {/* Wallet Status Badge */}
+              {walletConnected ? (
+                <Badge variant="success" className="text-xs">
+                  <span className="flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    Wallet Connected
+                  </span>
+                </Badge>
+              ) : (
+                <Badge variant="warning" className="text-xs">
+                  <span className="flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Wallet Not Connected
+                  </span>
+                </Badge>
+              )}
+            </div>
             <p className="text-slate-600 text-xs sm:text-sm line-clamp-2">{mockUser.bio}</p>
 
             <div className="flex items-center gap-2 sm:gap-4 mt-2 sm:mt-3 flex-wrap">
@@ -256,86 +369,59 @@ export default function POProfilePage() {
         </div>
       )}
 
-      {/* Wallet / Withdrawal */}
-      <Card className="p-4 sm:p-6">
-        <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-3 sm:mb-4">Wallet & Earnings</h2>
-
-        <div className="bg-slate-50 rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
-          <p className="text-xs sm:text-sm text-slate-600 mb-1">Wallet Address</p>
-          <p className="font-mono text-slate-900 text-xs sm:text-sm break-all">{mockUser.address}</p>
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-gradient-to-br from-brand-50 to-brand-100/50 rounded-xl p-3 sm:p-4 text-center border border-brand-200/50">
+          <p className="text-xl sm:text-2xl font-bold text-brand-600">{ownerProjects.length}</p>
+          <p className="text-xs text-slate-600">Projects</p>
         </div>
+        <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-3 sm:p-4 text-center border border-emerald-200/50">
+          <p className="text-xl sm:text-2xl font-bold text-emerald-600">{ownerProjects.reduce((sum, p) => sum + p.roles.length, 0)}</p>
+          <p className="text-xs text-slate-600">Roles Hired</p>
+        </div>
+        <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-xl p-3 sm:p-4 text-center border border-amber-200/50">
+          <p className="text-xl sm:text-2xl font-bold text-amber-600">
+            {ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0) > 0
+              ? formatCurrency(ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0), 'IDRX').split(',')[0]
+              : '0'}
+          </p>
+          <p className="text-xs text-slate-600">Total Budget</p>
+        </div>
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 sm:p-4 text-center border border-blue-200/50">
+          <p className="text-xl sm:text-2xl font-bold text-blue-600">{activeProjects.length}</p>
+          <p className="text-xs text-slate-600">Active</p>
+        </div>
+      </div>
 
-        {/* Yield Earnings Section */}
-        <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-4 sm:p-6 mb-3 sm:mb-4">
-          <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-3 sm:mb-4">Yield Earnings</h3>
-
-          <div className="flex items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm text-slate-600">Available to Withdraw</p>
-              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">
-                {isBalanceLoading ? '...' : `$${withdrawableBalance.toLocaleString()}`}
-              </p>
-              {balance && (
-                <div className="text-xs text-slate-500 mt-1 space-y-0.5">
-                  <div className="flex justify-between">
-                    <span>Escrow:</span>
-                    <span>${(Number(balance.escrowAmount) / 1e6).toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Yield:</span>
-                    <span className="text-emerald-600 font-semibold">${(Number(balance.yieldAmount) / 1e6).toLocaleString()}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center shadow-lg flex-shrink-0">
-              <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {/* Wallet Summary Card - Links to Projects Page */}
+      <Card className={`p-4 sm:p-6 border-2 transition-all ${
+        walletConnected
+          ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200'
+          : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${
+              walletConnected
+                ? 'bg-gradient-to-br from-emerald-400 to-green-600'
+                : 'bg-gradient-to-br from-amber-400 to-orange-600'
+            }`}>
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
               </svg>
             </div>
-          </div>
-
-          {withdrawableBalance > 0 ? (
-            <Button
-              variant="success"
-              className="w-full"
-              onClick={handleWithdraw}
-              disabled={isPending || isConfirming}
-            >
-              {isPending || isConfirming ? (
-                <span className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  Withdrawing...
-                </span>
-              ) : (
-                'Withdraw Yield Earnings'
-              )}
-            </Button>
-          ) : (
-            <Button variant="outline" className="w-full" disabled>
-              No Earnings to Withdraw
-            </Button>
-          )}
-        </div>
-
-        <div className="bg-gradient-to-r from-brand-50 to-blue-50 rounded-xl p-4 sm:p-6">
-          <div className="flex items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm text-slate-600">Total Project Budget</p>
-              <p className="text-lg sm:text-xl font-bold text-slate-900 truncate">
-                {formatCurrency(ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0), 'IDRX')}
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Wallet & Earnings</p>
+              <p className="text-xs text-slate-600">
+                {walletConnected ? 'View your yield earnings' : 'Connect wallet to start earning'}
               </p>
             </div>
-            <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg flex-shrink-0">
-              <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
           </div>
-
-          <Button variant="outline" className="w-full text-xs sm:text-sm">
-            View on Base Explorer
-          </Button>
+          <Link href="/PO/projects">
+            <Button variant={walletConnected ? "outline" : "primary"} size="sm" className="text-xs">
+              {walletConnected ? 'View Earnings' : 'Connect Wallet'}
+            </Button>
+          </Link>
         </div>
       </Card>
 
@@ -355,5 +441,6 @@ export default function POProfilePage() {
         </Card>
       )}
     </div>
+    </>
   );
 }

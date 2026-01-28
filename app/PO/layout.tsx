@@ -1,8 +1,7 @@
 'use client';
 
-import { ReactNode } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { ReactNode, useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { RoleProvider, useRole } from '@/lib/useRole';
 import POHeader from '@/components/layout/POHeader';
 import POBottomNav from '@/components/layout/POBottomNav';
@@ -13,7 +12,48 @@ interface POLayoutProps {
 
 function POLayoutContent({ children }: POLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { role } = useRole();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    // Check if user is authenticated
+    const authStatus = typeof window !== 'undefined' ? localStorage.getItem('po-auth') : null;
+    const isLoginRoute = pathname === '/PO/login';
+
+    if (!authStatus && !isLoginRoute) {
+      // Not authenticated and not on login page, redirect to login
+      router.push('/PO/login');
+    } else if (authStatus && isLoginRoute) {
+      // Already authenticated and on login page, redirect to dashboard
+      router.push('/PO');
+    } else {
+      setIsAuthenticated(!!authStatus);
+    }
+    setIsLoading(false);
+  }, [pathname, router, mounted]);
+
+  // Show login page without header/footer
+  if (pathname === '/PO/login') {
+    return <>{children}</>;
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   // Redirect if not in PO mode
   if (role !== 'PO' && typeof window !== 'undefined') {
@@ -25,7 +65,7 @@ function POLayoutContent({ children }: POLayoutProps) {
   const navItems = [
     { href: '/PO', label: 'Dashboard' },
     { href: '/PO/projects', label: 'Projects' },
-    { href: '/PO/create-project', label: 'Create Project' },
+    { href: '/PO/portfolio', label: 'Portfolio Performance' },
     { href: '/PO/profile', label: 'Profile' },
   ];
 

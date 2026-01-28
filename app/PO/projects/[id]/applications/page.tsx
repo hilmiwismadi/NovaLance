@@ -129,11 +129,11 @@ export default function POApplicationsPage() {
 
   if (!project) {
     return (
-      <div className="text-center py-12">
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">Project Not Found</h1>
-        <p className="text-slate-600 mb-6">The project you're looking for doesn't exist.</p>
+      <div className="text-center px-4 py-8 sm:py-12">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Project Not Found</h1>
+        <p className="text-sm sm:text-base text-slate-600 mb-4 sm:mb-6 px-4">The project you're looking for doesn't exist.</p>
         <Link href="/PO/projects">
-          <Button variant="primary">Back to Projects</Button>
+          <Button variant="primary" size="sm" className="w-full sm:w-auto">Back to Projects</Button>
         </Link>
       </div>
     );
@@ -141,23 +141,23 @@ export default function POApplicationsPage() {
 
   if (hiringRoles.length === 0) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <Link href={`/PO/projects/${projectId}`} className="text-brand-600 hover:text-brand-700">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        <div className="mb-4 sm:mb-6">
+          <Link href={`/PO/projects/${projectId}`} className="text-brand-600 hover:text-brand-700 text-sm">
             ← Back to Project
           </Link>
         </div>
 
-        <Card className="p-12 text-center">
-          <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <Card className="p-6 sm:p-12 text-center">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 sm:w-8 sm:h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">All Roles Filled</h2>
-          <p className="text-slate-600 mb-6">All roles for this project have been assigned.</p>
-          <Link href={`/PO/projects/${projectId}`}>
-            <Button variant="primary">View Project</Button>
+          <h2 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">All Roles Filled</h2>
+          <p className="text-sm sm:text-base text-slate-600 mb-4 sm:mb-6 px-2">All roles for this project have been assigned.</p>
+          <Link href={`/PO/projects/${projectId}`} className="block w-full sm:w-auto">
+            <Button variant="primary" size="sm" className="w-full sm:w-auto">View Project</Button>
           </Link>
         </Card>
       </div>
@@ -165,41 +165,41 @@ export default function POApplicationsPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="mb-6">
-        <Link href={`/PO/projects/${projectId}`} className="text-brand-600 hover:text-brand-700">
+      <div className="mb-4 sm:mb-6">
+        <Link href={`/PO/projects/${projectId}`} className="text-brand-600 hover:text-brand-700 text-sm">
           ← Back to Project
         </Link>
-        <h1 className="text-3xl font-bold text-slate-900 mt-4">Applications</h1>
-        <p className="text-slate-600 mt-2">{project.title}</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mt-3 sm:mt-4">Applications</h1>
+        <p className="text-sm sm:text-base text-slate-600 mt-1 sm:mt-2">{project.title}</p>
       </div>
 
       {/* Roles and Applicants */}
-      <div className="space-y-8">
+      <div className="space-y-6 sm:space-y-8">
         {hiringRoles.map((role) => (
-          <div key={role.id} className="space-y-4">
+          <div key={role.id} className="space-y-3 sm:space-y-4">
             {/* Role Header */}
-            <Card className="p-6 bg-gradient-to-r from-brand-50 to-blue-50 border-brand-200">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">{role.title}</h2>
-                  <p className="text-slate-600 mt-1">{role.description}</p>
-                  <div className="flex items-center gap-4 mt-3">
-                    <span className="text-sm font-semibold text-brand-600">
+            <Card className="p-4 sm:p-6 bg-gradient-to-r from-brand-50 to-blue-50 border-brand-200">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="w-full">
+                  <h2 className="text-lg sm:text-xl font-bold text-slate-900">{role.title}</h2>
+                  <p className="text-sm sm:text-base text-slate-600 mt-1">{role.description}</p>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 sm:mt-3">
+                    <span className="text-xs sm:text-sm font-semibold text-brand-600">
                       Budget: {formatCurrency(role.budget, role.currency)}
                     </span>
-                    <span className="text-sm text-slate-500">•</span>
-                    <span className="text-sm text-slate-600">{mockApplicants.length} applicants</span>
+                    <span className="text-xs sm:text-sm text-slate-500 hidden sm:inline">•</span>
+                    <span className="text-xs sm:text-sm text-slate-600">{mockApplicants.length} applicant{mockApplicants.length !== 1 ? 's' : ''}</span>
                   </div>
                 </div>
-                <Badge variant="pending">Hiring</Badge>
+                <Badge variant="pending" className="self-start sm:self-center">Hiring</Badge>
               </div>
 
               {/* Required Skills */}
-              <div className="mt-4">
-                <p className="text-sm font-medium text-slate-700 mb-2">Required Skills:</p>
-                <div className="flex flex-wrap gap-2">
+              <div className="mt-3 sm:mt-4">
+                <p className="text-xs sm:text-sm font-medium text-slate-700 mb-2">Required Skills:</p>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {role.skills.map((skill) => (
                     <Badge key={skill} variant="default" className="text-xs">
                       {skill}
@@ -210,43 +210,43 @@ export default function POApplicationsPage() {
             </Card>
 
             {/* Applicants List */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {mockApplicants.map((applicant) => (
-                <Card key={applicant.address} className="p-6">
-                  <div className="flex items-start gap-6">
+                <Card key={applicant.address} className="p-4 sm:p-6">
+                  <div className="flex flex-row items-start gap-3 sm:gap-6">
                     {/* Avatar */}
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center flex-shrink-0">
-                      <span className="text-2xl font-bold text-white">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xl sm:text-2xl font-bold text-white">
                         {applicant.ens?.[0].toUpperCase() || applicant.address.slice(0, 2).toUpperCase()}
                       </span>
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="text-lg font-semibold text-slate-900">{applicant.ens || applicant.address.slice(0, 10)}</h3>
-                          <p className="text-sm text-slate-500 font-mono">{applicant.address}</p>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">{applicant.ens || applicant.address.slice(0, 10)}</h3>
+                          <p className="text-xs text-slate-500 font-mono truncate">{applicant.address}</p>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                           </svg>
                           <span className="text-sm font-semibold text-slate-900">{applicant.rating}</span>
-                          <span className="text-sm text-slate-500">•</span>
-                          <span className="text-sm text-slate-600">{applicant.completedProjects} projects</span>
+                          <span className="text-xs text-slate-500 hidden sm:inline">•</span>
+                          <span className="text-xs sm:text-sm text-slate-600">{applicant.completedProjects} proj{applicant.completedProjects === 1 ? '' : 's'}</span>
                         </div>
                       </div>
 
                       {/* Cover Letter */}
-                      <div className="mb-4">
-                        <p className="text-sm text-slate-600 line-clamp-3">{applicant.coverLetter}</p>
+                      <div className="mb-3 sm:mb-4">
+                        <p className="text-xs sm:text-sm text-slate-600 line-clamp-3">{applicant.coverLetter}</p>
                       </div>
 
                       {/* Skills */}
-                      <div className="mb-4">
+                      <div className="mb-3 sm:mb-4">
                         <p className="text-xs font-medium text-slate-700 mb-2">Skills:</p>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1 sm:gap-1.5">
                           {applicant.skills.map((skill) => (
                             <span key={skill} className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded-md">
                               {skill}
@@ -256,19 +256,20 @@ export default function POApplicationsPage() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Button
                           variant="primary"
                           size="sm"
                           onClick={() => handleAcceptApplicant(applicant, role.id)}
                           disabled={isPending || isConfirming}
+                          className="flex-1 sm:flex-initial"
                         >
-                          Accept Application
+                          Accept
                         </Button>
-                        <Button variant="outline" size="sm">
-                          View Profile
+                        <Button variant="outline" size="sm" className="flex-1 sm:flex-initial">
+                          Profile
                         </Button>
-                        <span className="text-xs text-slate-500">Applied {applicant.appliedAt}</span>
+                        <span className="text-xs text-slate-500 ml-auto sm:ml-0">Applied {applicant.appliedAt}</span>
                       </div>
                     </div>
                   </div>
@@ -283,34 +284,34 @@ export default function POApplicationsPage() {
       <Modal isOpen={acceptModalOpen} onClose={() => setAcceptModalOpen(false)} title="Confirm Assignment">
         <div className="space-y-4">
           {selectedApplicant && (
-            <div className="bg-slate-50 rounded-lg p-4">
+            <div className="bg-slate-50 rounded-lg p-3 sm:p-4">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
-                  <span className="text-lg font-bold text-white">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center flex-shrink-0">
+                  <span className="text-base sm:text-lg font-bold text-white">
                     {selectedApplicant.ens?.[0].toUpperCase()}
                   </span>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900">{selectedApplicant.ens}</h3>
-                  <p className="text-sm text-slate-600">{selectedApplicant.address}</p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-slate-900 truncate">{selectedApplicant.ens}</h3>
+                  <p className="text-xs sm:text-sm text-slate-600 font-mono truncate">{selectedApplicant.address}</p>
                 </div>
               </div>
-              <p className="text-sm text-slate-600">{selectedApplicant.coverLetter}</p>
+              <p className="text-xs sm:text-sm text-slate-600">{selectedApplicant.coverLetter}</p>
             </div>
           )}
 
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-            <p className="text-sm text-emerald-800">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 sm:p-4">
+            <p className="text-xs sm:text-sm text-emerald-800">
               <strong>Important:</strong> Once assigned, the freelancer will be able to start working on KPIs.
               You can only reassign after project cancellation.
             </p>
           </div>
 
-          <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => setAcceptModalOpen(false)} className="flex-1" disabled={isPending || isConfirming}>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <Button variant="ghost" onClick={() => setAcceptModalOpen(false)} className="w-full sm:flex-1" disabled={isPending || isConfirming}>
               Cancel
             </Button>
-            <Button variant="success" onClick={confirmAssignment} className="flex-1" disabled={isPending || isConfirming}>
+            <Button variant="success" onClick={confirmAssignment} className="w-full sm:flex-1" disabled={isPending || isConfirming}>
               {isPending || isConfirming ? (
                 <span className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
