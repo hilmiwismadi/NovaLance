@@ -35,7 +35,8 @@
       "Bash(echo:*)",
       "Bash(tree:*)",
       "Bash(tasklist:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
@@ -85,6 +85,9 @@ export default function POApplicationsPage() {
   const [applicants, setApplicants] = useState<ApplicantWithStatus[]>(
     mockApplicants.map(a => ({ ...a, status: 'pending' }))
   );
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [activeDotIndex, setActiveDotIndex] = useState(0);
+  const CARD_WIDTH = 336; // w-80 (320px) + gap (16px)
 
   // Smart contract hooks
   const { assign, isPending, error, hash, isSuccess } = useAssignFreelancer();
@@ -100,6 +103,11 @@ export default function POApplicationsPage() {
   const pendingApplicants = applicants.filter(a => a.status === 'pending');
   const keptApplicants = applicants.filter(a => a.status === 'kept');
   const rejectedApplicants = applicants.filter(a => a.status === 'rejected');
+
+  // Create endless loop by duplicating cards (5 sets for smooth infinite scroll)
+  const loopedApplicants = pendingApplicants.length > 0
+    ? [...pendingApplicants, ...pendingApplicants, ...pendingApplicants, ...pendingApplicants, ...pendingApplicants]
+    : [];
 
   useEffect(() => {
     setMounted(true);
@@ -131,6 +139,31 @@ export default function POApplicationsPage() {
       showTransactionError(hash || '0x0', error, 'Failed to assign freelancer');
     }
   }, [error, hash]);
+
+  // Detect centered card in carousel
+  useEffect(() => {
+    if (!carouselRef.current || pendingApplicants.length === 0) return;
+
+    const carousel = carouselRef.current;
+    const handleScroll = () => {
+      const scrollLeft = carousel.scrollLeft;
+      const centerIndex = Math.round(scrollLeft / CARD_WIDTH) % pendingApplicants.length;
+
+      // Update active dot for pagination
+      setActiveDotIndex(centerIndex);
+    };
+
+    carousel.addEventListener('scroll', handleScroll);
+    return () => carousel.removeEventListener('scroll', handleScroll);
+  }, [pendingApplicants.length, CARD_WIDTH]);
+
+  // Initialize carousel to start at the second set
+  useEffect(() => {
+    if (carouselRef.current && pendingApplicants.length > 0) {
+      const startScroll = pendingApplicants.length * CARD_WIDTH;
+      carouselRef.current.scrollTo({ left: startScroll, behavior: 'instant' as ScrollBehavior });
+    }
+  }, [pendingApplicants.length, CARD_WIDTH]);
 
   const handleSwipe = (applicantAddress: string, direction: 'left' | 'right') => {
     setApplicants(prev =>
@@ -300,22 +333,134 @@ export default function POApplicationsPage() {
             </div>
           </Card>
 
-          {/* Layer 1: Pending Applicants - Swipeable Cards */}
+          {/* Pending Applicants - Swipeable Carousel */}
           {pendingApplicants.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-amber-500"></div>
                 Review Applicants ({pendingApplicants.length})
+                <span className="text-xs text-slate-500 font-normal">• Swipe to review</span>
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                {pendingApplicants.map((applicant) => (
-                  <SwipeableApplicantCard
-                    key={applicant.address}
-                    applicant={applicant}
-                    onSwipe={(direction) => handleSwipe(applicant.address, direction)}
-                    onAccept={() => handleAcceptApplicant(applicant, role.id)}
-                  />
-                ))}
+
+              {/* Carousel Container */}
+              <div className="relative -mx-2 px-2">
+                <style jsx>{`
+                  .carousel-container::-webkit-scrollbar {
+                    display: none;
+                  }
+                  .carousel-container {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                    scroll-behavior: smooth;
+                  }
+                `}</style>
+                <div
+                  ref={carouselRef}
+                  className="carousel-container flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory scroll-smooth"
+                  style={{ scrollPadding: '0 calc(50% - 160px)' }}
+                >
+                  {/* Render looped applicants for endless scroll */}
+                  {loopedApplicants.map((applicant, index) => {
+                    const baseIndex = index % pendingApplicants.length;
+                    return (
+                      <div
+                        key={`${applicant.address}-${index}`}
+                        className="flex-shrink-0 w-80 snap-center"
+                        data-applicant-index={baseIndex}
+                      >
+                        {/* Applicant Card - Simple static card like portfolio page */}
+                        <Card className="p-4 sm:p-5 border-2 transition-all duration-300 hover:shadow-lg">
+                          <div className="flex flex-col gap-3">
+                            {/* Header */}
+                            <div className="flex items-start gap-3">
+                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center flex-shrink-0">
+                                <span className="text-lg font-bold text-white">
+                                  {applicant.ens?.[0].toUpperCase() || applicant.address.slice(0, 2).toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-base font-semibold text-slate-900 truncate">{applicant.ens || applicant.address.slice(0, 10)}</h3>
+                                <p className="text-xs text-slate-500 font-mono truncate">{applicant.address}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex items-center gap-1">
+                                    <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                    <span className="text-xs font-semibold text-slate-700">{applicant.rating}</span>
+                                  </div>
+                                  <span className="text-xs text-slate-500">•</span>
+                                  <span className="text-xs text-slate-600">{applicant.completedProjects} projects</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Cover Letter */}
+                            <p className="text-xs sm:text-sm text-slate-600 line-clamp-2">{applicant.coverLetter}</p>
+
+                            {/* Skills */}
+                            <div className="flex flex-wrap gap-1">
+                              {applicant.skills.slice(0, 4).map((skill) => (
+                                <span key={skill} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
+                                  {skill}
+                                </span>
+                              ))}
+                              {applicant.skills.length > 4 && (
+                                <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
+                                  +{applicant.skills.length - 4}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </Card>
+
+                        {/* Reject/Keep Buttons */}
+                        <div className="flex gap-2 mt-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSwipe(applicant.address, 'left')}
+                            className="flex-1 border-red-200 text-red-600 hover:bg-red-50 transition-all duration-200"
+                          >
+                            Reject
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleSwipe(applicant.address, 'right')}
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 transition-all duration-200"
+                          >
+                            Keep
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Stripe pagination dots */}
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  {pendingApplicants.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        if (carouselRef.current) {
+                          // Calculate target scroll to the middle set (2nd set)
+                          const targetScroll = (index * CARD_WIDTH) + (pendingApplicants.length * CARD_WIDTH);
+                          carouselRef.current.scrollTo({
+                            left: targetScroll,
+                            behavior: 'smooth'
+                          });
+                        }
+                      }}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        activeDotIndex === index
+                          ? 'w-8 bg-brand-500 shadow-md'
+                          : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                      }`}
+                      aria-label={`Go to applicant ${index + 1}`}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -395,161 +540,6 @@ export default function POApplicationsPage() {
           </div>
         </div>
       </Modal>
-    </div>
-  );
-}
-
-// Swipeable Applicant Card Component
-interface SwipeableApplicantCardProps {
-  applicant: ApplicantWithStatus;
-  onSwipe: (direction: 'left' | 'right') => void;
-  onAccept: () => void;
-}
-
-function SwipeableApplicantCard({ applicant, onSwipe, onAccept }: SwipeableApplicantCardProps) {
-  const [dragStart, setDragStart] = useState<number | null>(null);
-  const [dragOffset, setDragOffset] = useState(0);
-  const cardRef = useRef<HTMLDivElement>(null);
-
-  const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    setDragStart(clientX);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (dragStart === null) return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const offset = clientX - dragStart;
-    setDragOffset(Math.max(-150, Math.min(150, offset)));
-  };
-
-  const handleTouchEnd = () => {
-    if (Math.abs(dragOffset) > 75) {
-      onSwipe(dragOffset > 0 ? 'right' : 'left');
-    }
-    setDragStart(null);
-    setDragOffset(0);
-  };
-
-  return (
-    <div
-      ref={cardRef}
-      className="relative touch-none select-none"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onMouseDown={handleTouchStart}
-      onMouseMove={handleTouchMove}
-      onMouseUp={handleTouchEnd}
-      onMouseLeave={handleTouchEnd}
-    >
-      {/* Background indicators */}
-      <div className="absolute inset-0 rounded-2xl overflow-hidden">
-        <div
-          className={`absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center transition-opacity ${
-            dragOffset > 30 ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-        </div>
-        <div
-          className={`absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center transition-opacity ${
-            dragOffset < -30 ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      {/* Card */}
-      <Card
-        className="p-4 sm:p-5 transition-all duration-300 border-2 hover:shadow-lg"
-        style={{
-          transform: `translateX(${dragOffset}px) rotate(${dragOffset * 0.05}deg)`,
-          opacity: 1 - Math.abs(dragOffset) / 300,
-        }}
-      >
-        <div className="flex flex-col gap-3">
-          {/* Header */}
-          <div className="flex items-start gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-lg font-bold text-white">
-                {applicant.ens?.[0].toUpperCase() || applicant.address.slice(0, 2).toUpperCase()}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base font-semibold text-slate-900 truncate">{applicant.ens || applicant.address.slice(0, 10)}</h3>
-              <p className="text-xs text-slate-500 font-mono truncate">{applicant.address}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <div className="flex items-center gap-1">
-                  <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                  <span className="text-xs font-semibold text-slate-700">{applicant.rating}</span>
-                </div>
-                <span className="text-xs text-slate-500">•</span>
-                <span className="text-xs text-slate-600">{applicant.completedProjects} projects</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Cover Letter */}
-          <p className="text-xs sm:text-sm text-slate-600 line-clamp-2">{applicant.coverLetter}</p>
-
-          {/* Skills */}
-          <div className="flex flex-wrap gap-1">
-            {applicant.skills.slice(0, 4).map((skill) => (
-              <span key={skill} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
-                {skill}
-              </span>
-            ))}
-            {applicant.skills.length > 4 && (
-              <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md">
-                +{applicant.skills.length - 4}
-              </span>
-            )}
-          </div>
-
-          {/* Action Buttons - Desktop fallback */}
-          <div className="hidden sm:flex gap-2 pt-2 border-t border-slate-100">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onSwipe('left')}
-              className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
-            >
-              Reject
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => onSwipe('right')}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-            >
-              Keep
-            </Button>
-          </div>
-
-          {/* Mobile hint */}
-          <div className="sm:hidden flex items-center justify-center gap-2 pt-2 border-t border-slate-100">
-            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
-            </svg>
-            <span className="text-xs text-slate-500">Swipe to review</span>
-            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }

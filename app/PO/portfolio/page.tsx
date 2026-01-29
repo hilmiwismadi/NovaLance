@@ -76,14 +76,30 @@ interface ChartDataPoint {
   yieldRate: number;
 }
 
+// Simple seeded random number generator
+const seededRandom = (seed: number) => {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
+
 // Generate chart data for a specific KPI deposit
-const generateKPIChartData = (depositAmount: number, depositDate: string, currentYield: number): ChartDataPoint[] => {
+const generateKPIChartData = (depositAmount: number, depositDate: string, currentYield: number, kpiId: string): ChartDataPoint[] => {
   const data: ChartDataPoint[] = [];
   const startDate = new Date(depositDate);
   const lpAmount = depositAmount * 0.1;
   let cumulativeYield = 0;
 
+  // Create a numeric seed from the KPI ID for consistent unique patterns
+  const seed = kpiId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
   const days = Math.min(16, Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+  // Unique volatility parameters for each KPI based on seed
+  const baseFrequency = 0.5 + (seededRandom(seed) * 0.6); // 0.5 to 1.1
+  const volatilityAmplitude = 0.3 + (seededRandom(seed + 1) * 0.5); // 0.3 to 0.8
+  const randomNoise = 0.2 + (seededRandom(seed + 2) * 0.5); // 0.2 to 0.7
+  const dipDay1 = Math.floor(seededRandom(seed + 3) * 8); // Random day for first dip
+  const dipDay2 = Math.floor(seededRandom(seed + 4) * 8) + 8; // Random day for second dip
 
   for (let i = 0; i < days; i++) {
     const date = new Date(startDate);
@@ -91,19 +107,20 @@ const generateKPIChartData = (depositAmount: number, depositDate: string, curren
 
     const dailyYield = (lpAmount * (8 / 100)) / 365;
 
-    // Add market volatility
-    const volatility = Math.sin(i * 0.8) * 0.15 + (Math.random() - 0.5) * 0.25;
-    const marketMultiplier = 0.6 + volatility;
+    // Add market volatility - unique pattern for each KPI based on seed
+    const volatility = Math.sin(i * baseFrequency) * volatilityAmplitude + (seededRandom(seed + i * 7) - 0.5) * randomNoise;
+    const marketMultiplier = 1 + volatility; // Can go negative, creating real declines
 
-    // Simulate market corrections
+    // Simulate market corrections at unique days for each KPI
     let correction = 1;
-    if (i === 5 || i === 11) {
-      correction = 0.7;
-    } else if (i === 6 || i === 12) {
-      correction = 1.15;
+    if (i === dipDay1 || i === dipDay2) {
+      correction = -0.2 - (seededRandom(seed + i) * 0.3); // Random dip strength
+    } else if (i === dipDay1 + 1 || i === dipDay2 + 1) {
+      correction = 1.3 + (seededRandom(seed + i) * 0.5); // Random recovery strength
     }
 
-    cumulativeYield = Math.max(0, Math.round(cumulativeYield + (dailyYield * marketMultiplier * correction)));
+    const change = dailyYield * marketMultiplier * correction;
+    cumulativeYield = Math.max(0, Math.round(cumulativeYield + change));
 
     const overallYieldRate = lpAmount > 0 ? (cumulativeYield / lpAmount) * 100 : 0;
 
@@ -139,21 +156,21 @@ const generateAggregateChartData = (): ChartDataPoint[] => {
     const lpAmount = totalDeposited * 0.1;
     const dailyYield = (lpAmount * (8 / 100)) / 365; // Base 8% APY
 
-    // Add realistic market volatility with ups and downs
-    const trend = i * 0.5;
-    const volatility = Math.sin(i * 0.8) * 0.15 + (Math.random() - 0.5) * 0.25;
-    const marketMultiplier = 0.6 + volatility;
+    // Add realistic market volatility with ups AND downs
+    const trend = Math.sin(i * 0.3) * 0.3; // Creates wave pattern
+    const volatility = Math.sin(i * 0.8) * 0.6 + (Math.random() - 0.5) * 0.7;
+    const marketMultiplier = 1 + volatility; // Can go negative (-0.3 to 2.3), creating real declines
 
     // Simulate market corrections
     let correction = 1;
-    if (i === 5 || i === 11) {
-      correction = 0.7;
-    } else if (i === 6 || i === 12) {
-      correction = 1.15;
+    if (i === 4 || i === 9) {
+      correction = -0.4; // Market dip - subtract from cumulative
+    } else if (i === 5 || i === 10) {
+      correction = 1.8; // Strong recovery
     }
 
-    const newYield = totalYield + (dailyYield * 4 * marketMultiplier * correction);
-    totalYield = Math.max(0, Math.round(newYield + (Math.random() - 0.5) * dailyYield * 2));
+    const change = dailyYield * 4 * marketMultiplier * correction;
+    totalYield = Math.max(0, Math.round(totalYield + change + (Math.random() - 0.5) * dailyYield * 2));
 
     const overallYieldRate = lpAmount > 0 ? (totalYield / lpAmount) * 100 : 0;
 
@@ -234,7 +251,7 @@ export default function POPortfolioPage() {
   useEffect(() => {
     const selectedKpi = selectedKpiId ? mockYieldData.find(item => item.kpiId === selectedKpiId) : null;
     const newChartData = selectedKpiId && selectedKpi
-      ? generateKPIChartData(selectedKpi.depositedAmount, selectedKpi.depositDate, selectedKpi.currentYield)
+      ? generateKPIChartData(selectedKpi.depositedAmount, selectedKpi.depositDate, selectedKpi.currentYield, selectedKpi.kpiId)
       : mockAggregateChartData;
 
     setIsChartTransitioning(true);
