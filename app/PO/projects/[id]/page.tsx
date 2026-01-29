@@ -31,6 +31,7 @@ export default function POProjectDetailPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [selectedKPI, setSelectedKPI] = useState<{ roleIndex: number; kpiIndex: number } | null>(null);
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set());
 
   // Smart contract hooks
@@ -328,69 +329,88 @@ export default function POProjectDetailPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Bar: Back button, Status, Currency */}
-      <div className="flex items-center gap-3">
-        <Link
-          href="/PO/projects"
-          className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-all shadow-sm"
-        >
-          <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </Link>
-
-        <Badge
-          variant={project.status === 'in-progress' ? 'warning' : project.status === 'completed' ? 'success' : 'default'}
-          className="text-sm px-3 py-1"
-        >
-          {project.status === 'in-progress' ? 'Active' : project.status}
-        </Badge>
-
-        {project.currency && (
-          <span className="text-sm text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
-            {project.currency}
-          </span>
-        )}
+    <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 space-y-4 sm:space-y-6">
+      {/* Header - Match applications page style */}
+      <div className="flex items-center justify-between">
+        <div>
+          <Link
+            href="/PO/projects"
+            className="text-xs sm:text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 mb-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Projects
+          </Link>
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">{project.title}</h1>
+            <Badge variant={project.status === 'in-progress' ? 'warning' : project.status === 'completed' ? 'success' : 'default'}>
+              {project.status === 'in-progress' ? 'Active' : project.status}
+            </Badge>
+            {project.currency && (
+              <span className="text-[10px] sm:text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                {project.currency}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Hero Header Section */}
-      <Card className="relative overflow-hidden bg-gradient-to-br from-brand-500/10 via-brand-400/5 to-slate-50">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-
-        <div className="relative p-6 md:p-8">
-          {/* Title */}
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-3">
-            {project.title}
-          </h1>
-
-          {/* Description */}
-          <p className="text-slate-600 text-sm md:text-base leading-relaxed max-w-3xl">
-            {project.description}
-          </p>
-
-          {/* Quick stats */}
-          <div className="flex flex-wrap gap-6 mt-6 pt-6 border-t border-slate-200/60">
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide">Total Budget</p>
-              <p className="text-lg font-bold text-brand-600">
-                <CurrencyDisplay amount={formatCurrency(project.totalBudget, project.currency)} currency={project.currency} />
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide">Team Roles</p>
-              <p className="text-lg font-bold text-slate-900">{project.roles.length}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide">Hired</p>
-              <p className="text-lg font-bold text-emerald-600">{hiredRoles.length}</p>
-            </div>
+      {/* Project Overview Card */}
+      <Card className="p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-brand-50/30 border-brand-200/30">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Total Budget</p>
+            <p className="text-base sm:text-lg font-bold text-brand-600">
+              <CurrencyDisplay amount={formatCurrency(project.totalBudget, project.currency)} currency={project.currency} />
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Team Roles</p>
+            <p className="text-base sm:text-lg font-bold text-slate-900">{project.roles.length}</p>
+          </div>
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Hired</p>
+            <p className="text-base sm:text-lg font-bold text-emerald-600">{hiredRoles.length}</p>
+          </div>
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Hiring</p>
+            <p className="text-base sm:text-lg font-bold text-amber-600">{hiringRoles.length}</p>
           </div>
         </div>
       </Card>
 
-      {/* Timeline Card with animated arrow */}
-      <Card className="p-5 bg-gradient-to-r from-slate-50 to-brand-50/30 border-brand-200/30">
+      {/* Description Card - Collapsible */}
+      <Card className="p-4 sm:p-5">
+        <button
+          onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+          className="w-full flex items-center justify-between text-left"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">About This Project</h3>
+              <p className="text-xs text-slate-500">Description & details</p>
+            </div>
+          </div>
+          <svg className={`w-4 h-4 text-slate-400 transition-transform ${descriptionExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        {descriptionExpanded && (
+          <div className="mt-4 pt-4 border-t border-slate-200">
+            <p className="text-sm text-slate-600 leading-relaxed">{project.description}</p>
+          </div>
+        )}
+      </Card>
+
+      {/* Timeline Card */}
+      <Card className="p-4 sm:p-5 bg-gradient-to-r from-slate-50 to-brand-50/30 border-brand-200/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center">
@@ -399,10 +419,10 @@ export default function POProjectDetailPage() {
               </svg>
             </div>
             <div>
-              <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Project Timeline</p>
+              <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Project Timeline</p>
               <div className="flex items-center gap-2 mt-0.5">
                 {project.startDate && (
-                  <span className="text-sm font-semibold text-slate-900">
+                  <span className="text-xs sm:text-sm font-semibold text-slate-900">
                     {new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
                 )}
@@ -415,7 +435,7 @@ export default function POProjectDetailPage() {
                       </svg>
                       <div className="w-8 h-0.5 bg-gradient-to-r from-brand-300 to-brand-200 rounded" />
                     </div>
-                    <span className="text-sm font-semibold text-slate-900">
+                    <span className="text-xs sm:text-sm font-semibold text-slate-900">
                       {new Date(project.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
                   </>
@@ -439,7 +459,7 @@ export default function POProjectDetailPage() {
       </Card>
 
       {/* Features Card */}
-      <Card className="p-5">
+      <Card className="p-4 sm:p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">

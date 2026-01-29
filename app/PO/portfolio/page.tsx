@@ -184,6 +184,7 @@ export default function POPortfolioPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [isCardsExpanded, setIsCardsExpanded] = useState(false);
   const [hoveredPoint, setHoveredPoint] = useState<{ point: ChartDataPoint; x: number; y: number } | null>(null);
+  const [activeDotIndex, setActiveDotIndex] = useState(0);
   const chartRef = useRef<HTMLDivElement>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -314,12 +315,15 @@ export default function POPortfolioPage() {
   const avgYieldRate = totalLP > 0 ? (totalYield / totalLP) * 100 : 0;
 
   // Filter cards based on status
-  const filteredCards = mockYieldData.filter(item => {
+  const baseFilteredCards = mockYieldData.filter(item => {
     if (statusFilter === 'all') return true;
     if (statusFilter === 'withdrawable') return item.status === 'approved';
     if (statusFilter === 'in-progress') return item.status === 'in-progress';
     return true;
   });
+
+  // Create endless loop by duplicating cards (need at least 3 cycles for smooth infinite scroll)
+  const filteredCards = [...baseFilteredCards, ...baseFilteredCards, ...baseFilteredCards];
 
   // Detect centered card in carousel
   useEffect(() => {
@@ -329,17 +333,20 @@ export default function POPortfolioPage() {
     const handleScroll = () => {
       const scrollLeft = carousel.scrollLeft;
       const cardWidth = 320 + 16; // w-80 (320px) + gap (16px)
-      const centerIndex = Math.round(scrollLeft / cardWidth);
+      const centerIndex = Math.round(scrollLeft / cardWidth) % baseFilteredCards.length;
+
+      // Update active dot for pagination
+      setActiveDotIndex(centerIndex);
 
       // Auto-select the centered card
-      if (filteredCards[centerIndex]) {
-        setSelectedKpiId(filteredCards[centerIndex].kpiId);
+      if (baseFilteredCards[centerIndex]) {
+        setSelectedKpiId(baseFilteredCards[centerIndex].kpiId);
       }
     };
 
     carousel.addEventListener('scroll', handleScroll);
     return () => carousel.removeEventListener('scroll', handleScroll);
-  }, [isCardsExpanded, filteredCards]);
+  }, [isCardsExpanded, baseFilteredCards]);
 
   const handlePointClick = (point: ChartDataPoint, x: number, y: number, event: React.MouseEvent<SVGGElement>) => {
     event.stopPropagation();
@@ -764,15 +771,23 @@ export default function POPortfolioPage() {
             </div>
             <div className="flex items-center gap-2">
               {/* Filter Dropdown */}
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-200 transition-all cursor-pointer"
-              >
-                <option value="all">All Status</option>
-                <option value="withdrawable">Withdrawable</option>
-                <option value="in-progress">In Progress</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+                  className="appearance-none pl-9 pr-8 py-2 text-sm font-medium rounded-xl border-2 bg-gradient-to-r from-brand-50 to-indigo-50 text-brand-700 border-brand-200 hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 transition-all cursor-pointer shadow-sm"
+                >
+                  <option value="all">All Status</option>
+                  <option value="withdrawable">Withdrawable</option>
+                  <option value="in-progress">In Progress</option>
+                </select>
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
               {/* Expand/Collapse Button */}
               <button
                 onClick={() => setIsCardsExpanded(!isCardsExpanded)}
@@ -789,18 +804,27 @@ export default function POPortfolioPage() {
           {/* Horizontal scroll for collapsed view */}
           {!isCardsExpanded ? (
             <div className="relative -mx-6 px-6">
+              <style jsx>{`
+                .no-scrollbar::-webkit-scrollbar {
+                  display: none;
+                }
+                .no-scrollbar {
+                  -ms-overflow-style: none;
+                  scrollbar-width: none;
+                }
+              `}</style>
               <div
                 ref={carouselRef}
-                className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 scroll-smooth"
+                className="flex gap-4 overflow-x-auto pb-6 snap-x snap-mandatory scroll-smooth no-scrollbar"
                 style={{ scrollPadding: '0 calc(50% - 160px)' }}
               >
-                {filteredCards.map((item) => {
+                {filteredCards.map((item, index) => {
                   const isPositive = item.yieldRate >= 0;
                   const isWithdrawable = item.status === 'approved';
 
                   return (
                     <div
-                      key={item.kpiId}
+                      key={`${item.kpiId}-${index}`}
                       className={`flex-shrink-0 w-80 p-4 rounded-xl border-2 transition-all duration-300 snap-center ${
                         isWithdrawable
                           ? 'bg-emerald-50 border-emerald-200'
@@ -852,16 +876,39 @@ export default function POPortfolioPage() {
                   );
                 })}
               </div>
+
+              {/* Pagination dots/strip */}
+              <div className="flex items-center justify-center gap-2 mt-2">
+                {baseFilteredCards.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      if (carouselRef.current) {
+                        const targetScroll = index * (320 + 16);
+                        carouselRef.current.scrollTo({
+                          left: targetScroll,
+                          behavior: 'smooth'
+                        });
+                      }
+                    }}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      activeDotIndex === index
+                        ? 'w-8 bg-brand-500 shadow-md'
+                        : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                    }`}
+                    aria-label={`Go to card ${index + 1}`}
+                  />
+                ))}
+              </div>
             </div>
           ) : (
-            /* Expanded view - vertical list */
             <div className="space-y-4">
               {filteredCards.map((item) => {
-              const isPositive = item.yieldRate >= 0;
-              const isWithdrawable = item.status === 'approved';
-              const isSelected = selectedKpiId === item.kpiId;
+                const isPositive = item.yieldRate >= 0;
+                const isWithdrawable = item.status === 'approved';
+                const isSelected = selectedKpiId === item.kpiId;
 
-              return (
+                return (
                 <div
                   key={item.kpiId}
                   onClick={() => handleCardClick(item.kpiId)}
