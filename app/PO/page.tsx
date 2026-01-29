@@ -6,6 +6,7 @@ import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { POProject, mockPOProjects, calculateProjectProgress as calculateProjectProgressUtil, formatCurrency } from '@/lib/mockData';
 
 // Track expansion state for each project, role, and KPI
@@ -365,15 +366,21 @@ export default function PODashboard() {
           {/* Current Progress Summary */}
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="bg-slate-50 rounded-xl p-3 text-center">
-              <p className="text-sm font-bold text-slate-800">{formatCurrency(totalDeposited, 'IDRX')}</p>
+              <p className="text-sm font-bold text-slate-800 inline-flex items-center justify-center gap-1">
+                <CurrencyDisplay amount={formatCurrency(totalDeposited, 'IDRX')} currency="IDRX" />
+              </p>
               <p className="text-xs text-slate-600">Deposited</p>
             </div>
             <div className="bg-blue-50 rounded-xl p-3 text-center">
-              <p className="text-sm font-bold text-blue-700">{formatCurrency(totalLP, 'IDRX')}</p>
+              <p className="text-sm font-bold text-blue-700 inline-flex items-center justify-center gap-1">
+                <CurrencyDisplay amount={formatCurrency(totalLP, 'IDRX')} currency="IDRX" />
+              </p>
               <p className="text-xs text-blue-600">LP (10%)</p>
             </div>
             <div className="bg-emerald-50 rounded-xl p-3 text-center">
-              <p className="text-sm font-bold text-emerald-700">{formatCurrency(totalYield, 'IDRX')}</p>
+              <p className="text-sm font-bold text-emerald-700 inline-flex items-center justify-center gap-1">
+                <CurrencyDisplay amount={formatCurrency(totalYield, 'IDRX')} currency="IDRX" />
+              </p>
               <p className="text-xs text-emerald-600">Total Yield</p>
             </div>
           </div>
@@ -499,20 +506,20 @@ export default function PODashboard() {
                                         {/* 3-Box Breakdown */}
                                         <div className="grid grid-cols-3 gap-1.5 mb-2">
                                           <div className={`rounded-lg p-2 text-center ${isOnGoing ? 'bg-amber-50' : 'bg-slate-50'}`}>
-                                            <p className={`text-xs font-bold truncate ${isOnGoing ? 'text-amber-800' : 'text-slate-800'}`}>
-                                              {formatCurrency(kpiAmount, 'IDRX')}
+                                            <p className={`text-xs font-bold truncate ${isOnGoing ? 'text-amber-800' : 'text-slate-800'} inline-flex items-center justify-center gap-1`}>
+                                              <CurrencyDisplay amount={formatCurrency(kpiAmount, 'IDRX')} currency="IDRX" />
                                             </p>
                                             <p className={`text-[10px] ${isOnGoing ? 'text-amber-600' : 'text-slate-600'}`}>Deposited</p>
                                           </div>
                                           <div className="bg-blue-50 rounded-lg p-2 text-center">
-                                            <p className="text-xs font-bold text-blue-700 truncate">
-                                              {formatCurrency(lpKpiDeposit, 'IDRX')}
+                                            <p className="text-xs font-bold text-blue-700 truncate inline-flex items-center justify-center gap-1">
+                                              <CurrencyDisplay amount={formatCurrency(lpKpiDeposit, 'IDRX')} currency="IDRX" />
                                             </p>
                                             <p className="text-[10px] text-blue-600">LP (10%)</p>
                                           </div>
                                           <div className={`rounded-lg p-2 text-center ${getYieldBgColor(yieldRate * 100)}`}>
-                                            <p className={`text-xs font-bold truncate ${getYieldColor(yieldRate * 100)}`}>
-                                              {formatCurrency(kpiYield, 'IDRX')}
+                                            <p className={`text-xs font-bold truncate ${getYieldColor(yieldRate * 100)} inline-flex items-center justify-center gap-1`}>
+                                              <CurrencyDisplay amount={formatCurrency(kpiYield, 'IDRX')} currency="IDRX" />
                                             </p>
                                             <p className={`text-[10px] ${getYieldColor(yieldRate * 100)}`}>Yield</p>
                                           </div>
@@ -627,8 +634,8 @@ export default function PODashboard() {
                       <span className="text-slate-600">
                         {hiredRoles} hired, {hiringRoles} open
                       </span>
-                      <span className="font-semibold text-brand-600">
-                        {formatCurrency(project.totalBudget, 'IDRX')}
+                      <span className="font-semibold text-brand-600 inline-flex items-center gap-1">
+                        <CurrencyDisplay amount={formatCurrency(project.totalBudget, 'IDRX')} currency="IDRX" />
                       </span>
                     </div>
                   </Card>

@@ -8,6 +8,7 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { getPOProjectById, formatCurrency } from '@/lib/mockData';
 import { useDepositKPI, useApproveKPI, useCancelProject, useTransactionWait } from '@/lib/hooks';
 import {
@@ -373,7 +374,7 @@ export default function POProjectDetailPage() {
             <div>
               <p className="text-xs text-slate-500 uppercase tracking-wide">Total Budget</p>
               <p className="text-lg font-bold text-brand-600">
-                {formatCurrency(project.totalBudget, project.currency)}
+                <CurrencyDisplay amount={formatCurrency(project.totalBudget, project.currency)} currency={project.currency} />
               </p>
             </div>
             <div>
@@ -559,7 +560,7 @@ export default function POProjectDetailPage() {
                     <div className="flex flex-col items-end gap-1">
                       <p className="text-xs text-slate-500">Budget</p>
                       <p className="text-base sm:text-lg font-bold text-brand-600">
-                        {formatCurrency(role.budget, 'IDRX')}
+                        <CurrencyDisplay amount={formatCurrency(role.budget, 'IDRX')} currency="IDRX" />
                       </p>
                     </div>
                   </div>
@@ -730,8 +731,8 @@ export default function POProjectDetailPage() {
               {project.roles.map((role, i) => (
                 <div key={role.id} className="flex justify-between text-sm">
                   <span className="text-slate-600 truncate mr-2">{role.title || `Role ${i + 1}`}</span>
-                  <span className="font-medium text-slate-900 flex-shrink-0">
-                    {formatCurrency(role.budget, 'IDRX')}
+                  <span className="font-medium text-slate-900 flex-shrink-0 inline-flex items-center gap-1">
+                    <CurrencyDisplay amount={formatCurrency(role.budget, 'IDRX')} currency="IDRX" />
                   </span>
                 </div>
               ))}
@@ -739,7 +740,7 @@ export default function POProjectDetailPage() {
             <div className="pt-3 border-t border-slate-200 flex justify-between">
               <span className="font-semibold text-slate-900">Total</span>
               <span className="text-lg font-bold text-brand-600">
-                {formatCurrency(project.totalBudget, 'IDRX')}
+                <CurrencyDisplay amount={formatCurrency(project.totalBudget, 'IDRX')} currency="IDRX" />
               </span>
             </div>
 
@@ -803,17 +804,23 @@ export default function POProjectDetailPage() {
           <div className="bg-slate-50 rounded-lg p-4 space-y-3">
             <div className="flex justify-between">
               <span className="text-sm text-slate-600">Total project budget:</span>
-              <span className="font-semibold text-slate-900">{formatCurrency(project.totalBudget, project.currency)}</span>
+              <span className="font-semibold text-slate-900 inline-flex items-center gap-1">
+                <CurrencyDisplay amount={formatCurrency(project.totalBudget, project.currency)} currency={project.currency} />
+              </span>
             </div>
 
             <div className="border-t border-slate-200 pt-3">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-slate-600">Vault (Escrow - 90%):</span>
-                <span className="font-semibold text-brand-600">{formatCurrency(project.totalBudget * 0.9, project.currency)}</span>
+                <span className="font-semibold text-brand-600 inline-flex items-center gap-1">
+                  <CurrencyDisplay amount={formatCurrency(project.totalBudget * 0.9, project.currency)} currency={project.currency} />
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-slate-600">LP Allocation (10%):</span>
-                <span className="font-semibold text-blue-600">{formatCurrency(project.totalBudget * 0.1, project.currency)}</span>
+                <span className="font-semibold text-blue-600 inline-flex items-center gap-1">
+                  <CurrencyDisplay amount={formatCurrency(project.totalBudget * 0.1, project.currency)} currency={project.currency} />
+                </span>
               </div>
             </div>
 
@@ -923,7 +930,9 @@ export default function POProjectDetailPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Vault Refund (90%):</span>
-                  <span className="font-semibold text-brand-600">{formatCurrency(project.totalBudget * 0.9, project.currency)}</span>
+                  <span className="font-semibold text-brand-600 inline-flex items-center gap-1">
+                    <CurrencyDisplay amount={formatCurrency(project.totalBudget * 0.9, project.currency)} currency={project.currency} />
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">LP Allocation (10%):</span>

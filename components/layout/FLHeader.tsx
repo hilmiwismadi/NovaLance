@@ -19,6 +19,7 @@ interface FLHeaderProps {
 export default function FLHeader({ navItems }: FLHeaderProps) {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -68,10 +69,61 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
           </nav>
 
           {/* Right side - Role Switcher, Notification & Profile */}
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <RoleSwitcher variant="header" />
             <NotificationBell />
 
+            {/* Mobile Menu Button */}
+            <div className="relative md:hidden">
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                aria-label="Toggle menu"
+              >
+                <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {showMobileMenu ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
+
+              {/* Mobile Menu Dropdown */}
+              {showMobileMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowMobileMenu(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-80 glass-card z-20 bg-white/90">
+                    <div className="p-4 border-b border-slate-200">
+                      <h3 className="font-semibold text-slate-800">Quick Actions</h3>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {/* Profile */}
+                      <Link
+                        href="/FL/profile"
+                        onClick={() => setShowMobileMenu(false)}
+                        className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+                          <span className="text-sm font-bold text-white">
+                            {userInitial}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-800">{userDisplay}</p>
+                          <p className="text-xs text-slate-500">View Profile</p>
+                        </div>
+                      </Link>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Profile - Desktop */}
             <Link href="/FL/profile" className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/60 border border-slate-200 shadow-sm hover:bg-white/80 transition-colors">
               <div className="w-6 h-6 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
                 <span className="text-xs font-bold text-white">

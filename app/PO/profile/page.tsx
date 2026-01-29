@@ -6,6 +6,7 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import WalletConnectModal from '@/components/auth/WalletConnectModal';
+import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { mockUser, mockPOProjects, calculateProjectProgress, formatCurrency } from '@/lib/mockData';
 
 // Get projects owned by current user
@@ -258,10 +259,13 @@ export default function POProfilePage() {
           <p className="text-xs text-slate-600">Roles Hired</p>
         </div>
         <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-xl p-3 sm:p-4 text-center border border-amber-200/50">
-          <p className="text-xl sm:text-2xl font-bold text-amber-600">
-            {ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0) > 0
-              ? formatCurrency(ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0), 'IDRX').split(',')[0]
-              : '0'}
+          <p className="text-xl sm:text-2xl font-bold text-amber-600 inline-flex items-center justify-center gap-1">
+            {ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0) > 0 ? (
+              <CurrencyDisplay
+                amount={formatCurrency(ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0), 'IDRX').split(',')[0]}
+                currency="IDRX"
+              />
+            ) : '0'}
           </p>
           <p className="text-xs text-slate-600">Total Budget</p>
         </div>
@@ -317,8 +321,8 @@ export default function POProfilePage() {
                     <div className="flex items-center justify-between text-xs text-slate-600">
                       <span>{project.roles.length} role{project.roles.length > 1 ? 's' : ''}</span>
                       <span>{hiredRoles} hired</span>
-                      <span className="font-semibold text-brand-600">
-                        {formatCurrency(project.totalBudget, 'IDRX')}
+                      <span className="font-semibold text-brand-600 inline-flex items-center gap-1">
+                        <CurrencyDisplay amount={formatCurrency(project.totalBudget, 'IDRX')} currency="IDRX" />
                       </span>
                     </div>
                   </Card>
@@ -359,8 +363,8 @@ export default function POProfilePage() {
                 <div className="flex items-center justify-between text-xs text-slate-600 pt-2 border-t border-slate-200">
                   <span>{project.roles.length} role{project.roles.length > 1 ? 's' : ''}</span>
                   <span>All positions filled</span>
-                  <span className="font-semibold text-emerald-600">
-                    {formatCurrency(project.totalBudget, 'IDRX')}
+                  <span className="font-semibold text-emerald-600 inline-flex items-center gap-1">
+                    <CurrencyDisplay amount={formatCurrency(project.totalBudget, 'IDRX')} currency="IDRX" />
                   </span>
                 </div>
               </Card>
@@ -380,10 +384,13 @@ export default function POProfilePage() {
           <p className="text-xs text-slate-600">Roles Hired</p>
         </div>
         <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-xl p-3 sm:p-4 text-center border border-amber-200/50">
-          <p className="text-xl sm:text-2xl font-bold text-amber-600">
-            {ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0) > 0
-              ? formatCurrency(ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0), 'IDRX').split(',')[0]
-              : '0'}
+          <p className="text-xl sm:text-2xl font-bold text-amber-600 inline-flex items-center justify-center gap-1">
+            {ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0) > 0 ? (
+              <CurrencyDisplay
+                amount={formatCurrency(ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0), 'IDRX').split(',')[0]}
+                currency="IDRX"
+              />
+            ) : '0'}
           </p>
           <p className="text-xs text-slate-600">Total Budget</p>
         </div>

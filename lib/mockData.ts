@@ -724,12 +724,30 @@ export function calculateProjectProgress(project: POProject): number {
 
 export function formatCurrency(amount: number, currency: string): string {
   if (currency === 'IDRX') {
+    // Format as number only, logo will be added separately
     return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
   }
   return `${new Intl.NumberFormat('en-US').format(amount)} ${currency}`;
+}
+
+// Get the formatted amount with currency info for display with logo
+export function formatCurrencyWithSymbol(amount: number, currency: string): { amount: string; symbol: string; isLogo: boolean } {
+  if (currency === 'IDRX') {
+    return {
+      amount: new Intl.NumberFormat('id-ID', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount),
+      symbol: 'IDRX',
+      isLogo: true,
+    };
+  }
+  return {
+    amount: new Intl.NumberFormat('en-US').format(amount),
+    symbol: currency,
+    isLogo: false,
+  };
 }

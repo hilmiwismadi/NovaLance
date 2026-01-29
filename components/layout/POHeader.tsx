@@ -25,6 +25,7 @@ export default function POHeader({ navItems }: POHeaderProps) {
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -123,11 +124,118 @@ export default function POHeader({ navItems }: POHeaderProps) {
           </nav>
 
           {/* Right side - Role Switcher, Notification & Profile */}
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <RoleSwitcher variant="header" />
             <NotificationBell />
 
-            {/* Wallet Connection Button */}
+            {/* Mobile Menu Button */}
+            <div className="relative md:hidden">
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                aria-label="Toggle menu"
+              >
+                <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {showMobileMenu ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
+
+              {/* Mobile Menu Dropdown */}
+              {showMobileMenu && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowMobileMenu(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-80 glass-card z-20 bg-white/90">
+                    <div className="p-4 border-b border-slate-200">
+                      <h3 className="font-semibold text-slate-800">Quick Actions</h3>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {/* Wallet Connection */}
+                      {walletConnected ? (
+                        <button
+                          onClick={handleDisconnectWallet}
+                          className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                            <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
+                              <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          </div>
+                          <div className="flex-1 text-left">
+                            <p className="text-sm font-medium text-slate-800">Wallet Connected</p>
+                            <p className="text-xs text-slate-500">{formatWalletAddress(walletAddress)}</p>
+                          </div>
+                          <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setShowWalletModal(true);
+                            setShowMobileMenu(false);
+                          }}
+                          className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                            <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1 text-left">
+                            <p className="text-sm font-medium text-slate-800">Connect Wallet</p>
+                            <p className="text-xs text-slate-500">Connect to earn yield</p>
+                          </div>
+                        </button>
+                      )}
+
+                      {/* Profile */}
+                      <Link
+                        href="/PO/profile"
+                        onClick={() => setShowMobileMenu(false)}
+                        className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+                          <span className="text-sm font-bold text-white">
+                            {userInitial}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-slate-800">{displayUsername}</p>
+                          <p className="text-xs text-slate-500">View Profile</p>
+                        </div>
+                      </Link>
+
+                      {/* Logout */}
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 p-4 hover:bg-red-50 transition-colors"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                          <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-medium text-red-600">Logout</p>
+                          <p className="text-xs text-slate-500">Sign out of your account</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Wallet Connection Button - Desktop */}
             {walletConnected ? (
               <button
                 onClick={handleDisconnectWallet}
@@ -159,6 +267,7 @@ export default function POHeader({ navItems }: POHeaderProps) {
               </button>
             )}
 
+            {/* Profile - Desktop */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/60 border border-slate-200 shadow-sm">
               <Link href="/PO/profile" className="flex items-center gap-2 hover:bg-white/80 rounded-full transition-colors">
                 <div className="w-6 h-6 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">

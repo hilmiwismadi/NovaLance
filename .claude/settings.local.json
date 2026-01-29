@@ -34,7 +34,8 @@
       "Bash(npm ci:*)",
       "Bash(echo:*)",
       "Bash(tree:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)"
     ]
   }
 }
