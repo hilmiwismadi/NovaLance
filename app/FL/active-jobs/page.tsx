@@ -19,7 +19,7 @@ import {
 
 // Filter projects where user has active roles
 const activeJobs = mockPOProjects.filter(p =>
-  p.roles.some(r => r.assignedTo && r.assignedTo.toLowerCase() === '0x1234567890abcdef1234567890abcdef12345678'.toLowerCase() && r.status === 'in-progress')
+  p.roles.some(r => r.assignedTo && r.assignedTo.toLowerCase() === '0x1234567890abcdef1234567890abcdef12345678'.toLowerCase() && (r.status === 'in-progress' || r.status === 'hiring'))
 );
 
 export default function FLActiveJobsPage() {

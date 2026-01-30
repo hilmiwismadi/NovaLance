@@ -34,9 +34,36 @@ export default function FLJobDetailPage() {
   const jobId = params.id as string;
   const job = getJobById(jobId);
 
+  // ALL hooks must be declared before any conditional returns (Rules of Hooks)
   useEffect(() => {
     setMounted(true);
   }, [jobId]);
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isSuccess && hash) {
+      showTransactionPending(hash, 'Submit Job Application', chain?.id || 84532);
+    }
+  }, [isSuccess, hash, chain]);
+
+  // Handle transaction confirmation
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      showTransactionSuccess(hash, 'Application submitted successfully!');
+      setApplyModalOpen(false);
+      setCoverLetter('');
+      setTimeout(() => {
+        router.push('/FL/applications');
+      }, 1500);
+    }
+  }, [isConfirmed, hash, router]);
+
+  // Handle transaction error
+  useEffect(() => {
+    if (error) {
+      showTransactionError(hash || '0x0', error, 'Failed to submit application');
+    }
+  }, [error, hash]);
 
   if (!mounted) return null;
 
@@ -71,38 +98,12 @@ export default function FLJobDetailPage() {
         coverLetter: coverLetter.trim(),
       });
 
-      // Transaction submitted - will be handled by useEffect below
+      // Transaction submitted - will be handled by useEffect above
     } catch (err) {
       const error = err as Error;
       showTransactionError(hash || '0x0', error, 'Failed to submit application');
     }
   };
-
-  // Handle transaction success
-  useEffect(() => {
-    if (isSuccess && hash) {
-      showTransactionPending(hash, 'Submit Job Application', chain?.id || 84532);
-    }
-  }, [isSuccess, hash, chain]);
-
-  // Handle transaction confirmation
-  useEffect(() => {
-    if (isConfirmed && hash) {
-      showTransactionSuccess(hash, 'Application submitted successfully!');
-      setApplyModalOpen(false);
-      setCoverLetter('');
-      setTimeout(() => {
-        router.push('/FL/applications');
-      }, 1500);
-    }
-  }, [isConfirmed, hash, router]);
-
-  // Handle transaction error
-  useEffect(() => {
-    if (error) {
-      showTransactionError(hash || '0x0', error, 'Failed to submit application');
-    }
-  }, [error, hash]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

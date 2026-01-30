@@ -36,7 +36,8 @@
       "Bash(tree:*)",
       "Bash(tasklist:*)",
       "Bash(taskkill:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git restore:*)"
     ]
   }
 }

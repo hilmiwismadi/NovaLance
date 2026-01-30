@@ -18,15 +18,25 @@ import { formatCurrency } from '@/lib/contract';
 // Filter projects where user is freelancer
 const freelancerProjects = mockProjects.filter(p => p.userRole === 'freelancer');
 
-// Calculate earnings
+// Calculate earnings from completed jobs
 const totalEarnings = freelancerProjects
   .filter(p => p.status === 'completed')
   .reduce((sum, p) => sum + p.totalBudget, 0);
 
-// Pending earnings (active jobs)
+// Pending earnings (active jobs - calculate only completed milestones portion)
 const pendingEarnings = freelancerProjects
   .filter(p => p.status === 'in-progress')
-  .reduce((sum, p) => sum + p.totalBudget, 0);
+  .reduce((sum, p) => {
+    const completedMilestones = p.milestones.filter(m => m.status === 'completed' || m.status === 'approved');
+    const completedPercentage = completedMilestones.reduce((acc, m) => acc + m.percentage, 0) / 100;
+    return sum + (p.totalBudget * completedPercentage);
+  }, 0);
+
+// Mock yield earnings (from LP allocation)
+const mockYieldEarnings = 285; // USDC from yield generation
+
+// Total withdrawable (completed earnings + yield)
+const totalWithdrawable = totalEarnings + mockYieldEarnings;
 
 export default function FLProfilePage() {
   const { address, chain } = useAccount();
@@ -40,7 +50,7 @@ export default function FLProfilePage() {
   // Calculate real withdrawable balance from smart contract or fall back to mock
   const withdrawableBalance = balance
     ? Number(balance.totalWithdrawerable) / 1e6 // Assuming USDC/IDRX decimals (6)
-    : totalEarnings;
+    : totalWithdrawable;
 
   useEffect(() => {
     setMounted(true);
@@ -87,12 +97,16 @@ export default function FLProfilePage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">Profile</h1>
-        <p className="text-slate-600 mt-1">Manage your freelancer profile and track earnings</p>
+        <h1 className="text-2xl font-bold text-slate-900">
+          Profile
+        </h1>
+        <p className="text-slate-500 text-sm mt-1">
+          Manage your freelancer profile and track earnings
+        </p>
       </div>
 
       {/* Profile Card */}
-      <Card className="p-6">
+      <Card className="p-5 border-2 border-transparent">
         <div className="flex items-start gap-6">
           <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg">
             <span className="text-3xl font-bold text-white">
@@ -127,10 +141,12 @@ export default function FLProfilePage() {
 
         {/* Skills */}
         <div className="mt-6 pt-6 border-t border-slate-200">
-          <h3 className="text-sm font-medium text-slate-700 mb-3">Skills & Expertise</h3>
+          <h3 className="text-xs text-slate-500 uppercase tracking-wide font-medium mb-3">
+            Skills & Expertise
+          </h3>
           <div className="flex flex-wrap gap-2">
             {mockUser.skills.map((skill) => (
-              <Badge key={skill} variant="success">
+              <Badge key={skill} variant="success" className="text-xs bg-emerald-100">
                 {skill}
               </Badge>
             ))}
@@ -140,52 +156,52 @@ export default function FLProfilePage() {
 
       {/* Earnings Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <Card className="p-5 border-2 border-transparent hover:border-emerald-200 transition-all">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">${totalEarnings}</p>
-              <p className="text-sm text-slate-600">Total Earned</p>
+              <p className="text-2xl font-bold text-emerald-600">${totalEarnings}</p>
+              <p className="text-xs text-slate-600">Total Earned</p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-              <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <Card className="p-5 border-2 border-transparent hover:border-amber-200 transition-all">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">${pendingEarnings}</p>
-              <p className="text-sm text-slate-600">Pending</p>
+              <p className="text-2xl font-bold text-amber-600">${pendingEarnings}</p>
+              <p className="text-xs text-slate-600">Pending</p>
             </div>
           </div>
         </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-brand-100 flex items-center justify-center">
-              <svg className="w-6 h-6 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <Card className="p-5 border-2 border-transparent hover:border-brand-200 transition-all">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">{mockUser.completedProjects}</p>
-              <p className="text-sm text-slate-600">Completed</p>
+              <p className="text-2xl font-bold text-brand-600">{mockUser.completedProjects}</p>
+              <p className="text-xs text-slate-600">Completed</p>
             </div>
           </div>
         </Card>
       </div>
 
       {/* Withdrawal */}
-      <Card className="p-6">
-        <h2 className="text-xl font-bold text-slate-900 mb-4">Withdraw Earnings</h2>
+      <Card className="p-5 border-2 border-transparent">
+        <h2 className="text-lg font-bold text-slate-900 mb-4">Withdraw Earnings</h2>
         <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 mb-4">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -247,9 +263,9 @@ export default function FLProfilePage() {
       </Card>
 
       {/* Portfolio / On-chain CV */}
-      <Card className="p-6">
+      <Card className="p-5 border-2 border-transparent">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-slate-900">On-Chain CV</h2>
+          <h2 className="text-lg font-bold text-slate-900">On-Chain CV</h2>
           <Button variant="outline" size="sm">
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -259,34 +275,36 @@ export default function FLProfilePage() {
         </div>
 
         <div className="space-y-4">
-          <div className="bg-slate-50 rounded-xl p-4">
+          <div className="bg-gradient-to-br from-slate-50 to-brand-50/30 rounded-xl p-4 border border-brand-200/30">
             <div className="flex items-center gap-3">
-              <svg className="w-8 h-8 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+              </div>
               <div>
-                <p className="font-medium text-slate-900">Your On-Chain Profile</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Your On-Chain Profile</p>
                 <p className="text-sm text-slate-600">novalance.eth/profile/{mockUser.address.slice(0, 8)}</p>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-50 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-slate-900">{mockUser.completedProjects}</p>
-              <p className="text-sm text-slate-600">Completed Projects</p>
+            <div className="bg-brand-50 rounded-xl p-4 text-center border border-brand-200">
+              <p className="text-2xl font-bold text-brand-700">{mockUser.completedProjects}</p>
+              <p className="text-xs text-brand-600 uppercase tracking-wide font-medium">Completed Projects</p>
             </div>
-            <div className="bg-slate-50 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-slate-900">{mockUser.reviewCount}</p>
-              <p className="text-sm text-slate-600">Reviews Received</p>
+            <div className="bg-emerald-50 rounded-xl p-4 text-center border border-emerald-200">
+              <p className="text-2xl font-bold text-emerald-700">{mockUser.reviewCount}</p>
+              <p className="text-xs text-emerald-600 uppercase tracking-wide font-medium">Reviews Received</p>
             </div>
           </div>
         </div>
       </Card>
 
       {/* Experience */}
-      <Card className="p-6">
-        <h2 className="text-xl font-bold text-slate-900 mb-4">Experience</h2>
+      <Card className="p-5 border-2 border-transparent">
+        <h2 className="text-lg font-bold text-slate-900 mb-4">Experience</h2>
         <div className="space-y-4">
           {mockUser.experience.map((exp) => (
             <div key={exp.id} className="border-l-2 border-brand-200 pl-4">
