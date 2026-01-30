@@ -1,4 +1,4 @@
-import { ReactNode, MouseEvent } from 'react';
+import { ReactNode, MouseEvent, memo } from 'react';
 
 interface CardProps {
   children: ReactNode;
@@ -8,7 +8,7 @@ interface CardProps {
   onClick?: (e: MouseEvent<HTMLDivElement>) => void;
 }
 
-export default function Card({ children, className = '', hover = false, gradient = false, onClick }: CardProps) {
+function Card({ children, className = '', hover = false, gradient = false, onClick }: CardProps) {
   const baseClasses = 'glass-card p-4 md:p-6';
   const hoverClasses = hover ? 'hover:bg-white/10 transition-all duration-300 cursor-pointer' : '';
   const gradientClasses = gradient ? 'border-brand-500/30 shadow-glass' : '';
@@ -19,3 +19,5 @@ export default function Card({ children, className = '', hover = false, gradient
     </div>
   );
 }
+
+export default memo(Card);

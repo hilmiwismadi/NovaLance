@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { mockJobs, getJobsByOwner, mockUser } from '@/lib/mockData';
+import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
+import { mockJobs, getJobsByOwner, mockUser, formatCurrency } from '@/lib/mockData';
 
 export default function OwnerSection() {
   const postedJobs = getJobsByOwner(mockUser.address);
@@ -48,8 +49,8 @@ export default function OwnerSection() {
               <Card hover className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <h4 className="font-medium text-slate-900 truncate">{job.title}</h4>
-                  <p className="text-sm text-slate-600 mt-1">
-                    ${job.budget} {job.currency} · {job.applicantCount} applicants
+                  <p className="text-sm text-slate-600 mt-1 inline-flex items-center gap-1">
+                    <CurrencyDisplay amount={formatCurrency(job.budget, job.currency)} currency={job.currency} /> · {job.applicantCount} applicants
                   </p>
                 </div>
                 <svg className="w-5 h-5 text-slate-400 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -8,6 +8,7 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { Input } from '@/components/ui/Input';
 import { mockJobs, getJobById } from '@/lib/mockData';
 import { useApplyForJob, useTransactionWait } from '@/lib/hooks';
@@ -18,6 +19,7 @@ import {
   showInfo,
   showError,
 } from '@/lib/transactions';
+import { formatCurrency } from '@/lib/utils';
 
 export default function FLJobDetailPage() {
   const params = useParams();
@@ -179,7 +181,9 @@ export default function FLJobDetailPage() {
             <div className="mt-6 pt-6 border-t border-slate-200">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">Total Budget</span>
-                <span className="text-2xl font-bold text-brand-600">${job.budget} {job.currency}</span>
+                <span className="text-2xl font-bold text-brand-600 inline-flex items-center gap-1">
+                  <CurrencyDisplay amount={formatCurrency(job.budget, job.currency)} currency={job.currency} />
+                </span>
               </div>
             </div>
           </Card>
@@ -191,8 +195,9 @@ export default function FLJobDetailPage() {
           <Card className="p-6">
             <div className="text-center mb-4">
               <p className="text-sm text-slate-600 mb-1">Total Budget</p>
-              <p className="text-3xl font-bold text-brand-600">${job.budget}</p>
-              <p className="text-sm text-slate-500">{job.currency}</p>
+              <p className="text-3xl font-bold text-brand-600 inline-flex items-center justify-center gap-1">
+                <CurrencyDisplay amount={formatCurrency(job.budget, job.currency)} currency={job.currency} />
+              </p>
             </div>
 
             <Button

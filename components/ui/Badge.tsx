@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, memo } from 'react';
 
 interface BadgeProps {
   children: ReactNode;
@@ -6,7 +6,7 @@ interface BadgeProps {
   className?: string;
 }
 
-export default function Badge({ children, variant = 'default', className = '' }: BadgeProps) {
+function Badge({ children, variant = 'default', className = '' }: BadgeProps) {
   const variantClasses = {
     success: 'badge-success',
     warning: 'badge-warning',
@@ -21,3 +21,5 @@ export default function Badge({ children, variant = 'default', className = '' }:
     </span>
   );
 }
+
+export default memo(Badge);

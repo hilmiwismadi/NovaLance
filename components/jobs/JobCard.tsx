@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
+import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { Job } from '@/lib/mockData';
 import { formatCurrency, formatDate, getJobStatusColor } from '@/lib/utils';
 
@@ -44,7 +45,9 @@ export default function JobCard({ job }: JobCardProps) {
             </span>
           </div>
           <div className="text-right">
-            <p className="text-lg font-bold text-brand-600">{formatCurrency(job.budget, job.currency)}</p>
+            <p className="text-lg font-bold text-brand-600">
+              <CurrencyDisplay amount={formatCurrency(job.budget, job.currency)} currency={job.currency} />
+            </p>
             <p className="text-xs text-slate-400">{job.applicantCount} applicants</p>
           </div>
         </div>

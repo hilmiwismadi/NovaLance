@@ -25,7 +25,7 @@ function FLLayoutContent({ children }: FLLayoutProps) {
   const navItems = [
     { href: '/FL', label: 'Dashboard' },
     { href: '/FL/jobs', label: 'Browse Jobs' },
-    { href: '/FL/applications', label: 'My Applications' },
+    { href: '/FL/projects', label: 'Projects' },
     { href: '/FL/profile', label: 'Profile' },
   ];
 

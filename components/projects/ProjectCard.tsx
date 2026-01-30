@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
+import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { Project } from '@/lib/mockData';
 import { formatCurrency, getJobStatusColor } from '@/lib/utils';
 
@@ -54,7 +55,9 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           {/* Budget and Role */}
           <div className="flex items-center justify-between pt-3 border-t border-slate-200">
             <div>
-              <p className="text-lg font-bold text-brand-600">{formatCurrency(project.totalBudget, project.currency)}</p>
+              <p className="text-lg font-bold text-brand-600">
+                <CurrencyDisplay amount={formatCurrency(project.totalBudget, project.currency)} currency={project.currency} />
+              </p>
             </div>
             {getRoleBadge()}
           </div>

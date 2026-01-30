@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -19,7 +19,7 @@ const assignedRoles = mockPOProjects.flatMap(project =>
     .map(role => ({ project, role }))
 );
 
-// Calculate stats
+// Calculate stats - moved outside component to avoid recalculation
 const stats = {
   activeJobs: freelancerProjects.filter(p => p.status === 'in-progress').length + assignedRoles.filter(r => r.role.status === 'in-progress').length,
   completedJobs: freelancerProjects.filter(p => p.status === 'completed').length,
@@ -122,6 +122,108 @@ const mockEarnings: EarningWithYield[] = [
   },
 ];
 
+// Memoized earning card component
+const EarningCard = memo(({
+  earning,
+  liveRate,
+}: {
+  earning: EarningWithYield;
+  liveRate: number;
+}) => {
+  const isPositive = liveRate >= 0;
+  const isActive = earning.yieldStatus === 'generating';
+
+  return (
+    <div
+      className={`flex-shrink-0 w-80 p-4 rounded-xl border-2 transition-all duration-300 snap-center ${
+        isActive
+          ? 'bg-amber-50 border-amber-200'
+          : 'bg-emerald-50 border-emerald-200'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-slate-900 text-sm truncate">{earning.projectTitle}</h4>
+          <p className="text-[10px] text-slate-600 truncate">{earning.roleTitle || 'Completed'}</p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className={`text-lg font-bold ${isPositive ? 'text-emerald-600' : 'text-red-600'} ${isActive ? 'transition-colors duration-300' : ''}`}>
+            {isPositive ? '+' : ''}{liveRate.toFixed(2)}%
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1.5">
+        <div className="bg-white/60 rounded-lg p-1.5 text-center min-w-0">
+          <p className="text-[8px] text-slate-600 truncate">Deposited</p>
+          <p className="text-[9px] font-bold text-slate-900 truncate">
+            <CurrencyDisplay amount={formatCurrency(earning.baseEarnings, 'IDRX')} currency="IDRX" className="text-[8px]" />
+          </p>
+        </div>
+        <div className="bg-blue-50 rounded-lg p-1.5 text-center min-w-0">
+          <p className="text-[8px] text-blue-600 truncate">LP</p>
+          <p className="text-[9px] font-bold text-blue-700 truncate">
+            <CurrencyDisplay amount={formatCurrency(earning.baseEarnings * 0.1, 'IDRX')} currency="IDRX" className="text-[8px]" />
+          </p>
+        </div>
+        <div className={`rounded-lg p-1.5 text-center min-w-0 ${isPositive ? 'bg-emerald-50' : 'bg-red-50'}`}>
+          <p className={`text-[8px] ${isPositive ? 'text-emerald-600' : 'text-red-600'} truncate`}>Yield</p>
+          <p className={`text-[9px] font-bold truncate ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
+            <CurrencyDisplay amount={formatCurrency(Math.abs(earning.baseEarnings * liveRate / 100), 'IDRX')} currency="IDRX" className="text-[8px]" />
+          </p>
+        </div>
+      </div>
+
+      <Badge
+        variant={isActive ? 'warning' : 'success'}
+        className="text-[9px] mt-2 w-full justify-center"
+      >
+        {isActive ? 'In Progress' : 'Withdrawable'}
+      </Badge>
+    </div>
+  );
+});
+EarningCard.displayName = 'EarningCard';
+
+// Memoized milestone component
+const MilestoneItem = memo(({
+  milestone,
+  index,
+}: {
+  milestone: { id: string; description?: string; name: string; percentage: number; status: string };
+  index: number;
+}) => {
+  const isCompleted = milestone.status === 'completed' || milestone.status === 'approved';
+  const isInProgress = milestone.status === 'in-progress';
+
+  return (
+    <div className="flex items-start gap-2 text-xs p-2 bg-slate-50 rounded-lg border border-slate-200">
+      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center font-semibold text-slate-600">
+        {index + 1}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-1">
+          <span className={`font-medium ${isCompleted ? 'text-emerald-700' : 'text-slate-700'}`}>
+            {milestone.description || milestone.name}
+          </span>
+          <span className="text-xs font-semibold text-slate-600 bg-white px-1.5 py-0.5 rounded">
+            {milestone.percentage}%
+          </span>
+        </div>
+        <div className="w-full bg-slate-200 rounded-full h-1.5">
+          <div
+            className={`h-1.5 rounded-full transition-all ${
+              isCompleted ? 'bg-emerald-500' : isInProgress ? 'bg-brand-500' : 'bg-slate-300'
+            }`}
+            style={{ width: `${milestone.percentage}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+});
+MilestoneItem.displayName = 'MilestoneItem';
+
 export default function FLDashboard() {
   const [mounted, setMounted] = useState(false);
   const [activityExpanded, setActivityExpanded] = useState(false);
@@ -134,7 +236,12 @@ export default function FLDashboard() {
     setMounted(true);
   }, []);
 
-  // Live yield updates for in-progress projects
+  // Memoized toggle callback
+  const toggleActivity = useCallback(() => {
+    setActivityExpanded(prev => !prev);
+  }, []);
+
+  // Live yield updates for in-progress projects - optimized with throttling
   useEffect(() => {
     const interval = setInterval(() => {
       setLiveYields(prev => {
@@ -146,24 +253,28 @@ export default function FLDashboard() {
         });
         return newYields;
       });
-    }, 3000); // Update every 3 seconds
+    }, 3000);
 
     return () => clearInterval(interval);
   }, []);
 
   if (!mounted) return null;
 
-  // Calculate totals with live yields for in-progress projects
-  const totalBaseEarnings = mockEarnings.reduce((sum, e) => sum + e.baseEarnings, 0);
-  const totalYieldEarnings = mockEarnings.reduce((sum, e) => {
-    if (e.status === 'in-progress') {
-      const liveRate = liveYields[e.projectId] || e.yieldRate;
-      return sum + (e.baseEarnings * liveRate / 100);
-    }
-    return sum + e.yieldEarnings;
-  }, 0);
-  const totalEarnings = totalBaseEarnings + totalYieldEarnings;
-  const avgYieldRate = totalBaseEarnings > 0 ? (totalYieldEarnings / totalBaseEarnings) * 100 : 0;
+  // Memoized calculations - only recalculate when liveYields changes
+  const earningsCalculations = useMemo(() => {
+    const totalBaseEarnings = mockEarnings.reduce((sum, e) => sum + e.baseEarnings, 0);
+    const totalYieldEarnings = mockEarnings.reduce((sum, e) => {
+      if (e.status === 'in-progress') {
+        const liveRate = liveYields[e.projectId] || e.yieldRate;
+        return sum + (e.baseEarnings * liveRate / 100);
+      }
+      return sum + e.yieldEarnings;
+    }, 0);
+    const totalEarnings = totalBaseEarnings + totalYieldEarnings;
+    const avgYieldRate = totalBaseEarnings > 0 ? (totalYieldEarnings / totalBaseEarnings) * 100 : 0;
+
+    return { totalBaseEarnings, totalYieldEarnings, totalEarnings, avgYieldRate };
+  }, [liveYields]);
 
   return (
     <div className="space-y-6">
@@ -177,7 +288,7 @@ export default function FLDashboard() {
             Overview of your active jobs and applications
           </p>
         </div>
-        <Link href="/FL/jobs">
+        <Link href="/FL/jobs" prefetch={false}>
           <Button variant="primary" size="sm" className="gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -192,7 +303,7 @@ export default function FLDashboard() {
         {/* Job Activity Card */}
         <Card
           className={`p-5 cursor-pointer hover:shadow-lg transition-all ${activityExpanded ? 'ring-2 ring-brand-500' : ''}`}
-          onClick={() => setActivityExpanded(!activityExpanded)}
+          onClick={toggleActivity}
         >
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -268,36 +379,9 @@ export default function FLDashboard() {
 
                         {/* Milestones */}
                         <div className="p-3 bg-white space-y-2">
-                          {project.milestones.map((milestone, index) => {
-                            const isCompleted = milestone.status === 'completed' || milestone.status === 'approved';
-                            const isInProgress = milestone.status === 'in-progress';
-
-                            return (
-                              <div key={milestone.id} className="flex items-start gap-2 text-xs p-2 bg-slate-50 rounded-lg border border-slate-200">
-                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center font-semibold text-slate-600">
-                                  {index + 1}
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className={`font-medium ${isCompleted ? 'text-emerald-700' : 'text-slate-700'}`}>
-                                      {milestone.description || milestone.name}
-                                    </span>
-                                    <span className="text-xs font-semibold text-slate-600 bg-white px-1.5 py-0.5 rounded">
-                                      {milestone.percentage}%
-                                    </span>
-                                  </div>
-                                  <div className="w-full bg-slate-200 rounded-full h-1.5">
-                                    <div
-                                      className={`h-1.5 rounded-full transition-all ${
-                                        isCompleted ? 'bg-emerald-500' : isInProgress ? 'bg-brand-500' : 'bg-slate-300'
-                                      }`}
-                                      style={{ width: `${milestone.percentage}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                          {project.milestones.map((milestone, index) => (
+                            <MilestoneItem key={milestone.id} milestone={milestone} index={index} />
+                          ))}
                         </div>
                       </div>
                     );
@@ -327,36 +411,9 @@ export default function FLDashboard() {
 
                         {/* KPIs */}
                         <div className="p-3 bg-white space-y-2">
-                          {role.kpis.map((kpi, index) => {
-                            const isCompleted = kpi.status === 'completed' || kpi.status === 'approved';
-                            const isInProgress = kpi.status === 'in-progress';
-
-                            return (
-                              <div key={kpi.id} className="flex items-start gap-2 text-xs p-2 bg-slate-50 rounded-lg border border-slate-200">
-                                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center font-semibold text-slate-600">
-                                  {index + 1}
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className={`font-medium ${isCompleted ? 'text-emerald-700' : 'text-slate-700'}`}>
-                                      {kpi.description || kpi.name}
-                                    </span>
-                                    <span className="text-xs font-semibold text-slate-600 bg-white px-1.5 py-0.5 rounded">
-                                      {kpi.percentage}%
-                                    </span>
-                                  </div>
-                                  <div className="w-full bg-slate-200 rounded-full h-1.5">
-                                    <div
-                                      className={`h-1.5 rounded-full transition-all ${
-                                        isCompleted ? 'bg-emerald-500' : isInProgress ? 'bg-brand-500' : 'bg-slate-300'
-                                      }`}
-                                      style={{ width: `${kpi.percentage}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                          {role.kpis.map((kpi, index) => (
+                            <MilestoneItem key={kpi.id} milestone={kpi} index={index} />
+                          ))}
                         </div>
                       </div>
                     );
@@ -392,19 +449,19 @@ export default function FLDashboard() {
             <div className="bg-slate-50 rounded-lg p-2 text-center">
               <p className="text-[8px] text-slate-600 truncate">Total Deposited</p>
               <p className="text-[10px] font-bold text-slate-900 truncate">
-                <CurrencyDisplay amount={formatCurrency(totalBaseEarnings, 'IDRX')} currency="IDRX" className="text-[9px]" />
+                <CurrencyDisplay amount={formatCurrency(earningsCalculations.totalBaseEarnings, 'IDRX')} currency="IDRX" className="text-[9px]" />
               </p>
             </div>
             <div className="bg-blue-50 rounded-lg p-2 text-center">
               <p className="text-[8px] text-blue-600 truncate">In LP (10%)</p>
               <p className="text-[10px] font-bold text-blue-700 truncate">
-                <CurrencyDisplay amount={formatCurrency(totalBaseEarnings * 0.1, 'IDRX')} currency="IDRX" className="text-[9px]" />
+                <CurrencyDisplay amount={formatCurrency(earningsCalculations.totalBaseEarnings * 0.1, 'IDRX')} currency="IDRX" className="text-[9px]" />
               </p>
             </div>
-            <div className={`rounded-lg p-2 text-center ${avgYieldRate >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
-              <p className={`text-[8px] ${avgYieldRate >= 0 ? 'text-emerald-600' : 'text-red-600'} truncate`}>Avg Yield</p>
-              <p className={`text-[10px] font-bold truncate ${avgYieldRate >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                {avgYieldRate >= 0 ? '+' : ''}{avgYieldRate.toFixed(2)}%
+            <div className={`rounded-lg p-2 text-center ${earningsCalculations.avgYieldRate >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+              <p className={`text-[8px] ${earningsCalculations.avgYieldRate >= 0 ? 'text-emerald-600' : 'text-red-600'} truncate`}>Avg Yield</p>
+              <p className={`text-[10px] font-bold truncate ${earningsCalculations.avgYieldRate >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                {earningsCalculations.avgYieldRate >= 0 ? '+' : ''}{earningsCalculations.avgYieldRate.toFixed(2)}%
               </p>
             </div>
           </div>
@@ -424,62 +481,13 @@ export default function FLDashboard() {
               className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth no-scrollbar"
               style={{ scrollPadding: '0 calc(50% - 160px)' }}
             >
-              {mockEarnings.map((earning) => {
-                const liveRate = earning.status === 'in-progress' ? (liveYields[earning.projectId] || earning.yieldRate) : earning.yieldRate;
-                const isPositive = liveRate >= 0;
-                const isActive = earning.yieldStatus === 'generating';
-
-                return (
-                  <div
-                    key={earning.projectId}
-                    className={`flex-shrink-0 w-80 p-4 rounded-xl border-2 transition-all duration-300 snap-center ${
-                      isActive
-                        ? 'bg-amber-50 border-amber-200'
-                        : 'bg-emerald-50 border-emerald-200'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-slate-900 text-sm truncate">{earning.projectTitle}</h4>
-                        <p className="text-[10px] text-slate-600 truncate">{earning.roleTitle || 'Completed'}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className={`text-lg font-bold ${isPositive ? 'text-emerald-600' : 'text-red-600'} ${isActive ? 'transition-colors duration-300' : ''}`}>
-                          {isPositive ? '+' : ''}{liveRate.toFixed(2)}%
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <div className="bg-white/60 rounded-lg p-1.5 text-center min-w-0">
-                        <p className="text-[8px] text-slate-600 truncate">Deposited</p>
-                        <p className="text-[9px] font-bold text-slate-900 truncate">
-                          <CurrencyDisplay amount={formatCurrency(earning.baseEarnings, 'IDRX')} currency="IDRX" className="text-[8px]" />
-                        </p>
-                      </div>
-                      <div className="bg-blue-50 rounded-lg p-1.5 text-center min-w-0">
-                        <p className="text-[8px] text-blue-600 truncate">LP</p>
-                        <p className="text-[9px] font-bold text-blue-700 truncate">
-                          <CurrencyDisplay amount={formatCurrency(earning.baseEarnings * 0.1, 'IDRX')} currency="IDRX" className="text-[8px]" />
-                        </p>
-                      </div>
-                      <div className={`rounded-lg p-1.5 text-center min-w-0 ${isPositive ? 'bg-emerald-50' : 'bg-red-50'}`}>
-                        <p className={`text-[8px] ${isPositive ? 'text-emerald-600' : 'text-red-600'} truncate`}>Yield</p>
-                        <p className={`text-[9px] font-bold truncate ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
-                          <CurrencyDisplay amount={formatCurrency(Math.abs(earning.baseEarnings * liveRate / 100), 'IDRX')} currency="IDRX" className="text-[8px]" />
-                        </p>
-                      </div>
-                    </div>
-
-                    <Badge
-                      variant={isActive ? 'warning' : 'success'}
-                      className="text-[9px] mt-2 w-full justify-center"
-                    >
-                      {isActive ? 'In Progress' : 'Withdrawable'}
-                    </Badge>
-                  </div>
-                );
-              })}
+              {mockEarnings.map((earning) => (
+                <EarningCard
+                  key={earning.projectId}
+                  earning={earning}
+                  liveRate={earning.status === 'in-progress' ? (liveYields[earning.projectId] || earning.yieldRate) : earning.yieldRate}
+                />
+              ))}
             </div>
 
             {/* Pagination dots */}
@@ -500,7 +508,7 @@ export default function FLDashboard() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-900">Your Active Jobs</h2>
-          <Link href="/FL/jobs" className="text-brand-600 hover:text-brand-700 text-sm font-medium">
+          <Link href="/FL/jobs" prefetch={false} className="text-brand-600 hover:text-brand-700 text-sm font-medium">
             Browse More Jobs →
           </Link>
         </div>
@@ -514,7 +522,7 @@ export default function FLDashboard() {
             </div>
             <h3 className="text-lg font-semibold text-slate-900 mb-2">No active jobs yet</h3>
             <p className="text-slate-600 mb-6">Browse available jobs and submit your applications</p>
-            <Link href="/FL/jobs">
+            <Link href="/FL/jobs" prefetch={false}>
               <Button variant="primary">Browse Jobs</Button>
             </Link>
           </Card>
@@ -526,7 +534,7 @@ export default function FLDashboard() {
               const progressPercentage = (completedMilestones / project.milestones.length) * 100;
 
               return (
-                <Link key={project.id} href={`/FL/jobs/${project.id}`}>
+                <Link key={project.id} href={`/FL/jobs/${project.id}`} prefetch={false}>
                   <Card className="p-5 hover:shadow-lg hover:border-brand-200 transition-all cursor-pointer h-full border-2 border-transparent">
                     <div className="flex items-start justify-between mb-3">
                       <h3 className="font-semibold text-slate-900">{project.title}</h3>
@@ -579,7 +587,7 @@ export default function FLDashboard() {
               const progress = totalKPIs > 0 ? (completedKPIs / totalKPIs) * 100 : 0;
 
               return (
-                <Link key={`${project.id}-${role.id}`} href={`/FL/active-jobs`}>
+                <Link key={`${project.id}-${role.id}`} href={`/FL/active-jobs`} prefetch={false}>
                   <Card className="p-5 hover:shadow-lg hover:border-brand-200 transition-all cursor-pointer h-full border-2 border-transparent">
                     <div className="flex items-start justify-between mb-3">
                       <div>

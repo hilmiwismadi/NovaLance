@@ -41,7 +41,8 @@ export default function POBottomNav() {
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-around py-2">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href ||
+              (item.href === '/PO/projects' && pathname.startsWith('/PO/projects') && pathname !== '/PO/projects');
             return (
               <Link
                 key={item.href}

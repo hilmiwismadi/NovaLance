@@ -106,7 +106,10 @@ export default function POHeader({ navItems }: POHeaderProps) {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => {
-              const isActive = mounted && pathname === item.href;
+              const isActive = mounted && (
+                pathname === item.href ||
+                (item.href === '/PO/projects' && pathname.startsWith('/PO/projects') && pathname !== '/PO/projects')
+              );
               return (
                 <Link
                   key={item.href}
@@ -152,6 +155,37 @@ export default function POHeader({ navItems }: POHeaderProps) {
                     onClick={() => setShowMobileMenu(false)}
                   />
                   <div className="absolute right-0 top-full mt-2 w-80 glass-card z-20 bg-white/90">
+                    <div className="p-4 border-b border-slate-200">
+                      <h3 className="font-semibold text-slate-800">Menu</h3>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {/* Navigation Items */}
+                      {navItems.map((item) => {
+                        const isActive = mounted && (
+                          pathname === item.href ||
+                          (item.href === '/PO/projects' && pathname.startsWith('/PO/projects') && pathname !== '/PO/projects')
+                        );
+                        return (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setShowMobileMenu(false)}
+                            className={`flex items-center gap-3 p-4 transition-colors ${
+                              isActive
+                                ? 'bg-brand-50 text-brand-600'
+                                : 'hover:bg-slate-50 text-slate-800'
+                            }`}
+                          >
+                            <span className="text-sm font-medium flex-1">{item.label}</span>
+                            {isActive && (
+                              <svg className="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
                     <div className="p-4 border-b border-slate-200">
                       <h3 className="font-semibold text-slate-800">Quick Actions</h3>
                     </div>

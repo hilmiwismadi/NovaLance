@@ -5,8 +5,15 @@ export function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-export function formatCurrency(amount: number, currency: string = 'USDC'): string {
-  return `${amount.toFixed(2)} ${currency}`;
+export function formatCurrency(amount: number, currency: string = 'IDRX'): string {
+  if (currency === 'IDRX') {
+    // Format as Indonesian Rupiah with proper thousand separators
+    return new Intl.NumberFormat('id-ID', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  }
+  return `${new Intl.NumberFormat('en-US').format(amount)} ${currency}`;
 }
 
 export function formatDate(dateString: string): string {

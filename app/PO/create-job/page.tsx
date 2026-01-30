@@ -19,7 +19,7 @@ export default function CreateJobPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [budget, setBudget] = useState('');
-  const [currency, setCurrency] = useState('USDC');
+  const [currency, setCurrency] = useState('IDRX');
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
   const [milestones, setMilestones] = useState<MilestoneInput[]>([

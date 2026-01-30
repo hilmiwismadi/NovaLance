@@ -262,7 +262,7 @@ export default function POProfilePage() {
           <p className="text-xl sm:text-2xl font-bold text-amber-600 inline-flex items-center justify-center gap-1">
             {ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0) > 0 ? (
               <CurrencyDisplay
-                amount={formatCurrency(ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0), 'IDRX').split(',')[0]}
+                amount={formatCurrency(ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0), 'IDRX')}
                 currency="IDRX"
               />
             ) : '0'}
@@ -387,7 +387,7 @@ export default function POProfilePage() {
           <p className="text-xl sm:text-2xl font-bold text-amber-600 inline-flex items-center justify-center gap-1">
             {ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0) > 0 ? (
               <CurrencyDisplay
-                amount={formatCurrency(ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0), 'IDRX').split(',')[0]}
+                amount={formatCurrency(ownerProjects.reduce((sum, p) => sum + p.totalBudget, 0), 'IDRX')}
                 currency="IDRX"
               />
             ) : '0'}

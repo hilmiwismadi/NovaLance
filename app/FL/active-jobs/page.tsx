@@ -7,6 +7,7 @@ import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
+import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { mockPOProjects, formatCurrency } from '@/lib/mockData';
 import { useSubmitKPI, useApproveKPI, useTransactionWait } from '@/lib/hooks';
 import {
@@ -179,8 +180,8 @@ export default function FLActiveJobsPage() {
                   <h2 className="text-xl font-bold text-slate-900">{project.title}</h2>
                   <p className="text-slate-600 mt-1">{project.description}</p>
                   <div className="flex items-center gap-4 mt-3">
-                    <span className="text-sm font-semibold text-brand-600">
-                      Budget: {formatCurrency(project.totalBudget, project.currency)}
+                    <span className="text-sm font-semibold text-brand-600 inline-flex items-center gap-1">
+                      Budget: <CurrencyDisplay amount={formatCurrency(project.totalBudget, project.currency)} currency={project.currency} />
                     </span>
                   </div>
                 </div>
