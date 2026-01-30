@@ -138,7 +138,7 @@ export function useCreateProject(): UseCreateProjectResult {
           percentage: kpi.percentage,
           description: kpi.description,
           deadline: kpi.deadline,
-          id: generateKPIId(`role-${roleIndex}`, kpiIndex),
+          id: generateKPIId(`0x${roleIndex}` as Hash, kpiIndex),
         })),
       })),
       createdAt: new Date().toISOString(),
@@ -150,30 +150,37 @@ export function useCreateProject(): UseCreateProjectResult {
 
     // Get token address
     let paymentToken: Address;
+    const tokenAddresses = getTokenAddresses(chain.id);
     if (isNativeCurrency(data.currency)) {
       // Use WETH for ETH
-      paymentToken = getTokenAddresses(chain.id).WETH;
+      paymentToken = tokenAddresses.WETH;
+    } else if (data.currency === 'USDC') {
+      paymentToken = tokenAddresses.USDC;
+    } else if (data.currency === 'USDT') {
+      paymentToken = tokenAddresses.USDT;
     } else {
-      paymentToken = getTokenAddresses(data.currency, chain.id);
+      // Default to USDC
+      paymentToken = tokenAddresses.USDC;
     }
 
     // Parse budget
     const totalBudget = parseTokenAmount(data.totalBudget.toString(), data.currency);
 
     // Call contract
-    return writeContract({
+    writeContract({
       address: contractAddress,
       abi: NOVALANCE_ABI,
       functionName: 'createProject',
       args: [projectId, metadataHash, totalBudget, paymentToken],
     });
+    return hash || null;
   };
 
   return {
     createProject,
     isPending,
     error,
-    hash,
+    hash: hash || null,
     isSuccess,
   };
 }
@@ -216,12 +223,13 @@ export function useDepositKPI(): UseDepositKPIResult {
 
     const amount = parseTokenAmount(args.amount.toString(), args.currency);
 
-    return writeContract({
+    writeContract({
       address: contractAddress,
       abi: NOVALANCE_ABI,
       functionName: 'depositKPI',
       args: [args.projectId, args.kpiId, amount],
     });
+    return hash || null;
   };
 
   const approveToken = async (args: {
@@ -232,12 +240,13 @@ export function useDepositKPI(): UseDepositKPIResult {
       throw new Error('Wallet not connected');
     }
 
-    return writeContract({
+    writeContract({
       address: args.tokenAddress,
       abi: ERC20_ABI,
       functionName: 'approve',
       args: [contractAddress!, args.amount],
     });
+    return hash || null;
   };
 
   return {
@@ -245,7 +254,7 @@ export function useDepositKPI(): UseDepositKPIResult {
     approveToken,
     isPending,
     error,
-    hash,
+    hash: hash || null,
     isSuccess,
   };
 }
@@ -279,19 +288,20 @@ export function useApproveKPI(): UseApproveKPIResult {
       throw new Error('Wallet not connected');
     }
 
-    return writeContract({
+    writeContract({
       address: contractAddress,
       abi: NOVALANCE_ABI,
       functionName: 'approveKPI',
       args: [args.projectId, args.kpiId, args.isPO],
     });
+    return hash || null;
   };
 
   return {
     approve,
     isPending,
     error,
-    hash,
+    hash: hash || null,
     isSuccess,
   };
 }
@@ -331,19 +341,20 @@ export function useApplyForJob(): UseApplyForJobResult {
       submittedAt: new Date().toISOString(),
     });
 
-    return writeContract({
+    writeContract({
       address: contractAddress,
       abi: NOVALANCE_ABI,
       functionName: 'applyForJob',
       args: [args.projectId, args.roleId, coverLetterHash],
     });
+    return hash || null;
   };
 
   return {
     apply,
     isPending,
     error,
-    hash,
+    hash: hash || null,
     isSuccess,
   };
 }
@@ -371,22 +382,23 @@ export function useWithdraw(): UseWithdrawResult {
 
     if (!amount) {
       // Withdraw full balance (contract will handle this)
-      amount = 0n; // Contract will use full balance
+      amount = BigInt(0); // Contract will use full balance
     }
 
-    return writeContract({
+    writeContract({
       address: contractAddress,
       abi: NOVALANCE_ABI,
       functionName: 'withdraw',
       args: [amount],
     });
+    return hash || null;
   };
 
   return {
     withdraw,
     isPending,
     error,
-    hash,
+    hash: hash || null,
     isSuccess,
   };
 }
@@ -420,19 +432,20 @@ export function useAssignFreelancer(): UseAssignFreelancerResult {
       throw new Error('Wallet not connected');
     }
 
-    return writeContract({
+    writeContract({
       address: contractAddress,
       abi: NOVALANCE_ABI,
       functionName: 'assignFreelancer',
       args: [args.projectId, args.roleId, args.freelancer],
     });
+    return hash || null;
   };
 
   return {
     assign,
     isPending,
     error,
-    hash,
+    hash: hash || null,
     isSuccess,
   };
 }
@@ -478,19 +491,20 @@ export function useSubmitKPI(): UseSubmitKPIResult {
       submittedAt: new Date().toISOString(),
     });
 
-    return writeContract({
+    writeContract({
       address: contractAddress,
       abi: NOVALANCE_ABI,
       functionName: 'submitKPICompletion',
       args: [args.projectId, args.kpiId, deliverablesHash],
     });
+    return hash || null;
   };
 
   return {
     submit,
     isPending,
     error,
-    hash,
+    hash: hash || null,
     isSuccess,
   };
 }
@@ -522,19 +536,20 @@ export function useCancelProject(): UseCancelProjectResult {
       throw new Error('Wallet not connected');
     }
 
-    return writeContract({
+    writeContract({
       address: contractAddress,
       abi: NOVALANCE_ABI,
       functionName: 'cancelProject',
       args: [args.projectId, args.reason],
     });
+    return hash || null;
   };
 
   return {
     cancel,
     isPending,
     error,
-    hash,
+    hash: hash || null,
     isSuccess,
   };
 }

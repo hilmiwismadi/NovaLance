@@ -174,17 +174,17 @@ function ExpandableFilter({
             {selectedSkills.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {selectedSkills.map((skill) => (
-                  <Badge
+                  <button
                     key={skill}
-                    variant="success"
-                    className="cursor-pointer transition-all hover:shadow-sm gap-1 pr-2"
+                    type="button"
                     onClick={() => removeSkill(skill)}
+                    className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 border border-emerald-300 px-2.5 py-0.5 rounded-md text-sm hover:bg-emerald-200 transition-all hover:shadow-sm cursor-pointer"
                   >
                     {skill}
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                  </Badge>
+                  </button>
                 ))}
               </div>
             )}

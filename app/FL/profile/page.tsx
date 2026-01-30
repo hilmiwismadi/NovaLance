@@ -45,11 +45,11 @@ export default function FLProfilePage() {
   // Smart contract hooks
   const { balance, isLoading: isBalanceLoading } = useWithdrawableBalance();
   const { withdraw, isPending, error, hash, isSuccess } = useWithdraw();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
 
   // Calculate real withdrawable balance from smart contract or fall back to mock
   const withdrawableBalance = balance
-    ? Number(balance.totalWithdrawerable) / 1e6 // Assuming USDC/IDRX decimals (6)
+    ? Number(balance.totalWithdrawable) / 1e6 // Assuming USDC/IDRX decimals (6)
     : totalWithdrawable;
 
   useEffect(() => {

@@ -10,9 +10,10 @@ interface MilestoneListProps {
 
 export default function MilestoneList({ milestones, totalBudget, currency }: MilestoneListProps) {
   const statusOrder: Record<MilestoneStatus, number> = {
-    'approved': 4,
-    'completed': 3,
-    'in-progress': 2,
+    'approved': 5,
+    'completed': 4,
+    'in-progress': 3,
+    'pending-approval': 2,
     'pending': 1,
     'rejected': 0,
   };

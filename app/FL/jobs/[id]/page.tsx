@@ -31,7 +31,7 @@ export default function FLJobDetailPage() {
 
   // Smart contract hooks
   const { apply, isPending, error, hash, isSuccess } = useApplyForJob();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
 
   const jobId = params.id as string;
   const job = getJobById(jobId);

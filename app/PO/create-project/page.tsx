@@ -298,7 +298,7 @@ export default function CreateProjectPage() {
 
   // Smart contract hooks
   const { createProject, isPending, error, hash, isSuccess } = useCreateProject();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
 
   // Expanded state for accordions
   const [expandedSections, setExpandedSections] = useState({
@@ -676,7 +676,7 @@ export default function CreateProjectPage() {
                 />
                 <Button
                   type="button"
-                  variant="default"
+                  variant="primary"
                   size="md"
                   onClick={addFeature}
                   className="px-4 h-11"
@@ -689,17 +689,17 @@ export default function CreateProjectPage() {
               {features.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {features.map((feature) => (
-                    <Badge
+                    <button
                       key={feature.id}
-                      variant="default"
-                      className="cursor-pointer text-xs py-1 px-2"
+                      type="button"
                       onClick={() => removeFeature(feature.id)}
+                      className="inline-flex items-center gap-1 bg-slate-200 text-slate-700 border border-slate-300 px-2 py-1 rounded-md text-xs hover:bg-slate-300 transition-colors cursor-pointer"
                     >
                       {feature.text}
-                      <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
-                    </Badge>
+                    </button>
                   ))}
                 </div>
               )}
@@ -713,7 +713,7 @@ export default function CreateProjectPage() {
             <h2 className="text-lg font-semibold text-slate-900">Team Roles</h2>
             <Button
               type="button"
-              variant="default"
+              variant="primary"
               size="sm"
               onClick={addRole}
               className="h-9 px-3 text-sm"
@@ -828,7 +828,7 @@ export default function CreateProjectPage() {
                         />
                         <Button
                           type="button"
-                          variant="default"
+                          variant="primary"
                           size="md"
                           onClick={() => addSkill(roleIndex)}
                           className="px-4 h-11"
@@ -841,17 +841,17 @@ export default function CreateProjectPage() {
                       {role.skills.length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                           {role.skills.map((skill) => (
-                            <Badge
+                            <button
                               key={skill}
-                              variant="default"
-                              className="cursor-pointer text-xs py-1 px-2"
+                              type="button"
                               onClick={() => removeSkill(roleIndex, skill)}
+                              className="inline-flex items-center gap-1 bg-slate-200 text-slate-700 border border-slate-300 px-2 py-1 rounded-md text-xs hover:bg-slate-300 transition-colors cursor-pointer"
                             >
                               {skill}
-                              <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
-                            </Badge>
+                            </button>
                           ))}
                         </div>
                       )}
@@ -870,7 +870,7 @@ export default function CreateProjectPage() {
                         </div>
                         <Button
                           type="button"
-                          variant="default"
+                          variant="primary"
                           size="sm"
                           onClick={() => addKPI(roleIndex)}
                           className="h-9 px-3 text-sm"

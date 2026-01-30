@@ -210,7 +210,9 @@ export function useToasts() {
 
     setToasts(toastManager.getAll());
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   return {

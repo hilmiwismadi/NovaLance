@@ -60,9 +60,9 @@ export default function POProjectDetailPage() {
   const { deposit: depositKPI, approveToken, isPending, error, hash, isSuccess } = useDepositKPI();
   const { approve: approveKPIContract, isPending: isApprovePending, error: approveError, hash: approveHash, isSuccess: isApproveSuccess } = useApproveKPI();
   const { cancel: cancelProject, isPending: isCancelPending, error: cancelError, hash: cancelHash, isSuccess: isCancelSuccess } = useCancelProject();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
-  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash);
-  const { isLoading: isCancelConfirming, isSuccess: isCancelConfirmed } = useTransactionWait(cancelHash);
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
+  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash ?? undefined);
+  const { isLoading: isCancelConfirming, isSuccess: isCancelConfirmed } = useTransactionWait(cancelHash ?? undefined);
 
   // Handle transaction success
   useEffect(() => {
@@ -852,7 +852,7 @@ export default function POProjectDetailPage() {
 
             {hiringRoles.length > 0 && (
               <Link href={`/PO/projects/${project.id}/applications`} className="block mt-4">
-                <Button variant="default" className="w-full">
+                <Button variant="primary" className="w-full">
                   View Applications
                 </Button>
               </Link>

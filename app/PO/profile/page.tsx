@@ -296,7 +296,7 @@ export default function POProfilePage() {
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold text-slate-900 text-sm sm:text-base truncate">{project.title}</h3>
                           <Badge
-                            variant={project.status === 'in-progress' ? 'warning' : 'primary'}
+                            variant={project.status === 'in-progress' ? 'warning' : 'default'}
                             className="text-xs shrink-0"
                           >
                             {project.status === 'in-progress' ? 'Active' : 'Hiring'}

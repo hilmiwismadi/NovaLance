@@ -49,8 +49,8 @@ export default function KPIDetailModal({
   // Smart contract hooks
   const { submit: submitKPI, isPending: isSubmitPending, error: submitError, hash: submitHash, isSuccess: isSubmitSuccess } = useSubmitKPI();
   const { approve: approveKPIContract, isPending: isApprovePending, error: approveError, hash: approveHash, isSuccess: isApproveSuccess } = useApproveKPI();
-  const { isLoading: isSubmitConfirming, isSuccess: isSubmitConfirmed } = useTransactionWait(submitHash);
-  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash);
+  const { isLoading: isSubmitConfirming, isSuccess: isSubmitConfirmed } = useTransactionWait(submitHash ?? undefined);
+  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash ?? undefined);
 
   const kpiAmount = (roleBudget * kpi.percentage) / 100;
   const canSubmit = kpi.status === 'in-progress' || kpi.status === 'rejected';
@@ -157,7 +157,7 @@ export default function KPIDetailModal({
     if (isFullyApproved) return <Badge variant="success">Approved & Paid</Badge>;
     if (needsFLConfirmation) return <Badge variant="warning">Awaiting Your Confirmation</Badge>;
     if (isPendingApproval) return <Badge variant="warning">Pending PO Review</Badge>;
-    if (kpi.status === 'rejected') return <Badge variant="destructive">Rejected</Badge>;
+    if (kpi.status === 'rejected') return <Badge variant="error">Rejected</Badge>;
     if (kpi.status === 'in-progress') return <Badge variant="default">In Progress</Badge>;
     return <Badge variant="default">{kpi.status}</Badge>;
   };

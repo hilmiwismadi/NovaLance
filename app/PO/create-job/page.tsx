@@ -195,12 +195,17 @@ export default function CreateJobPage() {
           {skills.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {skills.map((skill) => (
-                <Badge key={skill} variant="default" className="cursor-pointer" onClick={() => removeSkill(skill)}>
+                <button
+                  key={skill}
+                  type="button"
+                  onClick={() => removeSkill(skill)}
+                  className="inline-flex items-center gap-1 bg-slate-200 text-slate-700 border border-slate-300 px-2.5 py-0.5 rounded-md text-sm hover:bg-slate-300 transition-colors cursor-pointer"
+                >
                   {skill}
-                  <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                </Badge>
+                </button>
               ))}
             </div>
           )}

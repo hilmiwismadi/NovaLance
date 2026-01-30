@@ -1026,14 +1026,14 @@ export function getProjectsByRole(role: ProjectRole): Project[] {
   });
 }
 
-export function getApplicationStatusColor(status: ApplicationStatus): 'success' | 'warning' | 'destructive' {
+export function getApplicationStatusColor(status: ApplicationStatus): 'success' | 'warning' | 'error' {
   switch (status) {
     case 'accepted':
       return 'success';
     case 'pending':
       return 'warning';
     case 'rejected':
-      return 'destructive';
+      return 'error';
   }
 }
 

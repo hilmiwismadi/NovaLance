@@ -37,8 +37,8 @@ export default function FLProjectDetailPage() {
   // Smart contract hooks
   const { submit: submitKPI, isPending: isSubmitPending, error: submitError, hash: submitHash, isSuccess: isSubmitSuccess } = useSubmitKPI();
   const { approve: approveKPIContract, isPending: isApprovePending, error: approveError, hash: approveHash, isSuccess: isApproveSuccess } = useApproveKPI();
-  const { isLoading: isSubmitConfirming, isSuccess: isSubmitConfirmed } = useTransactionWait(submitHash);
-  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash);
+  const { isLoading: isSubmitConfirming, isSuccess: isSubmitConfirmed } = useTransactionWait(submitHash ?? undefined);
+  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash ?? undefined);
 
   const projectId = params.id as string;
 
@@ -160,9 +160,9 @@ export default function FLProjectDetailPage() {
   }
 
   // For legacy projects (with milestones)
-  if (!isPOProject) {
-    const completedMilestones = project.milestones.filter((m: any) => m.status === 'approved' || m.status === 'completed').length;
-    const progress = Math.round((completedMilestones / project.milestones.length) * 100);
+  if (!isPOProject && legacyProject) {
+    const completedMilestones = legacyProject.milestones.filter((m: any) => m.status === 'approved' || m.status === 'completed').length;
+    const progress = Math.round((completedMilestones / legacyProject.milestones.length) * 100);
 
     return (
       <div className="space-y-6">
@@ -183,12 +183,12 @@ export default function FLProjectDetailPage() {
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-2xl font-bold text-slate-900">{project.title}</h1>
-                <Badge variant={project.status === 'in-progress' ? 'warning' : project.status === 'completed' ? 'success' : 'default'}>
-                  {project.status === 'in-progress' ? 'Active' : project.status}
+                <h1 className="text-2xl font-bold text-slate-900">{legacyProject.title}</h1>
+                <Badge variant={legacyProject.status === 'in-progress' ? 'warning' : legacyProject.status === 'completed' ? 'success' : 'default'}>
+                  {legacyProject.status === 'in-progress' ? 'Active' : legacyProject.status}
                 </Badge>
               </div>
-              <p className="text-slate-600">{project.description}</p>
+              <p className="text-slate-600">{legacyProject.description}</p>
             </div>
           </div>
 
@@ -205,7 +205,7 @@ export default function FLProjectDetailPage() {
               />
             </div>
             <p className="text-xs text-slate-500">
-              {completedMilestones} of {project.milestones.length} milestones completed
+              {completedMilestones} of {legacyProject.milestones.length} milestones completed
             </p>
           </div>
 
@@ -213,7 +213,7 @@ export default function FLProjectDetailPage() {
           <div className="mt-4 flex items-center justify-between">
             <span className="text-sm text-slate-600">Total Budget</span>
             <span className="text-lg font-bold text-brand-600">
-              <CurrencyDisplay amount={formatCurrency(project.totalBudget, project.currency)} currency={project.currency} />
+              <CurrencyDisplay amount={formatCurrency(legacyProject.totalBudget, legacyProject.currency)} currency={legacyProject.currency} />
             </span>
           </div>
 
@@ -221,7 +221,7 @@ export default function FLProjectDetailPage() {
           <div className="mt-4 pt-4 border-t border-slate-200">
             <span className="text-sm text-slate-600">Client</span>
             <p className="text-sm font-medium text-slate-900 mt-1">
-              {project.ownerEns || `${project.owner.slice(0, 6)}...${project.owner.slice(-4)}`}
+              {legacyProject.ownerEns || `${legacyProject.owner.slice(0, 6)}...${legacyProject.owner.slice(-4)}`}
             </p>
           </div>
         </Card>
@@ -230,7 +230,7 @@ export default function FLProjectDetailPage() {
         <Card className="p-6">
           <h2 className="text-xl font-bold text-slate-900 mb-4">Milestones</h2>
           <div className="space-y-4">
-            {project.milestones.map((milestone: any, index: number) => {
+            {legacyProject.milestones.map((milestone: any, index: number) => {
               const isCompleted = milestone.status === 'approved' || milestone.status === 'completed';
               const isInProgress = milestone.status === 'in-progress';
               const isPending = milestone.status === 'pending';
@@ -313,10 +313,10 @@ export default function FLProjectDetailPage() {
                   <div className="ml-11 text-sm text-slate-600">
                     <CurrencyDisplay
                       amount={formatCurrency(
-                        (project.totalBudget * milestone.percentage) / 100,
-                        project.currency
+                        (legacyProject.totalBudget * milestone.percentage) / 100,
+                        legacyProject.currency
                       )}
-                      currency={project.currency}
+                      currency={legacyProject.currency}
                     />
                   </div>
                 </div>
@@ -341,7 +341,7 @@ export default function FLProjectDetailPage() {
               <div className="bg-slate-50 rounded-lg p-4 space-y-3">
                 <div>
                   <h3 className="font-semibold text-slate-900">{selectedMilestone.name}</h3>
-                  <p className="text-xs text-slate-500">{project.title}</p>
+                  <p className="text-xs text-slate-500">{legacyProject.title}</p>
                 </div>
 
                 {selectedMilestone.description && (
@@ -354,10 +354,10 @@ export default function FLProjectDetailPage() {
                     <p className="font-semibold text-brand-600">
                       <CurrencyDisplay
                         amount={formatCurrency(
-                          (project.totalBudget * selectedMilestone.percentage) / 100,
-                          project.currency
+                          (legacyProject.totalBudget * selectedMilestone.percentage) / 100,
+                          legacyProject.currency
                         )}
-                        currency={project.currency}
+                        currency={legacyProject.currency}
                       />
                     </p>
                   </div>
@@ -445,10 +445,10 @@ export default function FLProjectDetailPage() {
                     <p className="text-lg font-bold text-emerald-900">
                       <CurrencyDisplay
                         amount={formatCurrency(
-                          (project.totalBudget * selectedMilestone.percentage) / 100,
-                          project.currency
+                          (legacyProject.totalBudget * selectedMilestone.percentage) / 100,
+                          legacyProject.currency
                         )}
-                        currency={project.currency}
+                        currency={legacyProject.currency}
                       />
                     </p>
                   </div>
@@ -491,6 +491,18 @@ export default function FLProjectDetailPage() {
   // For PO Projects (with KPIs) - Use the existing KPIDetailModal
   // Import it dynamically here
   const KPIDetailModal = require('@/components/fl/KPIDetailModal').default;
+
+  if (!poProject) {
+    return (
+      <div className="text-center py-12">
+        <h1 className="text-2xl font-bold text-slate-900 mb-2">Project Not Found</h1>
+        <p className="text-slate-600 mb-6">The requested project could not be found.</p>
+        <Link href="/FL/projects">
+          <Button variant="primary">Back to Projects</Button>
+        </Link>
+      </div>
+    );
+  }
 
   const assignedRoles = poProject.roles.filter((r: any) =>
     r.assignedTo && r.assignedTo.toLowerCase() === '0x1234567890abcdef1234567890abcdef12345678'.toLowerCase()

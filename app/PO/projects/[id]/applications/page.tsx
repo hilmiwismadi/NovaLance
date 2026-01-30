@@ -91,7 +91,7 @@ export default function POApplicationsPage() {
 
   // Smart contract hooks
   const { assign, isPending, error, hash, isSuccess } = useAssignFreelancer();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
 
   const projectId = params.id as string;
   const project = getPOProjectById(projectId);
@@ -257,7 +257,7 @@ export default function POApplicationsPage() {
           </Link>
           <div className="flex items-center gap-3">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">{project.title}</h1>
-            <Badge variant={project.status === 'hiring' ? 'warning' : project.status === 'in-progress' ? 'info' : 'success'}>
+            <Badge variant={project.status === 'hiring' ? 'warning' : project.status === 'in-progress' ? 'pending' : 'success'}>
               {project.status === 'hiring' ? 'Hiring' : project.status === 'in-progress' ? 'In Progress' : 'Completed'}
             </Badge>
           </div>

@@ -158,10 +158,11 @@ export async function uploadToIPFS(data: unknown): Promise<Hash> {
   // return result.IpfsHash;
 
   const dataStr = JSON.stringify(data);
-  const hash = BigInt('0x' + Array.from(dataStr)
+  const hashValue = '0x' + Array.from(dataStr)
     .reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0)
     .toString(16)
-    .padStart(64, '0')) as Hash;
+    .padStart(64, '0');
+  const hash = hashValue as Hash;
 
   return hash;
 }
@@ -171,10 +172,11 @@ export async function uploadToIPFS(data: unknown): Promise<Hash> {
  */
 export function generateProjectId(title: string, creator: Address, timestamp: number): Hash {
   const data = `${title}-${creator}-${timestamp}`;
-  const hash = BigInt('0x' + Array.from(data)
+  const hashValue = '0x' + Array.from(data)
     .reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0)
     .toString(16)
-    .padStart(64, '0')) as Hash;
+    .padStart(64, '0');
+  const hash = hashValue as Hash;
 
   return hash;
 }
@@ -184,10 +186,11 @@ export function generateProjectId(title: string, creator: Address, timestamp: nu
  */
 export function generateKPIId(roleId: Hash, index: number): Hash {
   const data = `${roleId}-${index}`;
-  const hash = BigInt('0x' + Array.from(data)
+  const hashValue = '0x' + Array.from(data)
     .reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0)
     .toString(16)
-    .padStart(64, '0')) as Hash;
+    .padStart(64, '0');
+  const hash = hashValue as Hash;
 
   return hash;
 }
@@ -270,8 +273,8 @@ export function calculateDepositSplit(amount: bigint): {
   vaultAmount: bigint;
   lpAmount: bigint;
 } {
-  const vaultAmount = (amount * 90n) / 100n;
-  const lpAmount = (amount * 10n) / 100n;
+  const vaultAmount = (amount * BigInt(90)) / BigInt(100);
+  const lpAmount = (amount * BigInt(10)) / BigInt(100);
 
   return { vaultAmount, lpAmount };
 }
@@ -290,23 +293,23 @@ export function calculateYieldDistribution(
 } {
   if (profit > 0) {
     // Profit scenario: 40/40/20 split
-    const poShare = (profit * 40n) / 100n;
-    const flShare = (profit * 40n) / 100n;
-    const platformShare = (profit * 20n) / 100n;
+    const poShare = (profit * BigInt(40)) / BigInt(100);
+    const flShare = (profit * BigInt(40)) / BigInt(100);
+    const platformShare = (profit * BigInt(20)) / BigInt(100);
 
     return {
       poShare,
       flShare,
       platformShare,
-      flDeduction: 0n,
+      flDeduction: BigInt(0),
     };
   } else {
     // Loss scenario: FL bears loss
     const loss = -profit;
     return {
-      poShare: 0n,
-      flShare: 0n,
-      platformShare: 0n,
+      poShare: BigInt(0),
+      flShare: BigInt(0),
+      platformShare: BigInt(0),
       flDeduction: loss,
     };
   }
@@ -425,19 +428,19 @@ export async function estimateGas(
   args: unknown[]
 ): Promise<bigint> {
   // Mock gas estimation
-  const baseGas = 100000n;
+  const baseGas = BigInt(100000);
 
   switch (functionName) {
     case 'createProject':
       return baseGas + BigInt(args.length * 50000);
     case 'depositKPI':
-      return baseGas + 50000n;
+      return baseGas + BigInt(50000);
     case 'approveKPI':
-      return baseGas + 30000n;
+      return baseGas + BigInt(30000);
     case 'withdraw':
-      return baseGas + 40000n;
+      return baseGas + BigInt(40000);
     case 'assignFreelancer':
-      return baseGas + 35000n;
+      return baseGas + BigInt(35000);
     default:
       return baseGas;
   }
@@ -460,7 +463,7 @@ export async function waitForTransaction(
   // Mock implementation
   return {
     status: 'success',
-    blockNumber: 0n,
+    blockNumber: BigInt(0),
   };
 }
 

@@ -225,7 +225,7 @@ export default function PODashboard() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                         <span className="font-semibold text-slate-900">{project.title}</span>
-                        <Badge variant={project.status === 'in-progress' ? 'warning' : 'primary'} className="text-xs">
+                        <Badge variant={project.status === 'in-progress' ? 'warning' : 'default'} className="text-xs">
                           {project.status}
                         </Badge>
                       </div>
@@ -601,7 +601,7 @@ export default function PODashboard() {
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="font-semibold text-slate-900">{project.title}</h3>
                       <Badge
-                        variant={project.status === 'in-progress' ? 'warning' : project.status === 'completed' ? 'success' : 'primary'}
+                        variant={project.status === 'in-progress' ? 'warning' : project.status === 'completed' ? 'success' : 'default'}
                         className="shrink-0 text-xs"
                       >
                         {project.status}

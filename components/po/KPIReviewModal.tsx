@@ -48,7 +48,7 @@ export default function KPIReviewModal({
 
   // Smart contract hooks
   const { approve: approveKPIContract, isPending: isApprovePending, error: approveError, hash: approveHash, isSuccess: isApproveSuccess } = useApproveKPI();
-  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash);
+  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash ?? undefined);
 
   const kpiAmount = (roleBudget * kpi.percentage) / 100;
 

@@ -209,7 +209,7 @@ export default function POPortfolioPage() {
   // Smart contract hooks
   const { balance, isLoading: isBalanceLoading } = useWithdrawableBalance();
   const { withdraw, isPending, error, hash, isSuccess } = useWithdraw();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
 
   useEffect(() => {
     setMounted(true);
@@ -512,7 +512,8 @@ export default function POPortfolioPage() {
         </Card>
 
         {/* Performance Chart */}
-        <Card className="p-3 sm:p-4 md:p-6" ref={chartRef}>
+        <div ref={chartRef}>
+        <Card className="p-3 sm:p-4 md:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 md:gap-3 mb-3 md:mb-6">
             <div className="flex items-center gap-2 md:gap-3">
               <div className={`transition-all duration-300 ${isChartTransitioning ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}>
@@ -779,6 +780,7 @@ export default function POPortfolioPage() {
             </div>
           </div>
         </Card>
+        </div>
 
         {/* Yield Performance by KPI */}
         <Card className={`transition-all duration-500 overflow-visible ${isCardsExpanded ? 'p-6' : 'p-4'}`}>
