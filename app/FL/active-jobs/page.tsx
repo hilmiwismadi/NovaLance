@@ -243,7 +243,7 @@ export default function FLActiveJobsPage() {
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1">
                                     <h4 className="font-medium text-slate-900">{kpi.name}</h4>
-                                    <Badge variant={isApproved ? 'success' : isCompleted ? 'warning' : isInProgress ? 'primary' : 'default'} className="text-xs">
+                                    <Badge variant={isApproved ? 'success' : isCompleted ? 'warning' : isInProgress ? 'pending' : 'default'} className="text-xs">
                                       {kpi.status}
                                     </Badge>
                                     <span className="text-xs font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-full">
