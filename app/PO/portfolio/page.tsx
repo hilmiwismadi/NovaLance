@@ -7,7 +7,16 @@ import Badge from '@/components/ui/Badge';
 import WalletConnectModal from '@/components/auth/WalletConnectModal';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { mockPOProjects, formatCurrency } from '@/lib/mockData';
-import { useWithdrawableBalance, useWithdraw, useTransactionWait } from '@/lib/hooks';
+import {
+  useWithdrawableBalance,
+  useWithdraw,
+  useTransactionWait,
+  // ProjectLance hooks
+  usePLVaultBalance,
+  usePLLendingBalance,
+  usePLProjectCount,
+  usePLYield,
+} from '@/lib/hooks';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -211,6 +220,12 @@ export default function POPortfolioPage() {
   const { withdraw, isPending, error, hash, isSuccess } = useWithdraw();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
 
+  // ProjectLance contract hooks for yield data
+  const { count: projectCount } = usePLProjectCount();
+  // Demo project ID for testing - in production, this would come from user's actual projects
+  const demoProjectId = 1n;
+  const { vaultAmount, lendingAmount, yieldPercentage } = usePLYield(demoProjectId);
+
   useEffect(() => {
     setMounted(true);
 
@@ -325,11 +340,19 @@ export default function POPortfolioPage() {
     }
   };
 
-  // Calculate totals
-  const totalDeposited = mockYieldData.reduce((sum, item) => sum + item.depositedAmount, 0);
-  const totalLP = mockYieldData.reduce((sum, item) => sum + item.lpAmount, 0);
-  const totalYield = mockYieldData.reduce((sum, item) => sum + item.currentYield, 0);
-  const avgYieldRate = totalLP > 0 ? (totalYield / totalLP) * 100 : 0;
+  // Calculate totals - Use contract data when available
+  const totalDeposited = vaultAmount
+    ? Number(vaultAmount) / 1e6
+    : mockYieldData.reduce((sum, item) => sum + item.depositedAmount, 0);
+  const totalLP = lendingAmount
+    ? Number(lendingAmount) / 1e6
+    : mockYieldData.reduce((sum, item) => sum + item.lpAmount, 0);
+  const totalYield = (vaultAmount && lendingAmount)
+    ? (Number(lendingAmount) - totalLP) / 1e6
+    : mockYieldData.reduce((sum, item) => sum + item.currentYield, 0);
+  const avgYieldRate = yieldPercentage !== undefined
+    ? yieldPercentage
+    : totalLP > 0 ? (totalYield / totalLP) * 100 : 0;
 
   // Filter cards based on status
   const baseFilteredCards = mockYieldData.filter(item => {
@@ -378,9 +401,16 @@ export default function POPortfolioPage() {
   const mockWithdrawableBalance = Math.random() * (200000 - 40000) + 40000;
 
   // Calculate withdrawable balance from smart contract or fall back to mock (in IDR, no conversion needed)
+  // Use ProjectLance contract data when available
+  const contractYieldValue = lendingAmount && vaultAmount
+    ? Number(lendingAmount - (vaultAmount * 10n / 90n)) / 1e6
+    : 0;
+
   const withdrawableBalance = balance
     ? Number(balance.totalWithdrawable) / 1e6
-    : mockWithdrawableBalance;
+    : contractYieldValue > 0
+      ? contractYieldValue + mockWithdrawableBalance
+      : mockWithdrawableBalance;
 
   if (!mounted) return null;
 

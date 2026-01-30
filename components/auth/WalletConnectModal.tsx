@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useConnect, useAccount, useDisconnect } from 'wagmi';
+import { injected, walletConnect } from 'wagmi/connectors';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 
@@ -16,6 +18,11 @@ export default function WalletConnectModal({
   onConnected,
 }: WalletConnectModalProps) {
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  const { connect, isPending } = useConnect();
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
 
   const walletOptions = [
     {
@@ -27,6 +34,7 @@ export default function WalletConnectModal({
           <path d="M36.3429 9.58666L22.2971 2.49793C21.1445 1.90812 19.7543 1.90812 18.6017 2.49793L4.55597 9.58666C3.14546 10.3207 2.25 11.7862 2.25 13.3827V26.7576C2.25 28.3541 3.14546 29.8196 4.55597 30.5536L18.6017 37.6424C19.7543 38.2322 21.1445 38.2322 22.2971 37.6424L36.3429 30.5536C37.7534 29.8196 38.6489 28.3541 38.6489 26.7576V13.3827C38.6489 11.7862 37.7534 10.3207 36.3429 9.58666Z" fill="#E2761B" stroke="#E2761B"/>
         </svg>
       ),
+      connector: injected(),
     },
     {
       id: 'walletconnect',
@@ -37,33 +45,36 @@ export default function WalletConnectModal({
           <path d="M10.5 15C15.7467 10.5 24.2533 10.5 29.5 15M13 18C16.5 15 23.5 15 27 18M15.5 21C17.5 19.5 22.5 19.5 24.5 21" stroke="#3B99FC" strokeWidth="2.5" strokeLinecap="round"/>
         </svg>
       ),
-    },
-    {
-      id: 'coinbase',
-      name: 'Coinbase Wallet',
-      description: 'Connect using your Coinbase Wallet',
-      icon: (
-        <svg className="w-8 h-8" viewBox="0 0 40 40" fill="none">
-          <circle cx="20" cy="20" r="18" fill="#0052FF"/>
-          <path d="M20 11C15.0294 11 11 15.0294 11 20C11 24.9706 15.0294 29 20 29C24.9706 29 29 24.9706 29 20C29 15.0294 24.9706 11 20 11ZM20 25.5C16.9624 25.5 14.5 23.0376 14.5 20C14.5 16.9624 16.9624 14.5 20 14.5C23.0376 14.5 25.5 16.9624 25.5 20C25.5 23.0376 23.0376 25.5 20 25.5Z" fill="white"/>
-        </svg>
-      ),
+      connector: walletConnect({ projectId: 'c4f79cc821966d8e861678be7e692a27' }), // Replace with your WalletConnect Project ID
     },
   ];
 
-  const handleConnect = (walletId: string) => {
+  const handleConnect = async (walletId: string, connector: ReturnType<typeof injected> | ReturnType<typeof walletConnect>) => {
     setSelectedWallet(walletId);
-    // Mock connection for UI demo
-    setTimeout(() => {
+    setError('');
+
+    try {
+      await connect({ connector });
+
+      // Store connection state
       if (typeof window !== 'undefined') {
         localStorage.setItem('po-wallet-connected', 'true');
-        localStorage.setItem('po-wallet-address', '0x' + Math.random().toString(16).slice(2, 42));
+        if (address) {
+          localStorage.setItem('po-wallet-address', address);
+        }
       }
+
       if (onConnected) {
         onConnected();
       }
+
       onClose();
-    }, 1500);
+    } catch (err) {
+      const error = err as Error;
+      setError(`Failed to connect: ${error.message}`);
+      setSelectedWallet(null);
+      console.error('Wallet connection error:', error);
+    }
   };
 
   const handleSkip = () => {
@@ -94,6 +105,13 @@ export default function WalletConnectModal({
           Connect your wallet to interact with smart contracts and manage payments
         </p>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
         {/* Wallet Options */}
         <div className="space-y-3 mb-6">
           {walletOptions.map((wallet) => {
@@ -102,8 +120,8 @@ export default function WalletConnectModal({
             return (
               <button
                 key={wallet.id}
-                onClick={() => !isConnecting && handleConnect(wallet.id)}
-                disabled={isConnecting}
+                onClick={() => !isConnecting && !isPending && handleConnect(wallet.id, wallet.connector)}
+                disabled={isConnecting || isPending}
                 className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-slate-200 hover:border-brand-500 hover:bg-brand-50/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
               >
                 <div className="flex-shrink-0 p-2 rounded-lg bg-white shadow-sm">
@@ -113,7 +131,7 @@ export default function WalletConnectModal({
                   <p className="font-semibold text-slate-900">{wallet.name}</p>
                   <p className="text-xs text-slate-500">{wallet.description}</p>
                 </div>
-                {isConnecting ? (
+                {isConnecting || isPending ? (
                   <div className="w-5 h-5 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
                 ) : (
                   <svg className="w-5 h-5 text-slate-400 group-hover:text-brand-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">

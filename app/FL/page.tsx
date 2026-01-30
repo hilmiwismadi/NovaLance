@@ -2,12 +2,19 @@
 
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import Link from 'next/link';
+import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { mockProjects, mockApplications, mockPOProjects } from '@/lib/mockData';
 import { formatCurrency } from '@/lib/mockData';
+import {
+  usePLProjectCount,
+  usePLProject,
+  usePLWithdrawalAmounts,
+  usePLYield,
+} from '@/lib/hooks';
 
 // Filter projects where user is freelancer
 const freelancerProjects = mockProjects.filter(p => p.userRole === 'freelancer');
@@ -235,6 +242,15 @@ export default function FLDashboard() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Get wallet address for contract calls
+  const { address, chain } = useAccount();
+
+  // ProjectLance contract hooks
+  const { count: projectCount } = usePLProjectCount();
+  const demoProjectId = 1n;
+  const { vaultAmount, lendingAmount, yieldPercentage } = usePLYield(demoProjectId);
+  const { amounts: withdrawalAmounts } = usePLWithdrawalAmounts(demoProjectId, 0n);
 
   // Memoized toggle callback
   const toggleActivity = useCallback(() => {

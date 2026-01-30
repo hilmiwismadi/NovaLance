@@ -11,6 +11,13 @@ import Modal from '@/components/ui/Modal';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { getPOProjectById, formatCurrency } from '@/lib/mockData';
 import { useDepositKPI, useApproveKPI, useCancelProject, useTransactionWait } from '@/lib/hooks';
+import {
+  usePLDepositFunds,
+  usePLAcceptMilestone,
+  usePLAllMilestones,
+  usePLVaultBalance,
+  usePLLendingBalance,
+} from '@/lib/hooks';
 import KPIReviewModal from '@/components/po/KPIReviewModal';
 import {
   showTransactionPending,
@@ -63,6 +70,14 @@ export default function POProjectDetailPage() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
   const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash ?? undefined);
   const { isLoading: isCancelConfirming, isSuccess: isCancelConfirmed } = useTransactionWait(cancelHash ?? undefined);
+
+  // ProjectLance hooks for milestone-based projects
+  const projectLanceId = BigInt(parseInt(projectId) || 1);
+  const { deposit: depositFunds } = usePLDepositFunds();
+  const { accept: acceptMilestone } = usePLAcceptMilestone();
+  const { milestones, isLoading: isMilestonesLoading } = usePLAllMilestones(projectLanceId);
+  const { balance: vaultBalance } = usePLVaultBalance(projectLanceId);
+  const { balance: lendingBalance } = usePLLendingBalance(projectLanceId);
 
   // Handle transaction success
   useEffect(() => {

@@ -8,6 +8,14 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { POProject, mockPOProjects, calculateProjectProgress as calculateProjectProgressUtil, formatCurrency } from '@/lib/mockData';
+import {
+  usePLProjectCount,
+  usePLProject,
+  usePLYield,
+  usePLAllMilestones,
+  usePLVaultBalance,
+  usePLLendingBalance,
+} from '@/lib/hooks';
 
 // Track expansion state for each project, role, and KPI
 interface ExpansionState {
@@ -30,14 +38,21 @@ export default function PODashboard() {
   const [expandedYieldProjects, setExpandedYieldProjects] = useState<ExpansionState>({});
   const [expandedYieldRoles, setExpandedYieldRoles] = useState<ExpansionState>({});
   const [liveYieldRates, setLiveYieldRates] = useState<{ [key: string]: number }>(mockYieldRates);
+  const [useContractData, setUseContractData] = useState(true);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const { address } = useAccount();
+  const { address, chain } = useAccount();
 
-  // Get projects from mock data
+  // Smart Contract Data
+  const { count: projectCount, isLoading: isProjectCountLoading } = usePLProjectCount();
+
+  // Calculate chain ID for contract calls
+  const chainId = chain?.id || 84532; // Default to Base Sepolia
+
+  // Get projects from mock data (fallback)
   const ownerProjects = address
     ? mockPOProjects.filter(p => p.owner.toLowerCase() === address.toLowerCase())
     : mockPOProjects;
@@ -50,6 +65,11 @@ export default function PODashboard() {
   const calculateProjectProgress = (project: POProject): number => {
     return calculateProjectProgressUtil(project);
   };
+
+  // Get yield data from contract for project 1 (demo)
+  const projectIdForContract = 1n;
+  const { vaultAmount, lendingAmount, yieldPercentage, isLoading: isYieldLoading } = usePLYield(projectIdForContract);
+  const { milestones, isLoading: isMilestonesLoading } = usePLAllMilestones(projectIdForContract);
 
   // Simulate live yield fluctuations for in-progress KPIs
   useEffect(() => {
@@ -86,28 +106,38 @@ export default function PODashboard() {
   const completedKPIs = activeProjects.reduce((sum, p) => sum + p.roles.reduce((s, r) => s + r.kpis.filter(k => k.status === 'completed' || k.status === 'approved').length, 0), 0);
   const overallProgress = totalKPIs > 0 ? Math.round((completedKPIs / totalKPIs) * 100) : 0;
 
-  // Calculate yield with realistic rates
+  // Calculate yield - Use contract data when available, fall back to mock data
   let totalDeposited = 0;
   let totalLP = 0;
   let totalYield = 0;
 
-  activeProjects.forEach(p => {
-    p.roles.forEach(r => {
-      if (r.assignedTo) {
-        const approvedKPIs = r.kpis.filter(k => k.status === 'approved');
-        approvedKPIs.forEach(k => {
-          const kpiAmount = r.budget * (k.percentage / 100);
-          const lpKpiDeposit = kpiAmount * 0.1;
-          const yieldRate = (liveYieldRates[k.id] || 5) / 100;
-          const kpiYield = lpKpiDeposit * yieldRate;
+  // Use contract data if available and connected to Base Sepolia
+  if (useContractData && vaultAmount && lendingAmount && chainId === 84532) {
+    // Use smart contract data
+    totalDeposited = Number(vaultAmount || 0n);
+    totalLP = Number(lendingAmount || 0n);
+    const yieldValue = (lendingAmount || 0n) - (vaultAmount || 0n) * 10n / 90n; // Approximate yield from lending
+    totalYield = Number(yieldValue > 0n ? yieldValue : 0n);
+  } else {
+    // Fall back to mock data
+    activeProjects.forEach(p => {
+      p.roles.forEach(r => {
+        if (r.assignedTo) {
+          const approvedKPIs = r.kpis.filter(k => k.status === 'approved');
+          approvedKPIs.forEach(k => {
+            const kpiAmount = r.budget * (k.percentage / 100);
+            const lpKpiDeposit = kpiAmount * 0.1;
+            const yieldRate = (liveYieldRates[k.id] || 5) / 100;
+            const kpiYield = lpKpiDeposit * yieldRate;
 
-          totalDeposited += kpiAmount;
-          totalLP += lpKpiDeposit;
-          totalYield += kpiYield;
-        });
-      }
+            totalDeposited += kpiAmount;
+            totalLP += lpKpiDeposit;
+            totalYield += kpiYield;
+          });
+        }
+      });
     });
-  });
+  }
 
   const getYieldRate = (kpiId: string): number => {
     if (liveYieldRates[kpiId] !== undefined) {

@@ -754,3 +754,408 @@ export type ERC20Contract = {
     account: `0x${string}`;
   }) => Promise<bigint>;
 };
+
+// ============================================================================
+// ProjectLance Contract ABI (BaseHackathon)
+// ============================================================================
+
+export const PROJECTLANCE_ABI = [
+  // Constructor
+  {
+    type: 'constructor',
+    inputs: [
+      { name: '_token', type: 'address' },
+      { name: '_lendingProtocol', type: 'address' },
+      { name: '_platformDev', type: 'address' },
+    ],
+    stateMutability: 'nonpayable',
+  },
+  // Constants
+  { name: 'BASIS_POINTS', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'VAULT_PERCENTAGE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'LENDING_PERCENTAGE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'PLATFORM_FEE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'FREELANCER_SHARE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'CREATOR_SHARE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'LATE_PENALTY_PER_DAY', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'projectCount', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'token', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { name: 'lendingProtocol', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { name: 'platformDev', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  // Write Functions
+  {
+    name: 'createProject',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'deadlines', type: 'uint256[]' },
+      { name: 'percentages', type: 'uint256[]' },
+    ],
+    outputs: [{ name: 'projectId', type: 'uint256' }],
+  },
+  {
+    name: 'applyForProject',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'projectId', type: 'uint256' }],
+  },
+  {
+    name: 'acceptFreelancer',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'projectId', type: 'uint256' },
+      { name: 'freelancer', type: 'address' },
+    ],
+  },
+  {
+    name: 'depositFunds',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'projectId', type: 'uint256' },
+      { name: 'amount', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'submitMilestone',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'projectId', type: 'uint256' },
+      { name: 'milestoneIndex', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'acceptMilestone',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'projectId', type: 'uint256' },
+      { name: 'milestoneIndex', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'withdrawMilestone',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'projectId', type: 'uint256' },
+      { name: 'milestoneIndex', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'cancelProject',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'projectId', type: 'uint256' }],
+  },
+  {
+    name: 'withdrawCancelledProjectYield',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'projectId', type: 'uint256' }],
+  },
+  // View Functions
+  {
+    name: 'getProject',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'projectId', type: 'uint256' }],
+    outputs: [
+      { name: 'creator', type: 'address' },
+      { name: 'freelancer', type: 'address' },
+      { name: 'status', type: 'uint8' },
+      { name: 'totalDeposited', type: 'uint256' },
+      { name: 'vaultAmount', type: 'uint256' },
+      { name: 'lendingAmount', type: 'uint256' },
+      { name: 'milestoneCount', type: 'uint256' },
+      { name: 'cancelledTimestamp', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'getMilestone',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'projectId', type: 'uint256' },
+      { name: 'milestoneIndex', type: 'uint256' },
+    ],
+    outputs: [
+      { name: 'deadline', type: 'uint256' },
+      { name: 'percentage', type: 'uint256' },
+      { name: 'released', type: 'bool' },
+      { name: 'accepted', type: 'bool' },
+      { name: 'submissionTime', type: 'uint256' },
+      { name: 'actualAmount', type: 'uint256' },
+      { name: 'yieldAmount', type: 'uint256' },
+      { name: 'isLastMilestone', type: 'bool' },
+    ],
+  },
+  {
+    name: 'getAllMilestones',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'projectId', type: 'uint256' }],
+    outputs: [
+      {
+        components: [
+          { name: 'deadline', type: 'uint256' },
+          { name: 'percentage', type: 'uint256' },
+          { name: 'released', type: 'bool' },
+          { name: 'accepted', type: 'bool' },
+          { name: 'submissionTime', type: 'uint256' },
+          { name: 'actualAmount', type: 'uint256' },
+          { name: 'yieldAmount', type: 'uint256' },
+          { name: 'isLastMilestone', type: 'bool' },
+        ],
+        name: '',
+        type: 'tuple[]',
+      },
+    ],
+  },
+  {
+    name: 'getVaultBalance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'projectId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'getLendingBalance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'projectId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'getMilestonePenalty',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'projectId', type: 'uint256' },
+      { name: 'milestoneIndex', type: 'uint256' },
+    ],
+    outputs: [{ name: 'penaltyBps', type: 'uint256' }],
+  },
+  {
+    name: 'calculateWithdrawalAmounts',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'projectId', type: 'uint256' },
+      { name: 'milestoneIndex', type: 'uint256' },
+    ],
+    outputs: [
+      { name: 'freelancerVaultAmount', type: 'uint256' },
+      { name: 'creatorYieldAmount', type: 'uint256' },
+      { name: 'platformYieldAmount', type: 'uint256' },
+      { name: 'freelancerYieldAmount', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'calculateLatePenalty',
+    type: 'function',
+    stateMutability: 'pure',
+    inputs: [
+      { name: 'deadline', type: 'uint256' },
+      { name: 'submissionTime', type: 'uint256' },
+    ],
+    outputs: [{ name: 'penaltyPercentage', type: 'uint256' }],
+  },
+  {
+    name: 'getApplicants',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'projectId', type: 'uint256' }],
+    outputs: [{ name: '', type: 'address[]' }],
+  },
+  {
+    name: 'withdrawPenalty',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'projectId', type: 'uint256' }],
+    outputs: [{ name: 'totalPenalty', type: 'uint256' }],
+  },
+  // Events
+  {
+    type: 'event',
+    name: 'ProjectCreated',
+    inputs: [
+      { name: 'projectId', type: 'uint256', indexed: true },
+      { name: 'creator', type: 'address', indexed: true },
+      { name: 'milestoneCount', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'FreelancerApplied',
+    inputs: [
+      { name: 'projectId', type: 'uint256', indexed: true },
+      { name: 'freelancer', type: 'address', indexed: true },
+      { name: 'timestamp', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'FreelancerAccepted',
+    inputs: [
+      { name: 'projectId', type: 'uint256', indexed: true },
+      { name: 'creator', type: 'address', indexed: true },
+      { name: 'freelancer', type: 'address', indexed: true },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'FundsDeposited',
+    inputs: [
+      { name: 'projectId', type: 'uint256', indexed: true },
+      { name: 'creator', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+      { name: 'vaultAmount', type: 'uint256', indexed: false },
+      { name: 'lendingAmount', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'MilestoneSubmitted',
+    inputs: [
+      { name: 'projectId', type: 'uint256', indexed: true },
+      { name: 'milestoneIndex', type: 'uint256', indexed: true },
+      { name: 'freelancer', type: 'address', indexed: true },
+      { name: 'timestamp', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'MilestoneAccepted',
+    inputs: [
+      { name: 'projectId', type: 'uint256', indexed: true },
+      { name: 'milestoneIndex', type: 'uint256', indexed: true },
+      { name: 'creator', type: 'address', indexed: true },
+      { name: 'milestoneAmount', type: 'uint256', indexed: false },
+      { name: 'yieldAmount', type: 'uint256', indexed: false },
+      { name: 'totalAmount', type: 'uint256', indexed: false },
+      { name: 'penalty', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'MilestoneWithdrawn',
+    inputs: [
+      { name: 'projectId', type: 'uint256', indexed: true },
+      { name: 'milestoneIndex', type: 'uint256', indexed: true },
+      { name: 'freelancer', type: 'address', indexed: true },
+      { name: 'freelancerShareAmount', type: 'uint256', indexed: false },
+      { name: 'creatorShareAmount', type: 'uint256', indexed: false },
+      { name: 'platformShareAmount', type: 'uint256', indexed: false },
+      { name: 'freelancerYieldAmount', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'ProjectCancelled',
+    inputs: [
+      { name: 'projectId', type: 'uint256', indexed: true },
+      { name: 'creator', type: 'address', indexed: true },
+      { name: 'returnAmount', type: 'uint256', indexed: false },
+      { name: 'platformKeptAmount', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'CancelledProjectYieldWithdrawn',
+    inputs: [
+      { name: 'projectId', type: 'uint256', indexed: true },
+      { name: 'platformDev', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+    ],
+  },
+] as const;
+
+// ============================================================================
+// MockLendingProtocol Contract ABI
+// ============================================================================
+
+export const LENDING_PROTOCOL_ABI = [
+  // Constants
+  { name: 'ANNUAL_YIELD_RATE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'BASIS_POINTS', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'SECONDS_PER_YEAR', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'token', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { name: 'totalDeposited', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  // Write Functions
+  {
+    name: 'deposit',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'amount', type: 'uint256' }],
+  },
+  {
+    name: 'withdraw',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'amount', type: 'uint256' }],
+  },
+  {
+    name: 'addYieldTokens',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'amount', type: 'uint256' }],
+  },
+  // View Functions
+  {
+    name: 'calculateYield',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'user', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'getBalance',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'user', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+  {
+    name: 'getDepositDetails',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'user', type: 'address' }],
+    outputs: [
+      { name: 'amount', type: 'uint256' },
+      { name: 'timestamp', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'deposits',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [
+      { name: '', type: 'address' },
+    ],
+    outputs: [
+      { name: 'amount', type: 'uint256' },
+      { name: 'timestamp', type: 'uint256' },
+    ],
+  },
+  // Events
+  {
+    type: 'event',
+    name: 'Deposited',
+    inputs: [
+      { name: 'user', type: 'address', indexed: true },
+      { name: 'amount', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'Withdrawn',
+    inputs: [
+      { name: 'user', type: 'address', indexed: true },
+      { name: 'principal', type: 'uint256', indexed: false },
+      { name: 'yield', type: 'uint256', indexed: false },
+    ],
+  },
+] as const;

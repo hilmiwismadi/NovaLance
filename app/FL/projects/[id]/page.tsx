@@ -9,7 +9,18 @@ import Button from '@/components/ui/Button';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import Modal from '@/components/ui/Modal';
 import { getProjectById, getPOProjectById, formatCurrency } from '@/lib/mockData';
-import { useSubmitKPI, useApproveKPI } from '@/lib/hooks';
+import {
+  useSubmitKPI,
+  useApproveKPI,
+  // ProjectLance hooks
+  usePLSubmitMilestone,
+  usePLWithdrawMilestone,
+  usePLMilestone,
+  usePLAllMilestones,
+  usePLWithdrawalAmounts,
+  usePLMilestonePenalty,
+  usePLProject,
+} from '@/lib/hooks';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -39,6 +50,15 @@ export default function FLProjectDetailPage() {
   const { approve: approveKPIContract, isPending: isApprovePending, error: approveError, hash: approveHash, isSuccess: isApproveSuccess } = useApproveKPI();
   const { isLoading: isSubmitConfirming, isSuccess: isSubmitConfirmed } = useTransactionWait(submitHash ?? undefined);
   const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash ?? undefined);
+
+  // ProjectLance hooks for milestone-based projects
+  const projectLanceId = BigInt(parseInt(projectId) || 1);
+  const { submit: submitMilestone } = usePLSubmitMilestone();
+  const { withdraw: withdrawMilestone } = usePLWithdrawMilestone();
+  const { milestone, isLoading: isMilestoneLoading } = usePLMilestone(projectLanceId, 0n);
+  const { milestones, isLoading: isMilestonesLoading } = usePLAllMilestones(projectLanceId);
+  const { amounts: withdrawalAmounts } = usePLWithdrawalAmounts(projectLanceId, 0n);
+  const { penalty } = usePLMilestonePenalty(projectLanceId, 0n);
 
   const projectId = params.id as string;
 

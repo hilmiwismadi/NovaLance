@@ -7,7 +7,12 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import Badge from '@/components/ui/Badge';
-import { useCreateProject, useTransactionWait } from '@/lib/hooks';
+import {
+  useCreateProject,
+  useTransactionWait,
+  // ProjectLance hooks
+  usePLCreateProject,
+} from '@/lib/hooks';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -296,7 +301,11 @@ export default function CreateProjectPage() {
   const { address, chain } = useAccount();
   const [mounted, setMounted] = useState(false);
 
-  // Smart contract hooks
+  // Smart contract hooks - Use ProjectLance for milestone-based projects
+  const { createProject: createPLProject, isPending: isPLPending, error: plError, hash: plHash, isSuccess: isPLSuccess } = usePLCreateProject();
+  const { isLoading: isPLConfirming, isSuccess: isPLConfirmed } = useTransactionWait(plHash ?? undefined);
+
+  // Legacy hooks for KPI-based projects
   const { createProject, isPending, error, hash, isSuccess } = useCreateProject();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
 
@@ -494,28 +503,22 @@ export default function CreateProjectPage() {
     }
 
     try {
-      // Call smart contract
+      // Call ProjectLance smart contract (milestone-based)
       showInfo('Creating Project', 'Preparing transaction...');
 
-      const projectData = {
-        title,
-        description,
-        currency,
-        startDate,
-        endDate,
-        features: features.map(f => f.text),
-        roles: roles.map(role => ({
-          title: role.title,
-          description: role.description,
-          budget: parseFloat(role.budget),
-          currency: role.currency,
-          skills: role.skills,
-          kpis: role.kpis,
-        })),
-        totalBudget,
-      };
+      // Convert KPI data to milestone format for ProjectLance
+      // For simplicity, use the first role's KPIs as project milestones
+      const primaryRoleKPIs = roles[0].kpis;
+      const deadlines = primaryRoleKPIs.map(kpi => {
+        const date = new Date(kpi.deadline);
+        return BigInt(Math.floor(date.getTime() / 1000));
+      });
+      const percentages = primaryRoleKPIs.map(kpi => BigInt(Math.round(kpi.percentage * 100))); // Convert to basis points
 
-      await createProject(projectData);
+      await createPLProject({
+        deadlines,
+        percentages,
+      });
 
       // Transaction submitted - will be handled by useEffect below
     } catch (err) {
@@ -524,25 +527,47 @@ export default function CreateProjectPage() {
     }
   };
 
-  // Handle transaction success
+  // Handle ProjectLance transaction success
+  useEffect(() => {
+    if (isPLSuccess && plHash) {
+      showTransactionPending(plHash, 'Create Project', chain?.id || 84532);
+    }
+  }, [isPLSuccess, plHash, chain]);
+
+  // Handle ProjectLance transaction confirmation
+  useEffect(() => {
+    if (isPLConfirmed && plHash) {
+      showTransactionSuccess(plHash, 'Project created successfully!');
+      // Navigate to projects list after a short delay
+      setTimeout(() => {
+        router.push('/PO/projects');
+      }, 1500);
+    }
+  }, [isPLConfirmed, plHash, router]);
+
+  // Handle ProjectLance transaction error
+  useEffect(() => {
+    if (plError) {
+      showTransactionError(plHash || '0x0', plError, 'Failed to create project');
+    }
+  }, [plError, plHash]);
+
+  // Legacy transaction handlers (for KPI-based NovaLance contract)
   useEffect(() => {
     if (isSuccess && hash) {
       showTransactionPending(hash, 'Create Project', chain?.id || 84532);
     }
   }, [isSuccess, hash, chain]);
 
-  // Handle transaction confirmation
   useEffect(() => {
     if (isConfirmed && hash) {
       showTransactionSuccess(hash, 'Project created successfully!');
-      // Navigate to projects list after a short delay
       setTimeout(() => {
         router.push('/PO/projects');
       }, 1500);
     }
   }, [isConfirmed, hash, router]);
 
-  // Handle transaction error
   useEffect(() => {
     if (error) {
       showTransactionError(hash || '0x0', error, 'Failed to create project');
@@ -999,12 +1024,12 @@ export default function CreateProjectPage() {
             type="submit"
             variant="primary"
             className="w-full h-12 text-base font-semibold"
-            disabled={isPending || isConfirming}
+            disabled={isPLPending || isPLConfirming || isPending || isConfirming}
           >
-            {isPending || isConfirming ? (
+            {isPLPending || isPLConfirming || isPending || isConfirming ? (
               <span className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                {isPending ? 'Confirming...' : 'Creating...'}
+                {(isPLPending || isPending) ? 'Confirming...' : 'Creating...'}
               </span>
             ) : (
               'Create Project'
@@ -1015,7 +1040,7 @@ export default function CreateProjectPage() {
             variant="ghost"
             onClick={() => router.back()}
             className="w-full h-11 text-sm"
-            disabled={isPending || isConfirming}
+            disabled={isPLPending || isPLConfirming || isPending || isConfirming}
           >
             Cancel
           </Button>

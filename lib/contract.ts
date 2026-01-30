@@ -15,9 +15,21 @@ import { wagmiConfig } from './wagmi';
 export const CONTRACT_ADDRESSES = {
   baseMainnet: {
     novaLance: '0x0000000000000000000000000000000000000000' as Address, // TODO: Update after deployment
+    // ProjectLance contracts (BaseHackathon)
+    projectLance: '0x0000000000000000000000000000000000000000' as Address, // TODO: Update after deployment
+    mockLendingProtocol: '0x0000000000000000000000000000000000000000' as Address, // TODO: Update after deployment
   },
   baseSepolia: {
     novaLance: '0x0000000000000000000000000000000000000000' as Address, // TODO: Update after deployment
+    // ProjectLance contracts (BaseHackathon) - Deployed 2025-01-31
+    projectLance: '0x87c5C1a665cE300B13Cf5DE7a5d206386E93049c' as Address,
+    mockLendingProtocol: '0xcAD07A2741E3C08D79452F9CA337DE3a3947eae5' as Address,
+    mockIDRX: '0x026632AcAAc18Bc99c3f7fa930116189B6ba8432' as Address,
+  },
+  localhost: {
+    // Local anvil deployment - update these after local deployment
+    projectLance: '0x5B38Da6a701c568545dCfcB03FcB875f56beddC4' as Address,
+    mockLendingProtocol: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0' as Address,
   },
 } as const;
 
@@ -33,6 +45,8 @@ export const TOKEN_ADDRESSES = {
     USDC: '0x036CbD5A42F7E87138939B31B4eb07330dD618E9' as Address,
     USDT: '0x616f6BE5f799c45A83bC0F75B8BdBc08f8C2fB5a' as Address,
     WETH: '0x4200000000000000000000000000000000000006' as Address,
+    // Deployed MockIDRX token
+    IDRX: '0x026632AcAAc18Bc99c3f7fa930116189B6ba8432' as Address,
   },
 } as const;
 
