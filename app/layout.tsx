@@ -4,7 +4,12 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import RootLayout from "@/components/layout/RootLayout";
 
-const inter = Inter({ subsets: ["latin"] });
+// Use display-swap for faster initial render
+const inter = Inter({
+  subsets: ["latin"],
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
   title: "NovaLance - Web3 Freelance Marketplace on Base",
@@ -21,7 +26,7 @@ export default function Layout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.variable} font-sans antialiased`}>
         <Providers>
           <RootLayout>{children}</RootLayout>
         </Providers>

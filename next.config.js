@@ -1,12 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack: (config) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      '@react-native-async-storage/async-storage': false,
-    };
-    return config;
-  },
+  // Note: optimizeFonts is now enabled by default in Next.js 15+
+  // Webpack config removed to avoid Turbopack conflicts
+  // If you need the async-storage fallback, it should work natively now
 }
 
 module.exports = nextConfig

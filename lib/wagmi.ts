@@ -9,7 +9,7 @@ export const wagmiConfig = getDefaultConfig({
   appName: 'NovaLance',
   projectId: walletConnectProjectId,
   chains: [base, baseSepolia],
-  ssr: true, // Enable server-side rendering support
+  ssr: false, // Disable SSR for faster initial load
 });
 
 // Export chains for use in components

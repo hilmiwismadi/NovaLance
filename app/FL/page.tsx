@@ -258,8 +258,6 @@ export default function FLDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  if (!mounted) return null;
-
   // Memoized calculations - only recalculate when liveYields changes
   const earningsCalculations = useMemo(() => {
     const totalBaseEarnings = mockEarnings.reduce((sum, e) => sum + e.baseEarnings, 0);
@@ -275,6 +273,8 @@ export default function FLDashboard() {
 
     return { totalBaseEarnings, totalYieldEarnings, totalEarnings, avgYieldRate };
   }, [liveYields]);
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-6">
