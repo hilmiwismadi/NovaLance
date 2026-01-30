@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { mockProjects, mockPOProjects, mockApplications, mockUser, getProjectsByRole, formatCurrency, getApplicationStatusColor } from '@/lib/mockData';
 import FLPortfolioContent from '@/components/fl/FLPortfolioContent';
+import KPIDetailModal from '@/components/fl/KPIDetailModal';
 
 type FilterType = 'all' | 'pending' | 'accepted' | 'rejected';
 type TabType = 'projects' | 'applications' | 'portfolio';
@@ -55,6 +56,16 @@ export default function FLProjectsPage() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('projects');
   const [filter, setFilter] = useState<FilterType>('all');
+
+  // KPI Detail Modal state
+  const [kpiModalOpen, setKpiModalOpen] = useState(false);
+  const [selectedKPI, setSelectedKPI] = useState<{
+    projectId: string;
+    roleId: string;
+    roleTitle: string;
+    roleBudget: number;
+    kpi: any;
+  } | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -297,8 +308,29 @@ export default function FLProjectsPage() {
                 const progress = totalKPIs > 0 ? (completedKPIs / totalKPIs) * 100 : 0;
 
                 return (
-                  <Link key={`${project.id}-${role.id}`} href={`/FL/active-jobs`}>
-                    <Card className="p-4 sm:p-5 hover:shadow-lg transition-all cursor-pointer h-full border-2 border-transparent hover:border-brand-200">
+                  <div
+                    key={`${project.id}-${role.id}`}
+                    onClick={() => {
+                      // Find the first in-progress or pending KPI to show in modal
+                      const nextKPI = role.kpis.find(k =>
+                        k.status === 'in-progress' ||
+                        k.status === 'pending' ||
+                        k.status === 'pending-approval' ||
+                        k.status === 'rejected'
+                      ) || role.kpis[0];
+
+                      setSelectedKPI({
+                        projectId: project.id,
+                        roleId: role.id,
+                        roleTitle: role.title,
+                        roleBudget: role.budget,
+                        kpi: nextKPI,
+                      });
+                      setKpiModalOpen(true);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <Card className="p-4 sm:p-5 hover:shadow-lg transition-all h-full border-2 border-transparent hover:border-brand-200">
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h3 className="font-semibold text-slate-900 text-base sm:text-lg">{project.title}</h3>
@@ -338,7 +370,7 @@ export default function FLProjectsPage() {
                         </span>
                       </div>
                     </Card>
-                  </Link>
+                  </div>
                 );
               })}
             </div>
@@ -535,6 +567,27 @@ export default function FLProjectsPage() {
 
       {/* Portfolio Tab Content */}
       {activeTab === 'portfolio' && <FLPortfolioContent />}
+
+      {/* KPI Detail Modal */}
+      {selectedKPI && (
+        <KPIDetailModal
+          isOpen={kpiModalOpen}
+          onClose={() => {
+            setKpiModalOpen(false);
+            setSelectedKPI(null);
+          }}
+          projectId={selectedKPI.projectId}
+          roleId={selectedKPI.roleId}
+          roleTitle={selectedKPI.roleTitle}
+          roleBudget={selectedKPI.roleBudget}
+          kpi={selectedKPI.kpi}
+          currency="IDRX"
+          onSuccess={() => {
+            // Refresh logic could go here
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

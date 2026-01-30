@@ -11,6 +11,7 @@ import Modal from '@/components/ui/Modal';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { getPOProjectById, formatCurrency } from '@/lib/mockData';
 import { useDepositKPI, useApproveKPI, useCancelProject, useTransactionWait } from '@/lib/hooks';
+import KPIReviewModal from '@/components/po/KPIReviewModal';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -30,9 +31,30 @@ export default function POProjectDetailPage() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [selectedKPI, setSelectedKPI] = useState<{ roleIndex: number; kpiIndex: number } | null>(null);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set());
+
+  const projectId = params.id as string;
+  const project = getPOProjectById(projectId);
+
+  useEffect(() => {
+    setMounted(true);
+  }, [projectId]);
+
+  // Auto-expand roles that have KPIs pending approval
+  useEffect(() => {
+    if (project) {
+      const rolesWithPendingApproval = project.roles
+        .filter((r) => r.kpis.some((k) => k.status === 'pending-approval' || k.status === 'completed'))
+        .map((r) => r.id);
+
+      if (rolesWithPendingApproval.length > 0) {
+        setExpandedRoles(new Set(rolesWithPendingApproval));
+      }
+    }
+  }, [project]);
 
   // Smart contract hooks
   const { deposit: depositKPI, approveToken, isPending, error, hash, isSuccess } = useDepositKPI();
@@ -41,13 +63,6 @@ export default function POProjectDetailPage() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash);
   const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash);
   const { isLoading: isCancelConfirming, isSuccess: isCancelConfirmed } = useTransactionWait(cancelHash);
-
-  const projectId = params.id as string;
-  const project = getPOProjectById(projectId);
-
-  useEffect(() => {
-    setMounted(true);
-  }, [projectId]);
 
   // Handle transaction success
   useEffect(() => {
@@ -259,8 +274,15 @@ export default function POProjectDetailPage() {
   };
 
   const openApproveModal = (roleIndex: number, kpiIndex: number) => {
+    const kpi = project.roles[roleIndex].kpis[kpiIndex];
     setSelectedKPI({ roleIndex, kpiIndex });
-    setApproveKPIModalOpen(true);
+
+    // Use review modal for pending-approval KPIs, legacy modal for completed
+    if (kpi.status === 'pending-approval') {
+      setReviewModalOpen(true);
+    } else {
+      setApproveKPIModalOpen(true);
+    }
   };
 
   const toggleRoleExpanded = (roleId: string) => {
@@ -582,6 +604,15 @@ export default function POProjectDetailPage() {
                       <p className="text-base sm:text-lg font-bold text-brand-600">
                         <CurrencyDisplay amount={formatCurrency(role.budget, 'IDRX')} currency="IDRX" />
                       </p>
+                      {/* Show indicator if KPIs need approval */}
+                      {role.kpis.some(k => k.status === 'pending-approval' || k.status === 'completed') && (
+                        <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 mt-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Needs Review</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -630,32 +661,47 @@ export default function POProjectDetailPage() {
                   {role.kpis.map((kpi, kpiIndex) => {
                     const yieldAmount = getKPIYield(kpi, role);
                     const isInProgress = kpi.status === 'in-progress';
+                    const isPendingApproval = kpi.status === 'pending-approval';
+                    const needsReview = kpi.status === 'completed' || isPendingApproval;
+                    const isClickable = needsReview;
 
                     return (
                       <div
                         key={kpi.id}
                         className={`border rounded-lg p-3 transition-all ${
+                          isClickable ? 'cursor-pointer hover:shadow-md hover:border-brand-300' : ''
+                        } ${
                           kpi.status === 'approved'
                             ? 'bg-emerald-50 border-emerald-200'
-                            : kpi.status === 'completed'
+                            : kpi.status === 'completed' || isPendingApproval
                             ? 'bg-amber-50 border-amber-200'
                             : kpi.status === 'in-progress'
                             ? 'bg-brand-50 border-brand-200'
                             : 'bg-slate-50 border-slate-200'
                         }`}
+                        onClick={() => {
+                          if (isClickable) {
+                            setSelectedKPI({ roleIndex, kpiIndex });
+                            setReviewModalOpen(true);
+                          }
+                        }}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <h4 className="font-medium text-slate-900 text-sm truncate">{kpi.name}</h4>
 
-                              {/* Status icon - no text */}
+                              {/* Status badge */}
                               {kpi.status === 'approved' ? (
                                 <div className="flex items-center gap-1 text-emerald-600">
                                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                   </svg>
                                 </div>
+                              ) : isPendingApproval ? (
+                                <Badge variant="warning" className="text-xs">
+                                  Needs Approval
+                                </Badge>
                               ) : kpi.status === 'completed' ? (
                                 <Badge variant="warning" className="text-xs">
                                   Ready for Review
@@ -680,6 +726,28 @@ export default function POProjectDetailPage() {
 
                             {kpi.description && (
                               <p className="text-xs text-slate-600 mb-2 line-clamp-1">{kpi.description}</p>
+                            )}
+
+                            {/* Show deliverables info if submitted */}
+                            {isPendingApproval && kpi.deliverables && (
+                              <div className="flex items-center gap-1.5 text-amber-700 mt-1">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                </svg>
+                                <span className="text-xs">Deliverables submitted</span>
+                              </div>
+                            )}
+
+                            {/* Click indicator for review */}
+                            {isClickable && (
+                              <div className="flex items-center gap-1 text-amber-700 text-xs mt-1">
+                                <span>
+                                  {isPendingApproval ? 'Click to review & approve/reject' : 'Click to review'}
+                                </span>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </div>
                             )}
 
                             {/* Yield info for approved KPIs */}
@@ -707,19 +775,14 @@ export default function POProjectDetailPage() {
                             )}
                           </div>
 
-                          {/* Action button */}
-                          {kpi.status === 'completed' && (
-                            <Button
-                              variant="success"
-                              size="sm"
-                              onClick={() => openApproveModal(roleIndex, kpiIndex)}
-                              className="flex-shrink-0"
-                            >
-                              <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          {/* Action button or click indicator */}
+                          {isClickable && (
+                            <div className="flex items-center gap-1 text-amber-700 text-xs">
+                              <span>Review</span>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                               </svg>
-                              Approve
-                            </Button>
+                            </div>
                           )}
                         </div>
 
@@ -869,7 +932,28 @@ export default function POProjectDetailPage() {
         </div>
       </Modal>
 
-      {/* Approve KPI Modal */}
+      {/* KPI Review Modal - for pending-approval and completed KPIs */}
+      {selectedKPI && project && (
+        <KPIReviewModal
+          isOpen={reviewModalOpen}
+          onClose={() => {
+            setReviewModalOpen(false);
+            setSelectedKPI(null);
+          }}
+          projectId={projectId}
+          roleTitle={project.roles[selectedKPI.roleIndex].title}
+          roleBudget={project.roles[selectedKPI.roleIndex].budget}
+          kpi={project.roles[selectedKPI.roleIndex].kpis[selectedKPI.kpiIndex]}
+          freelancerEns={project.roles[selectedKPI.roleIndex].assignedToEns}
+          currency={project.currency}
+          onSuccess={() => {
+            // Refresh logic could go here
+            window.location.reload();
+          }}
+        />
+      )}
+
+      {/* Legacy Approve KPI Modal - kept for backwards compatibility */}
       <Modal isOpen={approveKPIModalOpen} onClose={() => setApproveKPIModalOpen(false)} title="Approve KPI">
         <div className="space-y-4">
           <p className="text-slate-600">

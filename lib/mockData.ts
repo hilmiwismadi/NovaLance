@@ -1,6 +1,6 @@
 // Mock data for NovaLance frontend
 
-export type KPIStatus = 'pending' | 'in-progress' | 'completed' | 'approved' | 'rejected';
+export type KPIStatus = 'pending' | 'in-progress' | 'pending-approval' | 'completed' | 'approved' | 'rejected';
 
 // KPI - Key Performance Indicator (milestone with % and deadline)
 export interface KPI {
@@ -12,6 +12,16 @@ export interface KPI {
   deadline?: string; // ISO date string
   completedAt?: string;
   yield?: number; // Yield percentage (-5 to 15), e.g., 11.44 for 11.44%
+
+  // Multi-sig approval fields
+  poApproved?: boolean;      // PO approval status
+  flApproved?: boolean;      // FL approval status
+  rejectionReason?: string;  // Reason if rejected
+  submittedAt?: string;      // When FL submitted for approval
+  deliverables?: {           // FL's submitted work
+    links: string[];
+    description: string;
+  };
 }
 
 // RoleInProject - A specific role within a project (e.g., FE, BE, Designer)
@@ -399,21 +409,33 @@ export const mockPOProjects: POProject[] = [
             deadline: '2026-01-20',
             completedAt: '2026-01-19',
             yield: 11.44,
+            poApproved: true,
+            flApproved: true,
           },
           {
             id: 'kpi-3-2',
             name: 'Swap Interface',
             percentage: 40,
             description: 'Build swap form with price estimation and slippage',
-            status: 'in-progress',
+            status: 'pending-approval',
             deadline: '2026-02-05',
+            submittedAt: '2026-01-28T10:30:00Z',
+            deliverables: {
+              links: [
+                'https://github.com/bob/defi-swap/pull/42',
+                'https://defi-swap-demo.vercel.app',
+              ],
+              description: 'Implemented the swap interface with real-time price estimation from Uniswap V2. Added slippage tolerance settings and transaction confirmation modal. Connected to Base Sepolia testnet.',
+            },
+            poApproved: false,
+            flApproved: false,
           },
           {
             id: 'kpi-3-3',
             name: 'Charts & History',
             percentage: 35,
             description: 'Price charts and transaction history',
-            status: 'pending',
+            status: 'in-progress',
             deadline: '2026-02-20',
           },
         ],
@@ -554,14 +576,27 @@ export const mockPOProjects: POProject[] = [
             deadline: '2026-01-25',
             completedAt: '2026-01-24',
             yield: 3.25,
+            poApproved: true,
+            flApproved: true,
           },
           {
             id: 'kpi-6-2',
             name: 'Game Interface',
             percentage: 35,
             description: 'Build main game interface with canvas rendering',
-            status: 'in-progress',
+            status: 'rejected',
             deadline: '2026-02-20',
+            submittedAt: '2026-01-27T14:00:00Z',
+            rejectionReason: 'The canvas rendering performance is below 30fps on mobile devices. Please optimize the rendering loop and implement object pooling for better performance.',
+            deliverables: {
+              links: [
+                'https://github.com/alice/gaming-platform/pull/15',
+                'https://gaming-platform-demo.vercel.app',
+              ],
+              description: 'Implemented basic game interface with HTML5 Canvas. Added character movement, collision detection, and basic game loop.',
+            },
+            poApproved: false,
+            flApproved: false,
           },
           {
             id: 'kpi-6-3',
