@@ -28,10 +28,23 @@ function usePOProjects(maxProjects: number = 20) {
   const [projects, setProjects] = useState<ContractProject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  console.log('[PO Dashboard] usePOProjects hook called', { address, chainId: chain?.id, maxProjects, isLoading });
+
   useEffect(() => {
-    if (!address || !chain) return;
+    console.log('\n-------- PO DASHBOARD USEEFFECT (FETCH PROJECTS) --------');
+    console.log('[PO Dashboard] address:', address);
+    console.log('[PO Dashboard] chainId:', chain?.id);
+    console.log('[PO Dashboard] maxProjects:', maxProjects);
+    console.log('[PO Dashboard] Current URL:', window.location.href);
+    console.log('----------------------------------------------------------\n');
+
+    if (!address || !chain) {
+      console.log('[PO Dashboard] Skipping fetch - no address or chain');
+      return;
+    }
 
     const fetchProjects = async () => {
+      console.log('\n[PO Dashboard] >>> FETCHING PROJECTS START <<<\n');
       setIsLoading(true);
       try {
         const { getContractAddresses } = await import('@/lib/contract-adapter');
@@ -95,11 +108,13 @@ function usePOProjects(maxProjects: number = 20) {
         setProjects([]);
       } finally {
         setIsLoading(false);
+        console.log('\n[PO Dashboard] >>> FETCHING PROJECTS COMPLETE <<<\n');
+        console.log('[PO Dashboard] Found', projects.length, 'user projects\n');
       }
     };
 
     fetchProjects();
-  }, [address, chain, maxProjects]);
+  }, [address, chain?.id, maxProjects]);
 
   return { projects, isLoading };
 }
@@ -110,12 +125,16 @@ export default function PODashboard() {
   const [yieldExpanded, setYieldExpanded] = useState(false);
 
   useEffect(() => {
+    console.log('\n======== PO DASHBOARD MOUNTED ========');
+    console.log('[PO Dashboard] Component mounted');
+    console.log('[PO Dashboard] Current URL:', window.location.href);
+    console.log('========================================\n');
     setMounted(true);
   }, []);
 
   // Smart Contract Data
   const { count: projectCount } = usePLProjectCount();
-  const { projects: userProjects, isLoading: isProjectsLoading } = usePOProjects(50);
+  const { projects: userProjects, isLoading: isProjectsLoading } = usePOProjects(20);
 
   // Active projects (not cancelled or completed)
   const activeProjects = userProjects.filter(p =>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount, useConnect } from 'wagmi';
 import { injected } from 'wagmi/connectors';
@@ -11,15 +11,32 @@ export default function POLoginPage() {
   const router = useRouter();
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState('');
+  const [hasRedirected, setHasRedirected] = useState(false);
 
   const { address, isConnected } = useAccount();
   const { connect } = useConnect();
 
   // If already connected, redirect to dashboard
-  if (isConnected && address) {
-    router.push('/PO');
-    return null;
-  }
+  useEffect(() => {
+    console.log('\n======== LOGIN PAGE USEEFFECT TRIGGERED ========');
+    console.log('[Login Page] isConnected:', isConnected);
+    console.log('[Login Page] address:', address);
+    console.log('[Login Page] hasRedirected:', hasRedirected);
+    console.log('[Login Page] Current URL:', window.location.href);
+    console.log('===================================================\n');
+
+    if (isConnected && address && !hasRedirected) {
+      console.log('\n>>> [Login Page] REDIRECTING TO /PO <<<\n');
+      // Set auth status so layout doesn't redirect back to login
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('po-auth', 'true');
+        localStorage.setItem('po-wallet-connected', 'true');
+      }
+      setHasRedirected(true);
+      router.push('/PO');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address, hasRedirected]);
 
   const handleWalletConnect = async () => {
     setIsConnecting(true);
@@ -29,9 +46,10 @@ export default function POLoginPage() {
       // Try to connect with MetaMask via injected connector
       await connect({ connector: injected() });
 
-      // Store connection state
+      // Store connection state AND auth status
       if (typeof window !== 'undefined') {
         localStorage.setItem('po-wallet-connected', 'true');
+        localStorage.setItem('po-auth', 'true'); // IMPORTANT: This is checked by the layout
         if (address) {
           localStorage.setItem('po-wallet-address', address);
         }
