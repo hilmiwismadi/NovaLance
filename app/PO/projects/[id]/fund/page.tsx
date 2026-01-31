@@ -14,7 +14,10 @@ import {
   usePLLendingBalance,
   useIDRXBalance,
   useTransactionWait,
+  useTokenApproval,
 } from '@/lib/hooks';
+import { getContractAddresses, getTokenAddresses } from '@/lib/contract';
+import { Address } from 'viem';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -35,19 +38,44 @@ export default function FundProjectPage() {
   const projectId = params.id as string;
   const projectLanceId = BigInt(parseInt(projectId) || 0);
 
+  // Get token addresses
+  const idrxTokenAddress = chain ? getTokenAddresses(chain.id).IDRX : undefined;
+  const projectLanceAddress = chain ? getContractAddresses(chain.id).projectLance : undefined;
+
   // Project data
   const { project, isLoading: isProjectLoading, refetch: refetchProject } = usePLProject(projectLanceId);
   const { balance: vaultBalance } = usePLVaultBalance(projectLanceId);
   const { balance: lendingBalance } = usePLLendingBalance(projectLanceId);
   const { balance: walletBalance, formatted: walletBalanceFormatted } = useIDRXBalance(address);
 
+  // Token approval hook
+  const {
+    allowance,
+    isApproved,
+    isLoading: allowanceLoading,
+    refetch: refetchAllowance,
+    approve,
+    isApproving,
+    approveHash,
+    approveIsSuccess,
+  } = useTokenApproval(idrxTokenAddress!, projectLanceAddress!, address);
+
   // Deposit hook
   const { deposit, isPending, error, hash, isSuccess } = usePLDepositFunds();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
+  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash ?? undefined);
 
   useEffect(() => {
     setMounted(true);
   }, [projectId]);
+
+  // Refetch allowance after approval is confirmed
+  useEffect(() => {
+    if (isApproveConfirmed && approveHash) {
+      showTransactionSuccess(approveHash, 'Token approved! You can now deposit funds.');
+      refetchAllowance();
+    }
+  }, [isApproveConfirmed, approveHash, refetchAllowance]);
 
   // Handle deposit success
   useEffect(() => {
@@ -110,11 +138,19 @@ export default function FundProjectPage() {
     }
 
     try {
+      // Check if we need to approve tokens first
+      if (!isApproved || (allowance !== undefined && allowance < amount)) {
+        showInfo('Approving Tokens', 'Please approve IDRX spending in your wallet...');
+        await approve(amount);
+        // After approval, user will need to click deposit again
+        return;
+      }
+
       showInfo('Depositing Funds', 'Please confirm the transaction in your wallet...');
       await deposit(projectLanceId, amount);
     } catch (err) {
       const error = err as Error;
-      showError('Failed to Deposit', error.message);
+      showError('Transaction Failed', error.message);
     }
   };
 
@@ -230,13 +266,20 @@ export default function FundProjectPage() {
                 type="submit"
                 variant="primary"
                 className="w-full h-12 text-base font-semibold"
-                disabled={isPending || isConfirming}
+                disabled={isPending || isConfirming || isApproving || isApproveConfirming}
               >
-                {isPending || isConfirming ? (
+                {isApproving || isApproveConfirming ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    Approving...
+                  </span>
+                ) : isPending || isConfirming ? (
                   <span className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                     Depositing...
                   </span>
+                ) : !isApproved ? (
+                  'Approve & Deposit'
                 ) : (
                   'Deposit Funds'
                 )}
@@ -246,7 +289,7 @@ export default function FundProjectPage() {
                 variant="ghost"
                 onClick={() => router.push(`/PO/projects/${projectId}`)}
                 className="w-full h-11 text-sm"
-                disabled={isPending || isConfirming}
+                disabled={isPending || isConfirming || isApproving || isApproveConfirming}
               >
                 Skip for Now
               </Button>

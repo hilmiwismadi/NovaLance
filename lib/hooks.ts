@@ -1539,3 +1539,60 @@ export function useIDRXBalance(userAddress?: Address): UseIDRXBalanceResult {
     refetch: result.refetch,
   };
 }
+
+// ============================================================================
+// Token Approval Hook (for ERC20 token approvals)
+// ============================================================================
+
+export interface UseTokenApprovalResult {
+  allowance: bigint | undefined;
+  isApproved: boolean;
+  isLoading: boolean;
+  refetch: () => void;
+  approve: (amount: bigint) => Promise<Hash | null>;
+  isApproving: boolean;
+  approveHash: Hash | null;
+  approveIsSuccess: boolean;
+}
+
+export function useTokenApproval(tokenAddress: Address, spenderAddress: Address, ownerAddress?: Address): UseTokenApprovalResult {
+  const { chain } = useAccount();
+  const { writeContract, data: approveHash, isPending: isApproving, isSuccess: approveIsSuccess, error: approveError } = useWriteContract();
+
+  // Check allowance
+  const allowanceResult = useReadContract({
+    address: tokenAddress,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: ownerAddress ? [ownerAddress, spenderAddress] : undefined,
+    query: {
+      enabled: !!ownerAddress,
+      refetchInterval: 10000,
+    },
+  });
+
+  const approve = async (amount: bigint): Promise<Hash | null> => {
+    if (!chain) {
+      throw new Error('Wallet not connected');
+    }
+
+    writeContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: 'approve',
+      args: [spenderAddress, amount],
+    });
+    return approveHash || null;
+  };
+
+  return {
+    allowance: allowanceResult.data as bigint | undefined,
+    isApproved: (allowanceResult.data as bigint | undefined) ? (allowanceResult.data as bigint) > 0n : false,
+    isLoading: allowanceResult.isLoading,
+    refetch: allowanceResult.refetch,
+    approve,
+    isApproving,
+    approveHash: approveHash || null,
+    approveIsSuccess,
+  };
+}
