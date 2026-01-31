@@ -15,11 +15,12 @@ interface ContractProject {
   id: bigint;
   creator: string;
   freelancer: string;
-  status: number; // 0=Active, 1=Assigned, 2=Completed, 3=Cancelled
+  status: number; // 0=Active, 2=Completed, 3=Cancelled (Assigned status is never set by contract)
   totalDeposited: bigint;
   vaultAmount: bigint;
   lendingAmount: bigint;
   milestoneCount: bigint;
+  hasApplied: boolean; // Whether current user has applied
 }
 
 interface FilterState {
@@ -76,6 +77,21 @@ function useActiveProjects(maxProjects: number = 50) {
 
         const results = await Promise.all(projectPromises);
 
+        // Also check which projects the user has applied to
+        const applicantPromises = [];
+        for (let i = 0; i < limit; i++) {
+          applicantPromises.push(
+            publicClient.readContract({
+              address: projectLanceAddress as `0x${string}`,
+              abi: PROJECTLANCE_ABI,
+              functionName: 'hasApplied',
+              args: [BigInt(i), address]
+            }).catch(() => false)
+          );
+        }
+
+        const applicantResults = await Promise.all(applicantPromises);
+
         const activeProjects: ContractProject[] = [];
         for (let i = 0; i < results.length; i++) {
           const result = results[i] as any[] | null;
@@ -88,9 +104,11 @@ function useActiveProjects(maxProjects: number = 50) {
           const vaultAmount = result[4] as bigint;
           const lendingAmount = result[5] as bigint;
           const milestoneCount = result[6] as bigint;
+          const hasApplied = applicantResults[i] as boolean;
 
           // Only include Active projects (status 0) - these are "hiring"
           // Also exclude projects where user is the creator
+          // Include projects where user has applied (to show application status)
           if (status === 0 && creator.toLowerCase() !== address.toLowerCase()) {
             activeProjects.push({
               id: BigInt(i),
@@ -101,6 +119,7 @@ function useActiveProjects(maxProjects: number = 50) {
               vaultAmount,
               lendingAmount,
               milestoneCount,
+              hasApplied,
             });
           }
         }
@@ -121,10 +140,9 @@ function useActiveProjects(maxProjects: number = 50) {
 }
 
 // Get status badge variant
-function getStatusBadge(status: number): 'success' | 'warning' | 'error' | 'default' {
+function getStatusBadge(status: number): 'success' | 'warning' | 'error' | 'default' | 'info' {
   switch (status) {
     case 0: return 'default'; // Active
-    case 1: return 'warning'; // Assigned
     case 2: return 'success'; // Completed
     case 3: return 'error'; // Cancelled
     default: return 'default';
@@ -135,7 +153,6 @@ function getStatusBadge(status: number): 'success' | 'warning' | 'error' | 'defa
 function getStatusText(status: number): string {
   switch (status) {
     case 0: return 'Active';
-    case 1: return 'Assigned';
     case 2: return 'Completed';
     case 3: return 'Cancelled';
     default: return 'Unknown';
@@ -148,7 +165,7 @@ const JobCard = memo(({
 }: {
   project: ContractProject;
 }) => {
-  const totalBudget = Number(project.totalDeposited) / 1e6;
+  const totalBudget = Number(project.totalDeposited) / 1e18;
   const canApply = !project.freelancer || project.freelancer === '0x0000000000000000000000000000000000000000';
 
   return (
@@ -156,13 +173,22 @@ const JobCard = memo(({
       <Card className="p-5 hover:shadow-lg transition-all cursor-pointer h-full border-2 border-transparent hover:border-brand-200">
         <div className="flex items-start justify-between mb-3">
           <h3 className="font-semibold text-slate-900 text-lg">Project #{project.id.toString()}</h3>
-          <Badge variant={getStatusBadge(project.status)} className="shrink-0">
-            {getStatusText(project.status)}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {project.hasApplied && (
+              <Badge variant="warning" className="text-xs">Applied</Badge>
+            )}
+            <Badge variant={getStatusBadge(project.status)} className="shrink-0">
+              {getStatusText(project.status)}
+            </Badge>
+          </div>
         </div>
 
         <p className="text-sm text-slate-600 mb-4">
-          {canApply ? 'Open for applications' : 'Position filled'}
+          {project.hasApplied
+            ? 'You have applied to this project'
+            : canApply
+              ? 'Open for applications'
+              : 'Position filled'}
         </p>
 
         {/* Milestones */}
@@ -182,7 +208,7 @@ const JobCard = memo(({
             </span>
           </div>
           <span className="font-semibold text-brand-600 inline-flex items-center gap-1">
-            <CurrencyDisplay amount={formatCurrency(Number(project.totalDeposited), 'IDRX')} currency="IDRX" />
+            <CurrencyDisplay amount={formatCurrency(project.totalDeposited, 'IDRX')} currency="IDRX" />
           </span>
         </div>
       </Card>

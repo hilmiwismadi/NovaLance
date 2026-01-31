@@ -15,7 +15,7 @@ interface ContractProject {
   id: bigint;
   creator: string;
   freelancer: string;
-  status: number; // 0=Active, 1=Assigned, 2=Completed, 3=Cancelled
+  status: number; // 0=Active, 2=Completed, 3=Cancelled (Assigned status is never set by contract)
   totalDeposited: bigint;
   vaultAmount: bigint;
   lendingAmount: bigint;
@@ -114,7 +114,7 @@ function usePOProjects(maxProjects: number = 50) {
   return { projects, isLoading };
 }
 
-type FilterType = 'all' | 'active' | 'assigned' | 'completed' | 'cancelled';
+type FilterType = 'all' | 'active' | 'hired' | 'completed' | 'cancelled';
 
 interface FilterConfig {
   key: FilterType;
@@ -140,9 +140,9 @@ const filters: FilterConfig[] = [
     bgColor: 'bg-amber-100',
   },
   {
-    key: 'assigned',
-    label: 'Assigned',
-    icon: `<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+    key: 'hired',
+    label: 'Hired',
+    icon: `<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>`,
     color: 'text-brand-700',
     bgColor: 'bg-brand-100',
   },
@@ -177,30 +177,29 @@ export default function POProjectsPage() {
   const filteredProjects = projects.filter(project => {
     if (selectedFilter === 'all') return true;
     if (selectedFilter === 'active') return project.status === 0;
-    if (selectedFilter === 'assigned') return project.status === 1;
+    if (selectedFilter === 'hired') return project.freelancer && project.freelancer !== '0x0000000000000000000000000000000000000000';
     if (selectedFilter === 'completed') return project.status === 2;
     if (selectedFilter === 'cancelled') return project.status === 3;
     return true;
   });
 
-  const getStatusText = (status: number) => {
-    switch (status) {
-      case 0: return 'Active';
-      case 1: return 'Assigned';
-      case 2: return 'Completed';
-      case 3: return 'Cancelled';
-      default: return 'Unknown';
+  const getStatusText = (project: ContractProject) => {
+    if (project.status === 3) return 'Cancelled';
+    if (project.status === 2) return 'Completed';
+    // For Active projects, show "Hired" if freelancer is assigned, otherwise "Active"
+    if (project.status === 0) {
+      return project.freelancer && project.freelancer !== '0x0000000000000000000000000000000000000000' ? 'Hired' : 'Active';
     }
+    return 'Unknown';
   };
 
-  const getStatusVariant = (status: number): string => {
-    switch (status) {
-      case 0: return 'warning';
-      case 1: return 'info';
-      case 2: return 'success';
-      case 3: return 'error';
-      default: return 'default';
+  const getStatusVariant = (project: ContractProject): string => {
+    if (project.status === 3) return 'error';
+    if (project.status === 2) return 'success';
+    if (project.status === 0) {
+      return project.freelancer && project.freelancer !== '0x0000000000000000000000000000000000000000' ? 'info' : 'warning';
     }
+    return 'default';
   };
 
   return (
@@ -242,7 +241,7 @@ export default function POProjectsPage() {
                   ? projects.length
                   : projects.filter(p => {
                       if (filter.key === 'active') return p.status === 0;
-                      if (filter.key === 'assigned') return p.status === 1;
+                      if (filter.key === 'hired') return p.freelancer && p.freelancer !== '0x0000000000000000000000000000000000000000';
                       if (filter.key === 'completed') return p.status === 2;
                       if (filter.key === 'cancelled') return p.status === 3;
                       return true;
@@ -284,8 +283,8 @@ export default function POProjectsPage() {
                         {project.milestoneCount} milestone{project.milestoneCount > 1n ? 's' : ''}
                       </p>
                     </div>
-                    <Badge variant={getStatusVariant(project.status) as any}>
-                      {getStatusText(project.status)}
+                    <Badge variant={getStatusVariant(project) as any}>
+                      {getStatusText(project)}
                     </Badge>
                   </div>
 

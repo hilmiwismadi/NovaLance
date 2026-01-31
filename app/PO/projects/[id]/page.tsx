@@ -35,15 +35,15 @@ function formatIDRX(amount: bigint | number): string {
   return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Get project status text
-function getProjectStatus(status: number): string {
-  switch (status) {
-    case 0: return 'Active';
-    case 1: return 'Assigned';
-    case 2: return 'Completed';
-    case 3: return 'Cancelled';
-    default: return 'Unknown';
+// Get project status text - based on both status and freelancer assignment
+function getProjectStatus(status: number, freelancer: string): string {
+  if (status === 3) return 'Cancelled';
+  if (status === 2) return 'Completed';
+  if (status === 0) {
+    // Active projects can be "Hired" (freelancer assigned) or just "Active" (hiring)
+    return freelancer && freelancer !== '0x0000000000000000000000000000000000000000' ? 'Hired' : 'Active';
   }
+  return 'Unknown';
 }
 
 // Get milestone status
@@ -268,13 +268,18 @@ export default function POProjectDetailPage() {
   const hasFreelancer = freelancer !== '0x0000000000000000000000000000000000000000' as Address;
   const isProjectOwner = address?.toLowerCase() === creator.toLowerCase();
 
-  // Calculate milestone amount (projected) based on vault and percentage
+  // Calculate milestone amount (projected) based on total budget and percentage
   const calculateMilestoneAmount = (milestone: any): bigint => {
     if (milestone.actualAmount > BigInt(0)) {
       return milestone.actualAmount; // Use actual if already calculated
     }
-    // Projected amount = vault amount * milestone percentage
-    return (vaultAmount * BigInt(milestone.percentage)) / BigInt(10000);
+    // Projected amount = total deposited * milestone percentage
+    return (totalDeposited * BigInt(milestone.percentage)) / BigInt(10000);
+  };
+
+  // Get estimated amount as number for display
+  const getEstimatedAmount = (percentage: bigint): number => {
+    return (totalBudget * Number(percentage)) / 10000; // percentage is in basis points (100 = 1%)
   };
 
   // Calculate progress
@@ -298,8 +303,12 @@ export default function POProjectDetailPage() {
           </Link>
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">Project #{projectId}</h1>
-            <Badge variant={status === 1 ? 'warning' : status === 2 ? 'success' : 'default'}>
-              {getProjectStatus(status)}
+            <Badge variant={
+              status === 3 ? 'error' :
+              status === 2 ? 'success' :
+              (status === 0 && freelancer && freelancer !== '0x0000000000000000000000000000000000000000') ? 'info' : 'default'
+            }>
+              {getProjectStatus(status, freelancer as string)}
             </Badge>
           </div>
         </div>
@@ -369,6 +378,8 @@ export default function POProjectDetailPage() {
             const milestoneStatus = getMilestoneStatus(milestone);
             const isExpanded = expandedMilestones.has(index);
             const needsApproval = milestone.submissionTime > BigInt(0) && !milestone.accepted;
+            const hasActualAmount = milestone.actualAmount > BigInt(0);
+            const estimatedAmount = getEstimatedAmount(milestone.percentage);
 
             return (
               <Card key={index} className="overflow-hidden">
@@ -411,10 +422,18 @@ export default function POProjectDetailPage() {
                     </div>
 
                     <div className="flex flex-col items-end gap-1">
-                      <p className="text-xs text-slate-500">Amount</p>
-                      <p className="text-base sm:text-lg font-bold text-brand-600">
-                        {formatIDRX(calculateMilestoneAmount(milestone))} IDRX
+                      <p className="text-xs text-slate-500">
+                        {hasActualAmount ? 'Actual Amount' : 'Est. Amount'}
                       </p>
+                      <p className="text-base sm:text-lg font-bold text-brand-600">
+                        {hasActualAmount
+                          ? formatIDRX(milestone.actualAmount)
+                          : formatIDRX(estimatedAmount)
+                        } IDRX
+                      </p>
+                      {!hasActualAmount && (
+                        <p className="text-[10px] text-slate-400">before penalties</p>
+                      )}
                     </div>
                   </div>
 
@@ -447,6 +466,25 @@ export default function POProjectDetailPage() {
                         <span className="text-slate-600">Percentage</span>
                         <span className="font-medium text-slate-900">{Number(milestone.percentage) / 100}%</span>
                       </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">
+                          {hasActualAmount ? 'Actual Amount' : 'Est. Amount'}
+                        </span>
+                        <span className={`font-medium ${hasActualAmount ? 'text-brand-600' : 'text-slate-900'}`}>
+                          {hasActualAmount
+                            ? formatIDRX(milestone.actualAmount)
+                            : formatIDRX(estimatedAmount)
+                          } IDRX
+                        </span>
+                      </div>
+                      {!hasActualAmount && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600">Note</span>
+                          <span className="font-medium text-slate-500 text-xs">
+                            Amount calculated on approval (may include late penalty)
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Submitted</span>
                         <span className="font-medium text-slate-900">
@@ -505,7 +543,7 @@ export default function POProjectDetailPage() {
                     <p className="text-sm font-medium text-slate-900">
                       {(freelancer as string).slice(0, 6)}...{(freelancer as string).slice(-4)}
                     </p>
-                    <p className="text-xs text-slate-500">Assigned</p>
+                    <p className="text-xs text-slate-500">Hired</p>
                   </div>
                 </div>
               </div>
@@ -597,7 +635,12 @@ export default function POProjectDetailPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Amount:</span>
-                  <span className="font-medium text-brand-600">{formatIDRX(selectedMilestone.data.actualAmount)} IDRX</span>
+                  <span className="font-medium text-brand-600">
+                    {selectedMilestone.data.actualAmount > BigInt(0)
+                      ? formatIDRX(selectedMilestone.data.actualAmount)
+                      : formatIDRX(getEstimatedAmount(selectedMilestone.data.percentage))
+                    } IDRX
+                  </span>
                 </div>
                 {selectedMilestone.data.isLastMilestone && selectedMilestone.data.yieldAmount > BigInt(0) && (
                   <div className="flex justify-between text-sm">

@@ -36,7 +36,6 @@ function formatIDRX(amount: bigint | number): string {
 function getProjectStatus(status: number): string {
   switch (status) {
     case 0: return 'Active';
-    case 1: return 'Assigned';
     case 2: return 'Completed';
     case 3: return 'Cancelled';
     default: return 'Unknown';
@@ -238,8 +237,15 @@ export default function FLProjectDetailPage() {
   const milestoneCount = projectArray?.[6] ?? BigInt(0);
   const cancelledTimestamp = projectArray?.[7] ?? BigInt(0);
   const totalBudget = Number(totalDeposited) / 1e18;
+  const vaultBudget = Number(vaultAmount) / 1e18;
   const isFreelancer = freelancer && address?.toLowerCase() === (freelancer as string).toLowerCase();
   const canApply = !freelancer || freelancer === '0x0000000000000000000000000000000000000000';
+
+  // Calculate estimated milestone amount (before penalty)
+  // Percentage is based on total deposited budget, not just vault
+  const getEstimatedAmount = (percentage: bigint): number => {
+    return (totalBudget * Number(percentage)) / 10000; // percentage is in basis points (100 = 1%)
+  };
 
   // Calculate progress
   const completedMilestones = (milestones as any[])?.filter(m => m.accepted || m.released).length || 0;
@@ -333,6 +339,8 @@ export default function FLProjectDetailPage() {
             const canSubmit = milestone.submissionTime === BigInt(0) && isFreelancer;
             const canWithdraw = milestone.accepted && !milestone.released && isFreelancer;
             const isClickable = canSubmit || canWithdraw;
+            const estimatedAmount = getEstimatedAmount(milestone.percentage);
+            const hasActualAmount = milestone.actualAmount > BigInt(0);
 
             return (
               <Card
@@ -388,10 +396,18 @@ export default function FLProjectDetailPage() {
                     </div>
 
                     <div className="flex flex-col items-end gap-1">
-                      <p className="text-xs text-slate-500">Amount</p>
-                      <p className="text-base sm:text-lg font-bold text-brand-600">
-                        {formatIDRX(milestone.actualAmount)} IDRX
+                      <p className="text-xs text-slate-500">
+                        {hasActualAmount ? 'Actual Amount' : 'Est. Amount'}
                       </p>
+                      <p className="text-base sm:text-lg font-bold text-brand-600">
+                        {hasActualAmount
+                          ? formatIDRX(milestone.actualAmount)
+                          : formatIDRX(estimatedAmount)
+                        } IDRX
+                      </p>
+                      {!hasActualAmount && (
+                        <p className="text-[10px] text-slate-400">before penalties</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -403,6 +419,25 @@ export default function FLProjectDetailPage() {
                         <span className="text-slate-600">Percentage</span>
                         <span className="font-medium text-slate-900">{Number(milestone.percentage) / 100}%</span>
                       </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">
+                          {hasActualAmount ? 'Actual Amount' : 'Est. Amount'}
+                        </span>
+                        <span className={`font-medium ${hasActualAmount ? 'text-brand-600' : 'text-slate-900'}`}>
+                          {hasActualAmount
+                            ? formatIDRX(milestone.actualAmount)
+                            : formatIDRX(estimatedAmount)
+                          } IDRX
+                        </span>
+                      </div>
+                      {!hasActualAmount && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600">Note</span>
+                          <span className="font-medium text-slate-500 text-xs">
+                            Amount calculated on PO approval (may include late penalty)
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Submitted</span>
                         <span className="font-medium text-slate-900">

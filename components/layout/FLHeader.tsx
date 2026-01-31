@@ -51,8 +51,13 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
   };
 
   // Compute these once to avoid hydration issues - use real address if connected
-  const userInitial = address ? address[2].toUpperCase() : (mockUser.ens ? mockUser.ens[0].toUpperCase() : mockUser.address[2].toUpperCase());
-  const userDisplay = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : (mockUser.ens || `${mockUser.address.slice(0, 6)}...${mockUser.address.slice(-4)}`);
+  // During SSR, use mockUser; after mount, use real address
+  const userInitial = mounted && address
+    ? address[2].toUpperCase()
+    : (mockUser.ens ? mockUser.ens[0].toUpperCase() : mockUser.address[2].toUpperCase());
+  const userDisplay = mounted && address
+    ? `${address.slice(0, 6)}...${address.slice(-4)}`
+    : (mockUser.ens || `${mockUser.address.slice(0, 6)}...${mockUser.address.slice(-4)}`);
 
   // Format wallet address for display
   const formatWalletAddress = (addr: string) => {

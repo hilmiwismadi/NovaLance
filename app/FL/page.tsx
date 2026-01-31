@@ -15,11 +15,12 @@ interface ContractProject {
   id: bigint;
   creator: string;
   freelancer: string;
-  status: number; // 0=Active, 1=Assigned, 2=Completed, 3=Cancelled
+  status: number; // 0=Active, 2=Completed, 3=Cancelled (Assigned status is never set by contract)
   totalDeposited: bigint;
   vaultAmount: bigint;
   lendingAmount: bigint;
   milestoneCount: bigint;
+  hasApplied?: boolean; // Whether user has applied (for Active projects)
 }
 
 // Custom hook to fetch projects where user is the freelancer
@@ -61,6 +62,21 @@ function useFLProjects(maxProjects: number = 50) {
 
         const results = await Promise.all(projectPromises);
 
+        // Check which projects the user has applied to (for Active projects where they're not yet hired)
+        const applicationPromises = [];
+        for (let i = 0; i < maxProjects; i++) {
+          applicationPromises.push(
+            publicClient.readContract({
+              address: projectLanceAddress as `0x${string}`,
+              abi: PROJECTLANCE_ABI,
+              functionName: 'hasApplied',
+              args: [BigInt(i), address]
+            }).catch(() => false)
+          );
+        }
+
+        const applicationResults = await Promise.all(applicationPromises);
+
         const freelancerProjects: ContractProject[] = [];
         for (let i = 0; i < results.length; i++) {
           const result = results[i] as any[] | null;
@@ -73,9 +89,14 @@ function useFLProjects(maxProjects: number = 50) {
           const vaultAmount = result[4] as bigint;
           const lendingAmount = result[5] as bigint;
           const milestoneCount = result[6] as bigint;
+          const hasApplied = applicationResults[i] as boolean;
 
-          // Only include projects where user is the freelancer
-          if (freelancer && freelancer.toLowerCase() === address.toLowerCase()) {
+          const isHired = freelancer && freelancer.toLowerCase() === address.toLowerCase();
+
+          // Include projects where:
+          // 1. User is hired as freelancer (any status)
+          // 2. Project is Active (status 0) AND user has applied but not yet hired
+          if (isHired || (status === 0 && hasApplied && !isHired && creator.toLowerCase() !== address.toLowerCase())) {
             freelancerProjects.push({
               id: BigInt(i),
               creator,
@@ -85,6 +106,7 @@ function useFLProjects(maxProjects: number = 50) {
               vaultAmount,
               lendingAmount,
               milestoneCount,
+              hasApplied,
             });
           }
         }
@@ -125,14 +147,20 @@ export default function FLDashboard() {
     p.status === 1 || p.status === 0 // Assigned or Active (applied)
   );
 
-  // Display only assigned projects as "active jobs"
-  const assignedProjects = freelancerProjects.filter(p => p.status === 1);
+  // Display projects where user is hired as freelancer (regardless of status)
+  // A project can be Active (0) but still have a hired freelancer
+  const assignedProjects = freelancerProjects.filter(p =>
+    p.freelancer && p.freelancer.toLowerCase() === address.toLowerCase()
+  );
+  const appliedProjects = freelancerProjects.filter(p =>
+    p.hasApplied && (!p.freelancer || p.freelancer === '0x0000000000000000000000000000000000000000')
+  );
 
   // Stats
   const stats = {
-    activeJobs: assignedProjects.length,  // Only count assigned projects
+    activeJobs: assignedProjects.filter(p => p.status !== 2).length,  // Hired projects that aren't completed
     completedJobs: freelancerProjects.filter(p => p.status === 2).length,
-    pendingApplications: 0, // Application tracking would need separate logic
+    pendingApplications: appliedProjects.length, // Projects applied but not hired
   };
 
   if (!mounted) return null;
@@ -146,20 +174,34 @@ export default function FLDashboard() {
   }
 
   // Get status badge variant based on project status
-  const getStatusBadge = (status: number) => {
-    switch (status) {
-      case 0: return 'default'; // Active
-      case 1: return 'warning'; // Assigned
+  const getStatusBadge = (project: ContractProject) => {
+    // If applied but not hired
+    if (project.hasApplied && (!project.freelancer || project.freelancer === '0x0000000000000000000000000000000000000000')) {
+      return 'warning'; // Applied
+    }
+    // If hired (freelancer assigned)
+    if (project.freelancer && project.freelancer !== '0x0000000000000000000000000000000000000000' && project.status === 0) {
+      return 'info'; // Hired
+    }
+    switch (project.status) {
+      case 0: return 'default'; // Active (hiring)
       case 2: return 'success'; // Completed
       case 3: return 'error'; // Cancelled
       default: return 'default';
     }
   };
 
-  const getStatusText = (status: number) => {
-    switch (status) {
+  const getStatusText = (project: ContractProject) => {
+    // If applied but not hired
+    if (project.hasApplied && (!project.freelancer || project.freelancer === '0x0000000000000000000000000000000000000000')) {
+      return 'Applied';
+    }
+    // If hired (freelancer assigned)
+    if (project.freelancer && project.freelancer !== '0x0000000000000000000000000000000000000000' && project.status === 0) {
+      return 'Hired';
+    }
+    switch (project.status) {
       case 0: return 'Active';
-      case 1: return 'Assigned';
       case 2: return 'Completed';
       case 3: return 'Cancelled';
       default: return 'Unknown';
@@ -256,7 +298,7 @@ export default function FLDashboard() {
           </Link>
         </div>
 
-        {assignedProjects.length === 0 ? (
+        {assignedProjects.length === 0 && appliedProjects.length === 0 ? (
           <Card className="p-12 text-center border-2 border-transparent">
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -271,9 +313,9 @@ export default function FLDashboard() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {assignedProjects.map((project) => {
+            {[...assignedProjects, ...appliedProjects].map((project) => {
               const milestoneCount = Number(project.milestoneCount);
-              const totalBudget = Number(project.totalDeposited) / 1e6;
+              const isAppliedOnly = project.hasApplied && (!project.freelancer || project.freelancer === '0x0000000000000000000000000000000000000000');
 
               return (
                 <Link key={project.id.toString()} href={`/FL/projects/${project.id}`}>
@@ -281,14 +323,17 @@ export default function FLDashboard() {
                     <div className="flex items-start justify-between mb-3">
                       <h3 className="font-semibold text-slate-900">Project #{project.id.toString()}</h3>
                       <Badge
-                        variant={getStatusBadge(project.status)}
+                        variant={getStatusBadge(project) as any}
                       >
-                        {getStatusText(project.status)}
+                        {getStatusText(project)}
                       </Badge>
                     </div>
 
                     <p className="text-sm text-slate-600 mb-4">
-                      Project Owner: {project.creator.slice(0, 6)}...{project.creator.slice(-4)}
+                      {isAppliedOnly
+                        ? `Applied - awaiting approval from ${project.creator.slice(0, 6)}...${project.creator.slice(-4)}`
+                        : `Project Owner: ${project.creator.slice(0, 6)}...${project.creator.slice(-4)}`
+                      }
                     </p>
 
                     {/* Milestones Progress */}
@@ -302,7 +347,7 @@ export default function FLDashboard() {
                       <div className="w-full bg-slate-200 rounded-full h-2">
                         <div
                           className="bg-gradient-to-r from-brand-400 to-brand-600 h-2 rounded-full transition-all"
-                          style={{ width: `${project.status === 2 ? 100 : 50}%` }}
+                          style={{ width: `${project.status === 2 ? 100 : isAppliedOnly ? 0 : 50}%` }}
                         />
                       </div>
                     </div>
@@ -310,7 +355,7 @@ export default function FLDashboard() {
                     <div className="flex items-center justify-between pt-3 border-t border-slate-200">
                       <span className="text-sm text-slate-600">
                         Budget: <span className="font-semibold text-brand-600">
-                          <CurrencyDisplay amount={formatCurrency(project.totalDeposited, 'IDRX')} currency="IDRX" />
+                          <CurrencyDisplay amount={formatCurrency(BigInt(project.totalDeposited), 'IDRX')} currency="IDRX" />
                         </span>
                       </span>
                     </div>

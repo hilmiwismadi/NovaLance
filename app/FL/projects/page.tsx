@@ -15,7 +15,7 @@ interface ContractProject {
   id: bigint;
   creator: string;
   freelancer: string;
-  status: number; // 0=Active, 1=Assigned, 2=Completed, 3=Cancelled
+  status: number; // 0=Active, 2=Completed, 3=Cancelled (Assigned status is never set by contract)
   totalDeposited: bigint;
   vaultAmount: bigint;
   lendingAmount: bigint;
@@ -114,10 +114,9 @@ function useAllProjects(maxProjects: number = 50) {
 type FilterType = 'all' | 'active' | 'assigned' | 'completed' | 'cancelled';
 
 // Get status badge variant
-function getStatusBadge(status: number): 'success' | 'warning' | 'error' | 'default' {
+function getStatusBadge(status: number): 'success' | 'warning' | 'error' | 'default' | 'info' {
   switch (status) {
     case 0: return 'default'; // Active
-    case 1: return 'warning'; // Assigned
     case 2: return 'success'; // Completed
     case 3: return 'error'; // Cancelled
     default: return 'default';
@@ -128,7 +127,6 @@ function getStatusBadge(status: number): 'success' | 'warning' | 'error' | 'defa
 function getStatusText(status: number): string {
   switch (status) {
     case 0: return 'Active';
-    case 1: return 'Assigned';
     case 2: return 'Completed';
     case 3: return 'Cancelled';
     default: return 'Unknown';
@@ -257,7 +255,7 @@ export default function FLProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           {filteredProjects.map((project) => {
-            const totalBudget = Number(project.totalDeposited) / 1e6;
+            const totalBudget = Number(project.totalDeposited) / 1e18;
             const isFreelancer = project.freelancer && address?.toLowerCase() === project.freelancer.toLowerCase();
             const canApply = !project.freelancer || project.freelancer === '0x0000000000000000000000000000000000000000';
 
@@ -285,7 +283,7 @@ export default function FLProjectsPage() {
 
                   <div className="flex items-center justify-between text-xs pt-3 border-t border-slate-200">
                     <span className="font-semibold text-brand-600 inline-flex items-center gap-1">
-                      <CurrencyDisplay amount={formatCurrency(Number(project.totalDeposited), 'IDRX')} currency="IDRX" />
+                      <CurrencyDisplay amount={formatCurrency(project.totalDeposited, 'IDRX')} currency="IDRX" />
                     </span>
                     <span className="text-slate-600">
                       {project.creator.slice(0, 6)}...{project.creator.slice(-4)}
