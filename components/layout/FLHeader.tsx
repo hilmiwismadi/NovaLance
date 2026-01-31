@@ -78,11 +78,11 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
             <Link href="/FL" className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
+              <img
+                src="/NovaLanceLogo.png"
+                alt="NovaLance"
+                className="w-8 h-8 rounded-lg shadow-lg"
+              />
               <span className="text-xl font-bold bg-gradient-to-r from-brand-500 to-brand-600 bg-clip-text text-transparent hidden sm:block">
                 NovaLance
               </span>
