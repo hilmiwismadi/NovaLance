@@ -314,24 +314,8 @@ export default function CreateProjectPage() {
   const { createProject, isPending, error, hash, isSuccess } = useCreateProject();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
 
-  // Expanded state for accordions
-  const [expandedSections, setExpandedSections] = useState({
-    projectInfo: true,
-    roles: [] as string[],
-  });
-
-  const toggleSection = (section: string, roleId?: string) => {
-    if (section === 'projectInfo') {
-      setExpandedSections(prev => ({ ...prev, projectInfo: !prev.projectInfo }));
-    } else if (section === 'role' && roleId) {
-      setExpandedSections(prev => {
-        const roles = prev.roles.includes(roleId)
-          ? prev.roles.filter(id => id !== roleId)
-          : [...prev.roles, roleId];
-        return { ...prev, roles };
-      });
-    }
-  };
+  // Expanded state for project info accordion
+  const [projectInfoExpanded, setProjectInfoExpanded] = useState(true);
 
   // Project level
   const [title, setTitle] = useState('');
@@ -386,31 +370,7 @@ export default function CreateProjectPage() {
     setFeatures(features.filter(f => f.id !== id));
   };
 
-  // Role handlers
-  const addRole = () => {
-    setRoles([
-      ...roles,
-      {
-        id: `role-${Date.now()}`,
-        title: '',
-        description: '',
-        budget: '',
-        currency: 'IDRX',
-        skills: [],
-        skillInput: '',
-        kpis: [
-          { id: `kpi-${Date.now()}`, name: '', percentage: 0, description: '', deadline: '' },
-        ],
-      },
-    ]);
-  };
-
-  const removeRole = (index: number) => {
-    if (roles.length > 1) {
-      setRoles(roles.filter((_, i) => i !== index));
-    }
-  };
-
+  // Role handlers (single role only - no add/remove)
   const updateRole = (index: number, field: keyof RoleInput, value: any) => {
     const updated = [...roles];
     updated[index] = { ...updated[index], [field]: value };
@@ -642,8 +602,8 @@ export default function CreateProjectPage() {
         <Accordion
           title="Project Information"
           subtitle="Basic details about your project"
-          isOpen={expandedSections.projectInfo}
-          onToggle={() => toggleSection('projectInfo')}
+          isOpen={projectInfoExpanded}
+          onToggle={() => setProjectInfoExpanded(!projectInfoExpanded)}
         >
           <div className="space-y-4">
             {/* Title */}
@@ -768,64 +728,42 @@ export default function CreateProjectPage() {
           </div>
         </Accordion>
 
-        {/* Step 2: Team Roles */}
+        {/* Step 2: Freelancer Role (single role only) */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-lg font-semibold text-slate-900">Team Roles</h2>
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={addRole}
-              className="h-9 px-3 text-sm"
-            >
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Role
-            </Button>
+          <div className="px-1">
+            <h2 className="text-lg font-semibold text-slate-900">Freelancer Role</h2>
+            <p className="text-sm text-slate-500 mt-1">Each project supports one freelancer position</p>
           </div>
 
           <div className="space-y-3">
             {roles.map((role, roleIndex) => {
               const totalKPIPercentage = role.kpis.reduce((sum, kpi) => sum + kpi.percentage, 0);
-              const isExpanded = expandedSections.roles.includes(role.id);
-              const roleDisplayTitle = role.title || `Role ${roleIndex + 1}`;
+              const roleDisplayTitle = role.title || 'Freelancer Position';
 
               return (
-                <Accordion
-                  key={role.id}
-                  title={roleDisplayTitle}
-                  subtitle={role.budget ? `${parseInt(role.budget).toLocaleString()} ${currency}` : 'Set budget and details'}
-                  isOpen={isExpanded}
-                  onToggle={() => toggleSection('role', role.id)}
-                  badge={
-                    role.skills.length > 0 ? (
-                      <span className="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full">
-                        {role.skills.length} skills
-                      </span>
-                    ) : null
-                  }
-                  actionButton={
-                    roles.length > 1 ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeRole(roleIndex);
-                        }}
-                        className="h-8 w-8 p-0 flex-shrink-0"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </Button>
-                    ) : null
-                  }
-                >
-                  <div className="space-y-4">
+                <div key={role.id} className="border border-slate-200/60 rounded-xl overflow-hidden bg-white/40 backdrop-blur-sm">
+                  {/* Role Header */}
+                  <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-slate-200/60 bg-white/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-slate-900 text-base">
+                          {roleDisplayTitle}
+                        </h3>
+                        {role.budget && (
+                          <p className="text-sm text-slate-500 mt-0.5">
+                            Budget: {parseInt(role.budget).toLocaleString()} {currency}
+                          </p>
+                        )}
+                      </div>
+                      {role.skills.length > 0 && (
+                        <span className="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full flex-shrink-0">
+                          {role.skills.length} skill{role.skills.length > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="px-4 py-4 sm:px-5 sm:py-5 space-y-4">
                     {/* Role Title & Budget - Stacked */}
                     <div className="space-y-3">
                       <div>
@@ -1026,7 +964,7 @@ export default function CreateProjectPage() {
                       </div>
                     </div>
                   </div>
-                </Accordion>
+                </div>
               );
             })}
           </div>
@@ -1044,7 +982,7 @@ export default function CreateProjectPage() {
             {roles.map((role, i) => (
               <div key={role.id} className="flex justify-between text-sm">
                 <span className="text-slate-600 truncate mr-2">
-                  {role.title || `Role ${i + 1}`}
+                  {role.title || 'Freelancer'}
                 </span>
                 <span className="font-medium text-slate-900 flex-shrink-0">
                   {parseInt(role.budget || '0').toLocaleString()}

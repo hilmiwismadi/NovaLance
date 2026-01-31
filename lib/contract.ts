@@ -220,6 +220,7 @@ export function generateKPIId(roleId: Hash, index: number): Hash {
 export function getTokenDecimals(currency: string): number {
   switch (currency.toUpperCase()) {
     case 'IDRX':
+      return 18; // MockIDRX on Base Sepolia uses 18 decimals
     case 'USDC':
     case 'USDT':
       return 6; // These stablecoins typically use 6 decimals
@@ -354,6 +355,8 @@ export function basisPointsToYield(basisPoints: bigint): number {
 export function formatCurrency(amount: bigint, currency: string): string {
   const decimals = getTokenDecimals(currency);
   const formatted = formatUnits(amount, decimals);
+
+  console.log('[formatCurrency] amount:', amount, 'decimals:', decimals, 'formatted:', formatted);
 
   if (currency.toUpperCase() === 'IDRX') {
     return new Intl.NumberFormat('id-ID', {

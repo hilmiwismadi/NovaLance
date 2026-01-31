@@ -90,7 +90,7 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
                 <span className="text-xs font-semibold text-indigo-700">
                   {isBalanceLoading ? (
                     '...'
-                  ) : tokenBalance ? (
+                  ) : tokenBalance !== undefined ? (
                     <CurrencyDisplay amount={formatCurrency(tokenBalance, 'IDRX')} currency="IDRX" className="text-xs font-semibold" />
                   ) : (
                     '0 IDRX'

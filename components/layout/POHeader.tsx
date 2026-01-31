@@ -321,7 +321,7 @@ export default function POHeader({ navItems }: POHeaderProps) {
                     <span className="text-xs font-semibold text-indigo-700">
                       {isBalanceLoading ? (
                         '...'
-                      ) : tokenBalance ? (
+                      ) : tokenBalance !== undefined ? (
                         <CurrencyDisplay
                           amount={formatCurrency(tokenBalance, 'IDRX')}
                           currency="IDRX"
