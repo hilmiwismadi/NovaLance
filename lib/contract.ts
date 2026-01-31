@@ -39,7 +39,8 @@ export const TOKEN_ADDRESSES = {
     USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address,
     USDT: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb' as Address,
     WETH: '0x4200000000000000000000000000000000000006' as Address,
-    // IDRX would be deployed separately
+    // IDRX would be deployed separately - using zero address as placeholder
+    IDRX: '0x0000000000000000000000000000000000000000' as Address,
   },
   baseSepolia: {
     USDC: '0x036CbD5A42F7E87138939B31B4eb07330dD618E9' as Address,
