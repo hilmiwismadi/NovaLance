@@ -38,7 +38,9 @@
       "Bash(taskkill:*)",
       "Bash(git checkout:*)",
       "Bash(git restore:*)",
-      "Bash(npm.cmd run build)"
+      "Bash(npm.cmd run build)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)"
     ]
   }
 }

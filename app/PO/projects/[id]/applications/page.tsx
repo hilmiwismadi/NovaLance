@@ -18,43 +18,166 @@ import {
   showError,
 } from '@/lib/transactions';
 
-// Mock applicants data
+// Past project interface
+interface PastProject {
+  title: string;
+  description: string;
+  role: string;
+  duration: string;
+  rating: number;
+  link?: string;
+  skills: string[];
+}
+
+// Mock applicants data with detailed past projects
 const mockApplicants = [
   {
     address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
     ens: 'bob.eth',
-    coverLetter: 'I have 5 years of experience with React and TypeScript. I\'ve built several similar projects and can deliver high-quality code within deadlines.',
-    skills: ['React', 'TypeScript', 'Tailwind CSS', 'Next.js'],
+    coverLetter: 'I have 5 years of experience with React and TypeScript. I\'ve built several similar projects and can deliver high-quality code within deadlines. My passion is creating clean, maintainable code that scales well.',
+    skills: ['React', 'TypeScript', 'Tailwind CSS', 'Next.js', 'Redux', 'GraphQL'],
     rating: 4.8,
     completedProjects: 15,
     appliedAt: '2026-01-20',
+    location: 'San Francisco, CA',
+    responseTime: '2 hours',
+    memberSince: '2021-03-15',
+    pastProjects: [
+      {
+        title: 'DeFi Dashboard Pro',
+        description: 'Built a comprehensive DeFi portfolio tracker with real-time price updates, yield farming analytics, and cross-chain support. Served over 50K active users.',
+        role: 'Frontend Lead',
+        duration: '6 months',
+        rating: 5.0,
+        link: 'https://defidashboard.pro',
+        skills: ['React', 'TypeScript', 'Web3.js', 'Recharts'],
+      },
+      {
+        title: 'NFT Marketplace',
+        description: 'Developed a full-featured NFT marketplace with lazy minting, auction functionality, and wallet connection. Implemented optimized gas usage strategies.',
+        role: 'Full Stack Developer',
+        duration: '4 months',
+        rating: 4.8,
+        skills: ['Next.js', 'Solidity', 'IPFS', 'Ethers.js'],
+      },
+      {
+        title: 'Yield Aggregator UI',
+        description: 'Created an intuitive interface for a yield optimization protocol with auto-compounding vaults and strategy comparison tools.',
+        role: 'Frontend Developer',
+        duration: '3 months',
+        rating: 4.7,
+        skills: ['Vue.js', 'Tailwind CSS', 'API Integration'],
+      },
+    ],
   },
   {
     address: '0x5555555555555555555555555555555555555555',
     ens: 'carol.eth',
-    coverLetter: 'Full-stack developer with expertise in Web3. I\'ve worked on multiple DeFi projects and understand the importance of clean, secure code.',
-    skills: ['React', 'Solidity', 'Node.js', 'Web3.js'],
+    coverLetter: 'Full-stack developer with expertise in Web3. I\'ve worked on multiple DeFi projects and understand the importance of clean, secure code. I specialize in smart contract security and frontend integration.',
+    skills: ['React', 'Solidity', 'Node.js', 'Web3.js', 'Hardhat', 'Foundry'],
     rating: 4.9,
     completedProjects: 22,
     appliedAt: '2026-01-19',
+    location: 'New York, NY',
+    responseTime: '1 hour',
+    memberSince: '2020-08-22',
+    pastProjects: [
+      {
+        title: 'DEX Aggregator Protocol',
+        description: 'Led the development of a decentralized exchange aggregator routing trades across multiple DEXs for optimal pricing. Audited and secured smart contracts.',
+        role: 'Smart Contract Engineer',
+        duration: '8 months',
+        rating: 5.0,
+        link: 'https://dexagg.io',
+        skills: ['Solidity', 'Foundry', 'Chainlink', 'TheGraph'],
+      },
+      {
+        title: 'Lending Protocol V2',
+        description: 'Architected and implemented a next-gen lending protocol with isolated lending tiers, liquidation protection, and flash loan support.',
+        role: 'Core Developer',
+        duration: '6 months',
+        rating: 4.9,
+        skills: ['Solidity', 'TypeScript', 'Aave Integration'],
+      },
+      {
+        title: 'Bridge Interface',
+        description: 'Built a user-friendly interface for cross-chain asset transfers with transaction tracking and fee estimation.',
+        role: 'Frontend Developer',
+        duration: '3 months',
+        rating: 4.8,
+        skills: ['React', 'Wagmi', 'RainbowKit', 'Connext'],
+      },
+    ],
   },
   {
     address: '0x2222222222222222222222222222222222222222',
     ens: 'david.eth',
-    coverLetter: 'I specialize in frontend development with a focus on user experience. I believe in creating interfaces that are both beautiful and functional.',
-    skills: ['React', 'Vue.js', 'UI/UX Design', 'Figma'],
+    coverLetter: 'I specialize in frontend development with a focus on user experience. I believe in creating interfaces that are both beautiful and functional. My designs prioritize accessibility and performance.',
+    skills: ['React', 'Vue.js', 'UI/UX Design', 'Figma', 'Adobe XD', 'CSS animations'],
     rating: 4.6,
     completedProjects: 8,
     appliedAt: '2026-01-18',
+    location: 'London, UK',
+    responseTime: '4 hours',
+    memberSince: '2022-01-10',
+    pastProjects: [
+      {
+        title: 'Crypto Portfolio App',
+        description: 'Designed and developed a mobile-first portfolio tracking app with beautiful charts and seamless animations. Featured in Product Hunt.',
+        role: 'UI/UX Designer & Developer',
+        duration: '5 months',
+        rating: 4.7,
+        link: 'https://cryptoportfolio.app',
+        skills: ['Vue.js', 'D3.js', 'Framer Motion', 'Figma'],
+      },
+      {
+        title: 'Wallet Redesign',
+        description: 'Ledend a complete redesign of a popular crypto wallet, improving user onboarding by 60% and reducing support tickets by 40%.',
+        role: 'Lead Designer',
+        duration: '4 months',
+        rating: 4.5,
+        skills: ['Figma', 'User Research', 'Prototyping', 'Design System'],
+      },
+    ],
   },
   {
     address: '0x3333333333333333333333333333333333333333',
     ens: 'alice.eth',
-    coverLetter: 'Passionate developer with a strong background in building scalable web applications. Love working in agile teams and delivering results.',
-    skills: ['React', 'Node.js', 'MongoDB', 'AWS'],
+    coverLetter: 'Passionate developer with a strong background in building scalable web applications. Love working in agile teams and delivering results. Experienced in both Web2 and Web3 development.',
+    skills: ['React', 'Node.js', 'MongoDB', 'AWS', 'Docker', 'Kubernetes', 'PostgreSQL'],
     rating: 4.7,
     completedProjects: 12,
     appliedAt: '2026-01-17',
+    location: 'Remote (Worldwide)',
+    responseTime: '3 hours',
+    memberSince: '2021-06-01',
+    pastProjects: [
+      {
+        title: 'SaaS Analytics Platform',
+        description: 'Built a full-stack analytics platform for e-commerce businesses with real-time dashboards, custom reports, and integrations with major payment processors.',
+        role: 'Full Stack Developer',
+        duration: '10 months',
+        rating: 4.8,
+        link: 'https://analytics.io',
+        skills: ['React', 'Node.js', 'PostgreSQL', 'AWS Lambda', 'Redis'],
+      },
+      {
+        title: 'DAO Governance Tool',
+        description: 'Developed an on-chain governance platform with proposal creation, voting mechanisms, and delegation features for a 10K member DAO.',
+        role: 'Backend Developer',
+        duration: '6 months',
+        rating: 4.6,
+        skills: ['Solidity', 'Node.js', 'IPFS', 'TheGraph'],
+      },
+      {
+        title: 'API Gateway Service',
+        description: 'Architected a scalable API gateway serving 1M+ requests per day with rate limiting, caching, and comprehensive monitoring.',
+        role: 'Backend Architect',
+        duration: '5 months',
+        rating: 4.7,
+        skills: ['Node.js', 'Kubernetes', 'Redis', 'Prometheus', 'GraphQL'],
+      },
+    ],
   },
 ];
 
@@ -68,6 +191,10 @@ interface Applicant {
   rating: number;
   completedProjects: number;
   appliedAt: string;
+  location?: string;
+  responseTime?: string;
+  memberSince?: string;
+  pastProjects?: PastProject[];
 }
 
 interface ApplicantWithStatus extends Applicant {
@@ -80,6 +207,7 @@ export default function POApplicationsPage() {
   const { address, chain } = useAccount();
   const [mounted, setMounted] = useState(false);
   const [acceptModalOpen, setAcceptModalOpen] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [applicants, setApplicants] = useState<ApplicantWithStatus[]>(
@@ -173,6 +301,11 @@ export default function POApplicationsPage() {
           : a
       )
     );
+  };
+
+  const handleViewApplicant = (applicant: Applicant) => {
+    setSelectedApplicant(applicant);
+    setDetailModalOpen(true);
   };
 
   const handleAcceptApplicant = (applicant: Applicant, roleId: string) => {
@@ -369,7 +502,10 @@ export default function POApplicationsPage() {
                         data-applicant-index={baseIndex}
                       >
                         {/* Applicant Card - Simple static card like portfolio page */}
-                        <Card className="p-4 sm:p-5 border-2 transition-all duration-300 hover:shadow-lg">
+                        <Card
+                          className="p-4 sm:p-5 border-2 transition-all duration-300 hover:shadow-lg cursor-pointer hover:border-brand-300"
+                          onClick={() => handleViewApplicant(applicant)}
+                        >
                           <div className="flex flex-col gap-3">
                             {/* Header */}
                             <div className="flex items-start gap-3">
@@ -379,7 +515,12 @@ export default function POApplicationsPage() {
                                 </span>
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h3 className="text-base font-semibold text-slate-900 truncate">{applicant.ens || applicant.address.slice(0, 10)}</h3>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="text-base font-semibold text-slate-900 truncate">{applicant.ens || applicant.address.slice(0, 10)}</h3>
+                                  <svg className="w-4 h-4 text-brand-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                </div>
                                 <p className="text-xs text-slate-500 font-mono truncate">{applicant.address}</p>
                                 <div className="flex items-center gap-2 mt-1">
                                   <div className="flex items-center gap-1">
@@ -410,6 +551,15 @@ export default function POApplicationsPage() {
                                 </span>
                               )}
                             </div>
+
+                            {/* Click hint */}
+                            <div className="flex items-center gap-1 text-xs text-brand-600 pt-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              <span>View details</span>
+                            </div>
                           </div>
                         </Card>
 
@@ -424,10 +574,10 @@ export default function POApplicationsPage() {
                             Reject
                           </Button>
                           <Button
-                            variant="primary"
+                            variant="success"
                             size="sm"
                             onClick={() => handleSwipe(applicant.address, 'right')}
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 transition-all duration-200"
+                            className="flex-1 transition-all duration-200"
                           >
                             Keep
                           </Button>
@@ -539,6 +689,174 @@ export default function POApplicationsPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Applicant Detail Modal */}
+      <Modal isOpen={detailModalOpen} onClose={() => setDetailModalOpen(false)} title="Applicant Details" size="xl">
+        {selectedApplicant && (
+          <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-2">
+            {/* Profile Header */}
+            <div className="flex items-start gap-4">
+              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl font-bold text-white">
+                  {selectedApplicant.ens?.[0].toUpperCase() || selectedApplicant.address.slice(0, 2).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-xl font-bold text-slate-900">{selectedApplicant.ens || 'Anonymous'}</h3>
+                <p className="text-sm text-slate-500 font-mono truncate">{selectedApplicant.address}</p>
+                <div className="flex flex-wrap items-center gap-4 mt-3">
+                  <div className="flex items-center gap-1">
+                    <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    <span className="text-sm font-semibold text-slate-700">{selectedApplicant.rating}</span>
+                    <span className="text-xs text-slate-500">rating</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                    </svg>
+                    <span className="text-sm font-semibold text-slate-700">{selectedApplicant.completedProjects}</span>
+                    <span className="text-xs text-slate-500">projects</span>
+                  </div>
+                  {selectedApplicant.location && (
+                    <div className="flex items-center gap-1">
+                      <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span className="text-xs text-slate-600">{selectedApplicant.location}</span>
+                    </div>
+                  )}
+                  {selectedApplicant.responseTime && (
+                    <div className="flex items-center gap-1">
+                      <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-xs text-slate-600">Responds in {selectedApplicant.responseTime}</span>
+                    </div>
+                  )}
+                  {selectedApplicant.memberSince && (
+                    <div className="flex items-center gap-1">
+                      <svg className="w-4 h-4 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs text-slate-600">Since {new Date(selectedApplicant.memberSince).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Cover Letter */}
+            <div className="bg-slate-50 rounded-lg p-4">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Cover Letter</p>
+              <p className="text-sm text-slate-700 leading-relaxed">{selectedApplicant.coverLetter}</p>
+            </div>
+
+            {/* Skills */}
+            <div>
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Skills</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedApplicant.skills.map((skill) => (
+                  <span key={skill} className="text-sm bg-brand-50 text-brand-700 px-3 py-1 rounded-full border border-brand-200">
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Past Projects */}
+            {selectedApplicant.pastProjects && selectedApplicant.pastProjects.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-3">Past Projects</p>
+                <div className="space-y-4">
+                  {selectedApplicant.pastProjects.map((project, index) => (
+                    <Card key={index} className="p-4 border border-slate-200 hover:border-brand-300 transition-colors">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-slate-900">{project.title}</h4>
+                            {project.link && (
+                              <a
+                                href={project.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-brand-500 hover:text-brand-700"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </a>
+                            )}
+                          </div>
+                          <p className="text-xs text-brand-600 font-medium mb-2">{project.role}</p>
+                          <p className="text-sm text-slate-600 line-clamp-2">{project.description}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-full">
+                            <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            <span className="text-xs font-semibold text-amber-700">{project.rating}</span>
+                          </div>
+                          <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{project.duration}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                        <div className="flex flex-wrap gap-1">
+                          {project.skills.slice(0, 4).map((skill) => (
+                            <span key={skill} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                              {skill}
+                            </span>
+                          ))}
+                          {project.skills.length > 4 && (
+                            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                              +{project.skills.length - 4}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Applied Date */}
+            <div className="flex items-center gap-2 text-xs text-slate-500 pt-2 border-t border-slate-200">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Applied on {new Date(selectedApplicant.appliedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDetailModalOpen(false);
+                  handleSwipe(selectedApplicant.address, 'left');
+                }}
+                className="flex-1 border-red-200 text-red-600 hover:bg-red-50"
+              >
+                Reject
+              </Button>
+              <Button
+                variant="success"
+                onClick={() => {
+                  setDetailModalOpen(false);
+                  handleSwipe(selectedApplicant.address, 'right');
+                }}
+                className="flex-1"
+              >
+                Keep
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

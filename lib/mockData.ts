@@ -1093,3 +1093,511 @@ export function formatCurrencyWithSymbol(amount: number, currency: string): { am
     isLogo: false,
   };
 }
+
+// FL Project Types (Freelancer perspective)
+export interface FLMilestone {
+  id: string;
+  index: number;
+  name: string;
+  percentage: number; // stored as basis points (100 = 1%)
+  actualAmount: bigint; // calculated amount
+  deadline: number; // unix timestamp
+  submissionTime: bigint;
+  accepted: boolean;
+  released: boolean;
+  isLastMilestone: boolean;
+  yieldAmount: bigint;
+}
+
+export interface FLProject {
+  id: string;
+  projectId: number; // ProjectLance project ID
+  title: string;
+  description: string;
+  totalBudget: number; // in IDRX (will be converted to bigint * 1e6)
+  currency: string;
+  creator: string; // PO address
+  creatorEns?: string;
+  freelancer: string; // Freelancer address
+  freelancerEns?: string;
+  status: number; // 0: Hiring, 1: In Progress, 2: Completed, 3: Cancelled
+  totalDeposited: bigint;
+  vaultAmount: bigint;
+  lendingAmount: bigint;
+  milestones: FLMilestone[];
+  createdAt: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+// Mock FL Projects (matching the legacy mockProjects structure)
+export const mockFLProjects: FLProject[] = [
+  {
+    id: 'p1',
+    projectId: 1,
+    title: 'DeFi Dashboard Frontend',
+    description: 'Building a responsive DeFi dashboard with real-time data visualization, portfolio tracking, and seamless wallet integration. Experience with Web3 libraries is required.',
+    totalBudget: 24000000,
+    currency: 'IDRX',
+    creator: '0xfedcbafedcbafedcbafedcbafedcbafedcbafed',
+    creatorEns: 'defi-project.eth',
+    freelancer: '0x1234567890abcdef1234567890abcdef12345678',
+    freelancerEns: 'alice.eth',
+    status: 1, // In Progress
+    totalDeposited: BigInt(24000000 * 1e6),
+    vaultAmount: BigInt(21600000 * 1e6),
+    lendingAmount: BigInt(2400000 * 1e6),
+    createdAt: '2026-01-10',
+    startDate: '2026-01-05',
+    milestones: [
+      {
+        id: 'fl-m1-1',
+        index: 0,
+        name: 'Design Phase',
+        percentage: 3000,
+        actualAmount: BigInt(7200000 * 1e6),
+        deadline: 1704067200, // 2024-01-15
+        submissionTime: BigInt(1704451200), // Submitted
+        accepted: true,
+        released: false,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m1-2',
+        index: 1,
+        name: 'React Components',
+        percentage: 4000,
+        actualAmount: BigInt(9600000 * 1e6),
+        deadline: 1706745600, // 2024-02-01
+        submissionTime: BigInt(1704451200), // Submitted
+        accepted: false,
+        released: false,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m1-3',
+        index: 2,
+        name: 'Integration & Testing',
+        percentage: 3000,
+        actualAmount: BigInt(7200000 * 1e6),
+        deadline: 1709251200, // 2024-03-01
+        submissionTime: BigInt(0), // Not submitted
+        accepted: false,
+        released: false,
+        isLastMilestone: true,
+        yieldAmount: BigInt(823600 * 1e6), // ~8.236% yield
+      },
+    ],
+  },
+  {
+    id: 'p2',
+    projectId: 2,
+    title: 'Smart Contract Audit',
+    description: 'Comprehensive security audit for staking contract. Must have previous audit experience with DeFi protocols and understanding of common vulnerabilities.',
+    totalBudget: 32000000,
+    currency: 'IDRX',
+    creator: '0x1111111111111111111111111111111111111111',
+    creatorEns: 'yield-farmer.eth',
+    freelancer: '0x1234567890abcdef1234567890abcdef12345678',
+    freelancerEns: 'alice.eth',
+    status: 2, // Completed
+    totalDeposited: BigInt(32000000 * 1e6),
+    vaultAmount: BigInt(0 * 1e6),
+    lendingAmount: BigInt(0 * 1e6),
+    createdAt: '2026-01-08',
+    startDate: '2026-01-01',
+    endDate: '2026-01-31',
+    milestones: [
+      {
+        id: 'fl-m2-1',
+        index: 0,
+        name: 'Preliminary Review',
+        percentage: 4000,
+        actualAmount: BigInt(12800000 * 1e6),
+        deadline: 1704115200, // 2024-01-02
+        submissionTime: BigInt(1704201600),
+        accepted: true,
+        released: true,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m2-2',
+        index: 1,
+        name: 'Detailed Report',
+        percentage: 6000,
+        actualAmount: BigInt(19200000 * 1e6),
+        deadline: 1706659200, // 2024-01-31
+        submissionTime: BigInt(1706680800),
+        accepted: true,
+        released: true,
+        isLastMilestone: true,
+        yieldAmount: BigInt(2208000 * 1e6), // ~11% yield
+      },
+    ],
+  },
+  {
+    id: 'p3',
+    projectId: 3,
+    title: 'NFT Marketplace Backend',
+    description: 'Build a GraphQL API for an NFT marketplace. Must handle listing, bidding, and offer functionality with proper indexing and real-time updates.',
+    totalBudget: 12800000,
+    currency: 'IDRX',
+    creator: '0x9876543210987654321098765432109876543210',
+    creatorEns: 'nft-collector.eth',
+    freelancer: '0x1234567890abcdef1234567890abcdef12345678',
+    freelancerEns: 'alice.eth',
+    status: 1, // In Progress
+    totalDeposited: BigInt(12800000 * 1e6),
+    vaultAmount: BigInt(11520000 * 1e6),
+    lendingAmount: BigInt(1280000 * 1e6),
+    createdAt: '2026-01-05',
+    startDate: '2026-01-01',
+    milestones: [
+      {
+        id: 'fl-m3-1',
+        index: 0,
+        name: 'API Design',
+        percentage: 2500,
+        actualAmount: BigInt(3200000 * 1e6),
+        deadline: 1704115200, // 2024-01-02
+        submissionTime: BigInt(1704288000),
+        accepted: true,
+        released: false,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m3-2',
+        index: 1,
+        name: 'Core Endpoints',
+        percentage: 5000,
+        actualAmount: BigInt(6400000 * 1e6),
+        deadline: 1706745600, // 2024-02-01
+        submissionTime: BigInt(0),
+        accepted: false,
+        released: false,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m3-3',
+        index: 2,
+        name: 'Documentation',
+        percentage: 2500,
+        actualAmount: BigInt(3200000 * 1e6),
+        deadline: 1709251200, // 2024-03-01
+        submissionTime: BigInt(0),
+        accepted: false,
+        released: false,
+        isLastMilestone: true,
+        yieldAmount: BigInt(0),
+      },
+    ],
+  },
+  {
+    id: 'p4',
+    projectId: 4,
+    title: 'Landing Page Design',
+    description: 'Modern landing page for Web3 startup with stunning visuals, smooth animations, and responsive design. Must provide Figma designs and production-ready React code.',
+    totalBudget: 19200000,
+    currency: 'IDRX',
+    creator: '0x2222222222222222222222222222222222222222',
+    creatorEns: 'web3-startup.eth',
+    freelancer: '0x1234567890abcdef1234567890abcdef12345678',
+    freelancerEns: 'alice.eth',
+    status: 1, // In Progress
+    totalDeposited: BigInt(19200000 * 1e6),
+    vaultAmount: BigInt(17280000 * 1e6),
+    lendingAmount: BigInt(1920000 * 1e6),
+    createdAt: '2025-12-15',
+    startDate: '2026-01-01',
+    milestones: [
+      {
+        id: 'fl-m4-1',
+        index: 0,
+        name: 'Concept Design',
+        percentage: 5000,
+        actualAmount: BigInt(9600000 * 1e6),
+        deadline: 1704115200, // 2024-01-02
+        submissionTime: BigInt(1704288000),
+        accepted: true,
+        released: false,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m4-2',
+        index: 1,
+        name: 'Final Assets & Code',
+        percentage: 5000,
+        actualAmount: BigInt(9600000 * 1e6),
+        deadline: 1706745600, // 2024-02-01
+        submissionTime: BigInt(0),
+        accepted: false,
+        released: false,
+        isLastMilestone: true,
+        yieldAmount: BigInt(0),
+      },
+    ],
+  },
+  {
+    id: 'p5',
+    projectId: 5,
+    title: 'Yield Farming Interface',
+    description: 'Build UI for yield farming with pool management, rewards tracking, and auto-compounding vaults. Requires knowledge of DeFi protocols and Web3 integration.',
+    totalBudget: 28800000,
+    currency: 'IDRX',
+    creator: '0x3333333333333333333333333333333333333333',
+    creatorEns: 'dao-gov.eth',
+    freelancer: '0x1234567890abcdef1234567890abcdef12345678',
+    freelancerEns: 'alice.eth',
+    status: 2, // Completed
+    totalDeposited: BigInt(28800000 * 1e6),
+    vaultAmount: BigInt(0 * 1e6),
+    lendingAmount: BigInt(0 * 1e6),
+    createdAt: '2025-12-01',
+    startDate: '2025-12-01',
+    endDate: '2025-12-31',
+    milestones: [
+      {
+        id: 'fl-m5-1',
+        index: 0,
+        name: 'Pool Display',
+        percentage: 3000,
+        actualAmount: BigInt(8640000 * 1e6),
+        deadline: 1701388800, // 2024-12-01
+        submissionTime: BigInt(1701475200),
+        accepted: true,
+        released: true,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m5-2',
+        index: 1,
+        name: 'Staking UI',
+        percentage: 4000,
+        actualAmount: BigInt(11520000 * 1e6),
+        deadline: 1704067200, // 2024-01-01
+        submissionTime: BigInt(1704153600),
+        accepted: true,
+        released: true,
+        isLastMilestone: false,
+        yieldAmount: BigInt(1120000 * 1e6), // ~1% yield
+      },
+      {
+        id: 'fl-m5-3',
+        index: 2,
+        name: 'Rewards Tracking',
+        percentage: 3000,
+        actualAmount: BigInt(8640000 * 1e6),
+        deadline: 1706745600, // 2024-02-01
+        submissionTime: BigInt(1706832000),
+        accepted: true,
+        released: true,
+        isLastMilestone: true,
+        yieldAmount: BigInt(86400 * 1e6), // ~1% yield
+      },
+    ],
+  },
+  {
+    id: 'p6',
+    projectId: 6,
+    title: 'Cross-Chain Bridge UI',
+    description: 'User interface for cross-chain token transfers with status tracking, fee estimation, and transaction history. Experience with bridge protocols required.',
+    totalBudget: 35200000,
+    currency: 'IDRX',
+    creator: '0x4444444444444444444444444444444444444',
+    creatorEns: 'bridge-dao.eth',
+    freelancer: '0x1234567890abcdef1234567890abcdef12345678',
+    freelancerEns: 'alice.eth',
+    status: 1, // In Progress
+    totalDeposited: BigInt(35200000 * 1e6),
+    vaultAmount: BigInt(31680000 * 1e6),
+    lendingAmount: BigInt(3520000 * 1e6),
+    createdAt: '2026-01-12',
+    startDate: '2026-01-10',
+    milestones: [
+      {
+        id: 'fl-m6-1',
+        index: 0,
+        name: 'Transfer Form',
+        percentage: 2500,
+        actualAmount: BigInt(8800000 * 1e6),
+        deadline: 1704115200, // 2024-01-02
+        submissionTime: BigInt(1704201600),
+        accepted: true,
+        released: true,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m6-2',
+        index: 1,
+        name: 'Status Tracking',
+        percentage: 3500,
+        actualAmount: BigInt(12320000 * 1e6),
+        deadline: 1706745600, // 2024-02-01
+        submissionTime: BigInt(0),
+        accepted: false,
+        released: false,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m6-3',
+        index: 2,
+        name: 'History Display',
+        percentage: 2500,
+        actualAmount: BigInt(8800000 * 1e6),
+        deadline: 1709251200, // 2024-03-01
+        submissionTime: BigInt(0),
+        accepted: false,
+        released: false,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m6-4',
+        index: 3,
+        name: 'Testing',
+        percentage: 1500,
+        actualAmount: BigInt(5280000 * 1e6),
+        deadline: 1732448000, // 2024-11-25
+        submissionTime: BigInt(0),
+        accepted: false,
+        released: false,
+        isLastMilestone: true,
+        yieldAmount: BigInt(0),
+      },
+    ],
+  },
+  {
+    id: 'p7',
+    projectId: 7,
+    title: 'Governance Dashboard',
+    description: 'DAO governance interface with proposal voting, delegation, and on-chain execution. Experience with Snapshot or similar governance platforms preferred.',
+    totalBudget: 25600000,
+    currency: 'IDRX',
+    creator: '0x5555555555555555555555555555555555555',
+    creatorEns: 'governance-dao.eth',
+    freelancer: '0x1234567890abcdef1234567890abcdef12345678',
+    freelancerEns: 'alice.eth',
+    status: 2, // Completed
+    totalDeposited: BigInt(25600000 * 1e6),
+    vaultAmount: BigInt(0 * 1e6),
+    lendingAmount: BigInt(0 * 1e6),
+    createdAt: '2025-11-15',
+    startDate: '2025-11-01',
+    endDate: '2025-12-15',
+    milestones: [
+      {
+        id: 'fl-m7-1',
+        index: 0,
+        name: 'Proposal List',
+        percentage: 3000,
+        actualAmount: BigInt(7680000 * 1e6),
+        deadline: 1704115200, // 2024-01-02
+        submissionTime: BigInt(1704201600),
+        accepted: true,
+        released: true,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m7-2',
+        index: 1,
+        name: 'Voting Interface',
+        percentage: 4000,
+        actualAmount: BigInt(10240000 * 1e6),
+        deadline: 1706745600, // 2024-02-01
+        submissionTime: BigInt(1706832000),
+        accepted: true,
+        released: true,
+        isLastMilestone: false,
+        yieldAmount: BigInt(102400 * 1e6), // ~1% yield
+      },
+      {
+        id: 'fl-m7-3',
+        index: 2,
+        name: 'Delegation',
+        percentage: 3000,
+        actualAmount: BigInt(7680000 * 1e6),
+        deadline: 1709251200, // 2024-03-01
+        submissionTime: BigInt(1709337600),
+        accepted: true,
+        released: true,
+        isLastMilestone: true,
+        yieldAmount: BigInt(153600 * 1e6), // ~2% yield
+      },
+    ],
+  },
+  {
+    id: 'p8',
+    projectId: 8,
+    title: 'Token Swap DEX',
+    description: 'Decentralized exchange UI with limit orders, liquidity pools, and advanced trading features. Must integrate with multiple DEXs for best price routing.',
+    totalBudget: 40000000,
+    currency: 'IDRX',
+    creator: '0x6666666666666666666666666666666666666',
+    creatorEns: 'dex-operator.eth',
+    freelancer: '0x1234567890abcdef1234567890abcdef12345678',
+    freelancerEns: 'alice.eth',
+    status: 2, // Completed
+    totalDeposited: BigInt(40000000 * 1e6),
+    vaultAmount: BigInt(0 * 1e6),
+    lendingAmount: BigInt(0 * 1e6),
+    createdAt: '2025-10-20',
+    startDate: '2025-10-15',
+    endDate: '2025-12-01',
+    milestones: [
+      {
+        id: 'fl-m8-1',
+        index: 0,
+        name: 'Swap Interface',
+        percentage: 3500,
+        actualAmount: BigInt(14000000 * 1e6),
+        deadline: 1702915200, // 2023-12-18
+        submissionTime: BigInt(1703001600),
+        accepted: true,
+        released: true,
+        isLastMilestone: false,
+        yieldAmount: BigInt(0),
+      },
+      {
+        id: 'fl-m8-2',
+        index: 1,
+        name: 'Limit Orders',
+        percentage: 3000,
+        actualAmount: BigInt(12000000 * 1e6),
+        deadline: 1705334400, // 2024-01-15
+        submissionTime: BigInt(1705420800),
+        accepted: true,
+        released: true,
+        isLastMilestone: false,
+        yieldAmount: BigInt(120000 * 1e6),
+      },
+      {
+        id: 'fl-m8-3',
+        index: 2,
+        name: 'Liquidity Pool',
+        percentage: 3500,
+        actualAmount: BigInt(14000000 * 1e6),
+        deadline: 1707654400, // 2024-02-11
+        submissionTime: BigInt(1707740800),
+        accepted: true,
+        released: true,
+        isLastMilestone: true,
+        yieldAmount: BigInt(280000 * 1e6), // ~2% yield
+      },
+    ],
+  },
+];
+
+// Helper function to get FL project by ID
+export function getFLProjectById(id: string): FLProject | undefined {
+  return mockFLProjects.find(project => project.id === id);
+}

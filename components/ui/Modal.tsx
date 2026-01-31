@@ -8,6 +8,7 @@ interface ModalProps {
   title?: string;
   children: ReactNode;
   showCloseButton?: boolean;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 export default function Modal({
@@ -16,6 +17,7 @@ export default function Modal({
   title,
   children,
   showCloseButton = true,
+  size = 'md',
 }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
@@ -30,6 +32,13 @@ export default function Modal({
 
   if (!isOpen) return null;
 
+  const sizeClasses = {
+    sm: 'max-w-sm',
+    md: 'max-w-md',
+    lg: 'max-w-2xl',
+    xl: 'max-w-4xl',
+  };
+
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -39,7 +48,7 @@ export default function Modal({
       />
 
       {/* Modal content */}
-      <div className="relative w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div className={`relative w-full ${sizeClasses[size]} bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-h-[90vh] overflow-y-auto`}>
         {title && (
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-semibold text-slate-800">{title}</h3>

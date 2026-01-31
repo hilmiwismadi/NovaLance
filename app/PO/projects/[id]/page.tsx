@@ -29,6 +29,8 @@ import {
   showInfo,
   showError,
 } from '@/lib/transactions';
+import { getPOProjectById } from '@/lib/mockData';
+import KPIReviewModal from '@/components/po/KPIReviewModal';
 
 // Format currency for IDRX (6 decimals)
 function formatIDRX(amount: bigint | number): string {
@@ -286,6 +288,11 @@ export default function POProjectDetailPage() {
   }
 
   if (!project) {
+    // Try to get mock data as fallback
+    const mockProject = getPOProjectById(projectId);
+    if (mockProject) {
+      return <MockProjectDetailPage project={mockProject} />;
+    }
     return (
       <div className="text-center py-12">
         <h1 className="text-2xl font-bold text-slate-900 mb-2">Project Not Found</h1>
@@ -807,6 +814,484 @@ export default function POProjectDetailPage() {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+// Mock project detail page component for when no contract data is available
+interface MockProjectDetailPageProps {
+  project: import('@/lib/mockData').POProject;
+}
+
+function MockProjectDetailPage({ project }: MockProjectDetailPageProps) {
+  const router = useRouter();
+  const [expandedRoles, setExpandedRoles] = useState<Set<string>>(new Set());
+  const [selectedKPI, setSelectedKPI] = useState<{ roleIndex: number; kpiIndex: number } | null>(null);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+
+  // Flatten all KPIs for display
+  const allKPIs = project.roles.flatMap(role =>
+    role.kpis.map(kpi => ({ ...kpi, roleName: role.title, roleId: role.id }))
+  );
+
+  const completedKPIs = allKPIs.filter(k => k.status === 'completed' || k.status === 'approved').length;
+  const progress = (completedKPIs / allKPIs.length) * 100;
+
+  // Auto-expand roles that have KPIs pending approval
+  useEffect(() => {
+    const rolesWithPendingApproval = project.roles
+      .filter((r) => r.kpis.some((k) => k.status === 'pending-approval' || k.status === 'completed'))
+      .map((r) => r.id);
+
+    if (rolesWithPendingApproval.length > 0) {
+      setExpandedRoles(new Set(rolesWithPendingApproval));
+    }
+  }, [project]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'hiring': return { text: 'Hiring', variant: 'info' as const };
+      case 'in-progress': return { text: 'In Progress', variant: 'warning' as const };
+      case 'completed': return { text: 'Completed', variant: 'success' as const };
+      case 'cancelled': return { text: 'Cancelled', variant: 'error' as const };
+      default: return { text: 'Draft', variant: 'default' as const };
+    }
+  };
+
+  const getKPIStatusBadge = (status: string) => {
+    switch (status) {
+      case 'approved': return { text: 'Approved', variant: 'success' as const };
+      case 'completed': return { text: 'Completed', variant: 'success' as const };
+      case 'pending-approval': return { text: 'Pending Approval', variant: 'warning' as const };
+      case 'in-progress': return { text: 'In Progress', variant: 'info' as const };
+      case 'rejected': return { text: 'Rejected', variant: 'error' as const };
+      default: return { text: 'Pending', variant: 'default' as const };
+    }
+  };
+
+  const toggleRoleExpanded = (roleId: string) => {
+    setExpandedRoles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(roleId)) {
+        newSet.delete(roleId);
+      } else {
+        newSet.add(roleId);
+      }
+      return newSet;
+    });
+  };
+
+  const openReviewModal = (roleIndex: number, kpiIndex: number) => {
+    const kpi = project.roles[roleIndex].kpis[kpiIndex];
+    setSelectedKPI({ roleIndex, kpiIndex });
+    setReviewModalOpen(true);
+  };
+
+  const projectStatus = getStatusBadge(project.status);
+
+  return (
+    <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <Link
+            href="/PO/projects"
+            className="text-xs sm:text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 mb-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Projects
+          </Link>
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">{project.title}</h1>
+            <Badge variant={projectStatus.variant}>
+              {projectStatus.text}
+            </Badge>
+          </div>
+          <p className="text-sm text-slate-600 mt-2">{project.description}</p>
+        </div>
+      </div>
+
+      {/* Project Overview Card */}
+      <Card className="p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-brand-50/30 border-brand-200/30">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Total Budget</p>
+            <p className="text-base sm:text-lg font-bold text-brand-600">
+              {project.totalBudget.toLocaleString()} {project.currency}
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Roles</p>
+            <p className="text-base sm:text-lg font-bold text-slate-900">{project.roles.length}</p>
+          </div>
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">KPIs</p>
+            <p className="text-base sm:text-lg font-bold text-slate-900">{allKPIs.length}</p>
+          </div>
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Progress</p>
+            <p className="text-base sm:text-lg font-bold text-brand-600">{progress.toFixed(0)}%</p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Dates Card */}
+      {(project.startDate || project.endDate) && (
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Timeline</h3>
+              <p className="text-xs text-slate-500">Project duration</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {project.startDate && (
+              <div className="bg-slate-50 rounded-lg p-4">
+                <p className="text-xs text-slate-600 mb-1">Start Date</p>
+                <p className="text-sm font-bold text-slate-900">
+                  {new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+            )}
+            {project.endDate && (
+              <div className="bg-slate-50 rounded-lg p-4">
+                <p className="text-xs text-slate-600 mb-1">End Date</p>
+                <p className="text-sm font-bold text-slate-900">
+                  {new Date(project.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Features Card */}
+      {project.features && project.features.length > 0 && (
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Features</h3>
+              <p className="text-xs text-slate-500">Project deliverables</p>
+            </div>
+          </div>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {project.features.map((feature, index) => (
+              <li key={index} className="flex items-start gap-2 text-sm text-slate-700">
+                <svg className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>{feature}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content - Roles & KPIs */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-slate-900">Roles & Milestones</h2>
+            <span className="text-sm text-slate-500">({project.roles.length})</span>
+          </div>
+
+          {project.roles.map((role) => {
+            const isExpanded = expandedRoles.has(role.id);
+            const roleCompletedKPIs = role.kpis.filter(k => k.status === 'completed' || k.status === 'approved').length;
+            const roleProgress = (roleCompletedKPIs / role.kpis.length) * 100;
+            const roleStatus = getStatusBadge(role.status);
+
+            return (
+              <Card key={role.id} className="overflow-hidden">
+                <div className="p-4 sm:p-5 pb-3">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <h3 className="text-base sm:text-lg font-semibold text-slate-900">{role.title}</h3>
+                        <Badge variant={roleStatus.variant as any} className="text-xs flex-shrink-0">
+                          {roleStatus.text}
+                        </Badge>
+                        <span className="text-xs font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-full">
+                          {role.budget.toLocaleString()} {role.currency}
+                        </span>
+                      </div>
+
+                      <p className="text-sm text-slate-600 mb-2">{role.description}</p>
+
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {role.skills.map((skill) => (
+                          <span key={skill} className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>{role.kpis.length} KPIs</span>
+                        <span>•</span>
+                        <span>{roleCompletedKPIs} completed</span>
+                        <span>•</span>
+                        <span className="font-medium text-brand-600">{roleProgress.toFixed(0)}% progress</span>
+                      </div>
+
+                      {role.assignedTo && (
+                        <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span>Assigned to: {role.assignedToEns || role.assignedTo.slice(0, 6) + '...' + role.assignedTo.slice(-4)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => toggleRoleExpanded(role.id)}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 text-sm text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-all border border-brand-200 hover:border-brand-300"
+                  >
+                    {isExpanded ? (
+                      <>
+                        <span>Hide KPIs</span>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7-7" />
+                        </svg>
+                      </>
+                    ) : (
+                      <>
+                        <span>View KPIs</span>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {isExpanded && (
+                  <div className="border-t border-slate-100 p-4 sm:p-5 bg-slate-50/30">
+                    <div className="space-y-3">
+                      {role.kpis.map((kpi, index) => {
+                        const kpiStatus = getKPIStatusBadge(kpi.status);
+                        const isInProgress = kpi.status === 'in-progress';
+                        const isPendingApproval = kpi.status === 'pending-approval';
+                        const needsReview = kpi.status === 'completed' || isPendingApproval;
+                        const isClickable = needsReview;
+                        const roleIndex = project.roles.indexOf(role);
+
+                        return (
+                          <div
+                            key={kpi.id}
+                            className={`border rounded-lg p-3 transition-all ${
+                              isClickable ? 'cursor-pointer hover:shadow-md hover:border-brand-300' : ''
+                            } ${
+                              kpi.status === 'approved'
+                                ? 'bg-emerald-50 border-emerald-200'
+                                : kpi.status === 'completed' || isPendingApproval
+                                ? 'bg-amber-50 border-amber-200'
+                                : kpi.status === 'in-progress'
+                                ? 'bg-brand-50 border-brand-200'
+                                : 'bg-slate-50 border-slate-200'
+                            }`}
+                            onClick={() => {
+                              if (isClickable) {
+                                openReviewModal(roleIndex, index);
+                              }
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <span className="font-medium text-slate-900">KPI {index + 1}: {kpi.name}</span>
+                                  <Badge variant={kpiStatus.variant as any} className="text-xs">
+                                    {kpiStatus.text}
+                                  </Badge>
+                                  <span className="text-xs font-semibold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full">
+                                    {kpi.percentage}%
+                                  </span>
+                                </div>
+                                {kpi.description && (
+                                  <p className="text-xs text-slate-600">{kpi.description}</p>
+                                )}
+                              </div>
+                            </div>
+
+                            {kpi.deadline && (
+                              <div className="flex items-center gap-1 text-xs text-slate-500">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Deadline: {new Date(kpi.deadline).toLocaleDateString()}</span>
+                              </div>
+                            )}
+
+                            {kpi.completedAt && (
+                              <div className="flex items-center gap-1 text-xs text-emerald-600 mt-1">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>Completed: {new Date(kpi.completedAt).toLocaleDateString()}</span>
+                              </div>
+                            )}
+
+                            {isInProgress && kpi.deadline && (
+                              <div className="flex items-center gap-1.5 text-brand-600 mt-2">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span className="text-xs">
+                                  Due: {new Date(kpi.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                </span>
+                              </div>
+                            )}
+
+                            {isPendingApproval && kpi.deliverables && (
+                              <div className="flex items-center gap-1.5 text-amber-700 mt-1">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                </svg>
+                                <span className="text-xs">Deliverables submitted</span>
+                              </div>
+                            )}
+
+                            {isClickable && (
+                              <div className="flex items-center gap-1 text-amber-700 text-xs mt-2">
+                                <span>
+                                  {isPendingApproval ? 'Click to review & approve/reject' : 'Click to review'}
+                                </span>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </div>
+                            )}
+
+                            {isInProgress && (
+                              <div className="mt-2 pt-2 border-t border-brand-200/50">
+                                <div className="w-full bg-brand-100 rounded-full h-1.5 overflow-hidden">
+                                  <div className="bg-gradient-to-r from-brand-400 to-brand-600 h-full rounded-full animate-pulse" style={{ width: '60%' }} />
+                                </div>
+                              </div>
+                            )}
+
+                            {kpi.yield !== undefined && kpi.status === 'approved' && (
+                              <div className="mt-2 text-xs">
+                                <span className={`font-medium ${kpi.yield >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                  Yield: {kpi.yield >= 0 ? '+' : ''}{kpi.yield}%
+                                </span>
+                              </div>
+                            )}
+
+                            {kpi.rejectionReason && (
+                              <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                                <p className="font-medium mb-1">Rejection Reason:</p>
+                                <p>{kpi.rejectionReason}</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Owner Card */}
+          <Card className="p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Project Owner</h3>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
+                  <span className="text-sm font-bold text-white">
+                    {(project.ownerEns || project.owner).slice(0, 2).toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-900">
+                    {project.ownerEns || `${project.owner.slice(0, 6)}...${project.owner.slice(-4)}`}
+                  </p>
+                  <p className="text-xs text-slate-500">Creator</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Budget Card */}
+          <Card className="p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Budget Breakdown</h3>
+            <div className="space-y-3">
+              {project.roles.map((role) => (
+                <div key={role.id} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">{role.title}</p>
+                    <p className="text-xs text-slate-500">{role.kpis.length} KPIs</p>
+                  </div>
+                  <p className="text-sm font-bold text-brand-600">
+                    {role.budget.toLocaleString()} {role.currency}
+                  </p>
+                </div>
+              ))}
+              <div className="flex justify-between items-center pt-2 border-t-2 border-slate-200">
+                <span className="text-sm font-semibold text-slate-900">Total</span>
+                <span className="text-base font-bold text-brand-600">
+                  {project.totalBudget.toLocaleString()} {project.currency}
+                </span>
+              </div>
+            </div>
+          </Card>
+
+          {/* Info Card */}
+          <Card className="p-6 bg-blue-50 border-blue-200">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Mock Data Mode</h3>
+            <p className="text-sm text-slate-600 mb-4">
+              This project is showing mock data. Deploy a project to the ProjectLance contract to see real blockchain data.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full border-blue-300 text-blue-700 hover:bg-blue-100"
+              onClick={() => router.push('/PO/projects')}
+            >
+              Back to Projects
+            </Button>
+          </Card>
+        </div>
+      </div>
+
+      {/* KPI Review Modal */}
+      {selectedKPI && (
+        <KPIReviewModal
+          isOpen={reviewModalOpen}
+          onClose={() => {
+            setReviewModalOpen(false);
+            setSelectedKPI(null);
+          }}
+          projectId={project.id}
+          roleTitle={project.roles[selectedKPI.roleIndex].title}
+          roleBudget={project.roles[selectedKPI.roleIndex].budget}
+          kpi={project.roles[selectedKPI.roleIndex].kpis[selectedKPI.kpiIndex]}
+          freelancerEns={project.roles[selectedKPI.roleIndex].assignedToEns}
+          currency={project.currency}
+          onSuccess={() => {
+            // Refresh logic could go here
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 }

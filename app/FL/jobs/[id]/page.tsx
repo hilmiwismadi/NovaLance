@@ -108,25 +108,51 @@ export default function FLJobDetailPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/FL/jobs">
-          <Button variant="ghost" size="sm">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="flex items-center justify-between">
+        <div>
+          <Link
+            href="/FL/jobs"
+            className="text-xs sm:text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1 mb-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-          </Button>
-        </Link>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-slate-900">{job.title}</h1>
+            Back to Jobs
+          </Link>
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">{job.title}</h1>
             <Badge variant={job.status === 'hiring' ? 'success' : 'default'}>
               {job.status}
             </Badge>
           </div>
         </div>
       </div>
+
+      {/* Job Overview Card */}
+      <Card className="p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-brand-50/30 border-brand-200/30">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Total Budget</p>
+            <p className="text-base sm:text-lg font-bold text-brand-600">
+              <CurrencyDisplay amount={formatCurrency(job.budget, job.currency)} currency={job.currency} />
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Milestones</p>
+            <p className="text-base sm:text-lg font-bold text-slate-900">{job.milestones.length}</p>
+          </div>
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Applicants</p>
+            <p className="text-base sm:text-lg font-bold text-emerald-600">{job.applicantCount}</p>
+          </div>
+          <div>
+            <p className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide font-medium">Posted</p>
+            <p className="text-base sm:text-lg font-bold text-brand-600">{job.createdAt || 'Recently'}</p>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
@@ -176,15 +202,6 @@ export default function FLJobDetailPage() {
                   </div>
                 </div>
               ))}
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-slate-200">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-600">Total Budget</span>
-                <span className="text-2xl font-bold text-brand-600 inline-flex items-center gap-1">
-                  <CurrencyDisplay amount={formatCurrency(job.budget, job.currency)} currency={job.currency} />
-                </span>
-              </div>
             </div>
           </Card>
         </div>
