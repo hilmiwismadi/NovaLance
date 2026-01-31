@@ -216,7 +216,7 @@ export default function FundProjectPage() {
                 </div>
                 <div className="border-t border-slate-200 pt-2 mt-2">
                   <p className="text-xs text-slate-500">
-                    Total: <span className="font-semibold text-slate-900">{formatCurrency(BigInt(depositAmount || 0), 'IDRX')}</span>
+                    Total: <span className="font-semibold text-slate-900">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(depositAmount || 0))} IDRX</span>
                   </p>
                 </div>
               </div>
