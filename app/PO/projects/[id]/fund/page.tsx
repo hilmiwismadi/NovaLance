@@ -217,7 +217,7 @@ export default function FundProjectPage() {
             <div>
               <p className="text-sm text-slate-500">Your IDRX Balance</p>
               <p className="text-2xl font-bold text-slate-900 mt-1">
-                {walletBalance !== undefined ? formatCurrency(walletBalance, 'IDRX') : '...'}
+                {walletBalanceFormatted !== '0' ? new Intl.NumberFormat('id-ID').format(parseFloat(walletBalanceFormatted)) : '...'}
               </p>
             </div>
             <button
@@ -246,7 +246,7 @@ export default function FundProjectPage() {
                 required
               />
               <p className="text-xs text-slate-500 mt-1">
-                Available: {walletBalance !== undefined ? formatCurrency(walletBalance, 'IDRX') : '...'} IDRX
+                Available: {walletBalanceFormatted !== '0' ? new Intl.NumberFormat('id-ID').format(parseFloat(walletBalanceFormatted)) : '...'} IDRX
               </p>
             </div>
 
