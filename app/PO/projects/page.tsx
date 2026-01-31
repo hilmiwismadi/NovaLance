@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { formatCurrency } from '@/lib/contract';
 import { usePLProjectCount } from '@/lib/hooks';
+import { useProjects, useProject } from '@/lib/api-hooks';
 
 // Project data interface for contract data
 interface ContractProject {
@@ -22,21 +23,68 @@ interface ContractProject {
   milestoneCount: bigint;
 }
 
-// Custom hook to fetch multiple projects
+// Custom hook to fetch multiple projects with backend metadata
 function usePOProjects(maxProjects: number = 50) {
   const { address, chain } = useAccount();
   const [projects, setProjects] = useState<ContractProject[]>([]);
+  const [backendProjectsMap, setBackendProjectsMap] = useState<Map<string, any>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!address || !chain) return;
-
     const fetchProjects = async () => {
       setIsLoading(true);
       try {
         const { getContractAddresses } = await import('@/lib/contract-adapter');
         const { PROJECTLANCE_ABI } = await import('@/lib/abi');
         const { createPublicClient, http } = await import('viem');
+        const { getToken } = await import('@/lib/api-client');
+
+        // Fetch backend projects first (for authentication and metadata)
+        const token = getToken();
+        let backendProjects: any[] = [];
+
+        if (token) {
+          const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://novalance-be.vercel.app';
+          try {
+            const response = await fetch(`${API_BASE_URL}/api/projects`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            if (response.ok) {
+              const data = await response.json();
+              backendProjects = data.projects || [];
+            }
+          } catch (error) {
+            console.error('Failed to fetch backend projects:', error);
+          }
+        }
+
+        // Create backend map for quick lookup
+        const newBackendMap = new Map<string, any>();
+        backendProjects.forEach((bp: any) => {
+          newBackendMap.set(bp.id, bp);
+        });
+        setBackendProjectsMap(newBackendMap);
+
+        // If no wallet connected or no chain, still show backend projects
+        if (!address || !chain) {
+          // Create placeholder contract projects from backend data
+          const placeholderProjects: ContractProject[] = backendProjects.map((bp: any) => ({
+            id: BigInt(bp.id),
+            creator: bp.ownerAddress,
+            freelancer: '0x0000000000000000000000000000000000000000',
+            status: 0, // Default to Active
+            totalDeposited: BigInt(0),
+            vaultAmount: BigInt(0),
+            lendingAmount: BigInt(0),
+            milestoneCount: BigInt(0),
+          }));
+          setProjects(placeholderProjects);
+          setIsLoading(false);
+          return;
+        }
 
         const publicClient = createPublicClient({
           chain: chain,
@@ -56,7 +104,7 @@ function usePOProjects(maxProjects: number = 50) {
         const totalCount = Number(countResult);
         const maxToFetch = Math.min(totalCount, maxProjects);
 
-        // Fetch all projects in parallel
+        // Fetch all projects from contract in parallel
         const projectPromises = [];
         for (let i = 0; i < maxToFetch; i++) {
           projectPromises.push(
@@ -72,6 +120,8 @@ function usePOProjects(maxProjects: number = 50) {
         const results = await Promise.all(projectPromises);
 
         const userProjects: ContractProject[] = [];
+        const onChainProjectIds = new Set<string>();
+
         for (let i = 0; i < results.length; i++) {
           const result = results[i] as any[] | null;
           if (!result) continue;
@@ -83,6 +133,8 @@ function usePOProjects(maxProjects: number = 50) {
           const vaultAmount = result[4] as bigint;
           const lendingAmount = result[5] as bigint;
           const milestoneCount = result[6] as bigint;
+
+          onChainProjectIds.add(i.toString());
 
           // Only include projects created by this user
           if (creator.toLowerCase() === address.toLowerCase()) {
@@ -99,6 +151,22 @@ function usePOProjects(maxProjects: number = 50) {
           }
         }
 
+        // Add backend projects that don't exist on-chain yet
+        backendProjects.forEach((bp: any) => {
+          if (!onChainProjectIds.has(bp.id)) {
+            userProjects.push({
+              id: BigInt(bp.id),
+              creator: bp.ownerAddress,
+              freelancer: '0x0000000000000000000000000000000000000000',
+              status: 0, // Default to Active
+              totalDeposited: BigInt(0),
+              vaultAmount: BigInt(0),
+              lendingAmount: BigInt(0),
+              milestoneCount: BigInt(0),
+            });
+          }
+        });
+
         setProjects(userProjects);
       } catch (error) {
         console.error('Failed to load projects:', error);
@@ -111,7 +179,7 @@ function usePOProjects(maxProjects: number = 50) {
     fetchProjects();
   }, [address, chain, maxProjects]);
 
-  return { projects, isLoading };
+  return { projects, backendProjectsMap, isLoading };
 }
 
 type FilterType = 'all' | 'active' | 'hired' | 'completed' | 'cancelled';
@@ -165,7 +233,7 @@ const filters: FilterConfig[] = [
 export default function POProjectsPage() {
   const [mounted, setMounted] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
-  const { projects, isLoading } = usePOProjects(50);
+  const { projects, backendProjectsMap, isLoading } = usePOProjects(50);
 
   useEffect(() => {
     setMounted(true);
@@ -273,52 +341,64 @@ export default function POProjectsPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProjects.map((project) => (
-              <Link key={project.id.toString()} href={`/PO/projects/${project.id}`}>
-                <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer h-full">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-slate-900 truncate">Project #{project.id}</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {project.milestoneCount} milestone{project.milestoneCount > 1n ? 's' : ''}
-                      </p>
-                    </div>
-                    <Badge variant={getStatusVariant(project) as any}>
-                      {getStatusText(project)}
-                    </Badge>
-                  </div>
+            {filteredProjects.map((project) => {
+              const backendData = backendProjectsMap.get(project.id.toString());
+              const title = backendData?.title || `Project #${project.id}`;
+              const description = backendData?.description;
+              const roleCount = backendData?._count?.roles || 0;
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Deposited</span>
-                      <span className="font-medium text-slate-900">
-                        {formatCurrency(project.totalDeposited, 'IDRX')}
-                      </span>
+              return (
+                <Link key={project.id.toString()} href={`/PO/projects/${project.id}`}>
+                  <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer h-full">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-slate-900 truncate">{title}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {project.milestoneCount} milestone{project.milestoneCount > 1n ? 's' : ''}
+                          {roleCount > 0 && ` • ${roleCount} role${roleCount > 1 ? 's' : ''}`}
+                        </p>
+                      </div>
+                      <Badge variant={getStatusVariant(project) as any}>
+                        {getStatusText(project)}
+                      </Badge>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Vault</span>
-                      <span className="font-medium text-brand-600">
-                        {formatCurrency(project.vaultAmount, 'IDRX')}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-600">Lending</span>
-                      <span className="font-medium text-blue-600">
-                        {formatCurrency(project.lendingAmount, 'IDRX')}
-                      </span>
-                    </div>
-                  </div>
 
-                  {project.freelancer !== '0x0000000000000000000000000000000000000000' && (
-                    <div className="mt-3 pt-3 border-t border-slate-200">
-                      <p className="text-xs text-slate-500">
-                        Freelancer: {project.freelancer.slice(0, 6)}...{project.freelancer.slice(-4)}
-                      </p>
+                    {description && (
+                      <p className="text-sm text-slate-600 mb-3 line-clamp-2">{description}</p>
+                    )}
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Deposited</span>
+                        <span className="font-medium text-slate-900">
+                          {formatCurrency(project.totalDeposited, 'IDRX')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Vault</span>
+                        <span className="font-medium text-brand-600">
+                          {formatCurrency(project.vaultAmount, 'IDRX')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Lending</span>
+                        <span className="font-medium text-blue-600">
+                          {formatCurrency(project.lendingAmount, 'IDRX')}
+                        </span>
+                      </div>
                     </div>
-                  )}
-                </Card>
-              </Link>
-            ))}
+
+                    {project.freelancer !== '0x0000000000000000000000000000000000000000' && (
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <p className="text-xs text-slate-500">
+                          Freelancer: {project.freelancer.slice(0, 6)}...{project.freelancer.slice(-4)}
+                        </p>
+                      </div>
+                    )}
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
