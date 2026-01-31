@@ -237,7 +237,7 @@ export default function FLProjectDetailPage() {
   const lendingAmount = projectArray?.[5] ?? BigInt(0);
   const milestoneCount = projectArray?.[6] ?? BigInt(0);
   const cancelledTimestamp = projectArray?.[7] ?? BigInt(0);
-  const totalBudget = Number(totalDeposited) / 1e6;
+  const totalBudget = Number(totalDeposited) / 1e18;
   const isFreelancer = freelancer && address?.toLowerCase() === (freelancer as string).toLowerCase();
   const canApply = !freelancer || freelancer === '0x0000000000000000000000000000000000000000';
 
