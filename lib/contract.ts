@@ -21,8 +21,9 @@ export const CONTRACT_ADDRESSES = {
   },
   baseSepolia: {
     novaLance: '0x0000000000000000000000000000000000000000' as Address, // TODO: Update after deployment
-    // ProjectLance contracts (BaseHackathon) - Deployed 2025-01-31
-    projectLance: '0x87c5C1a665cE300B13Cf5DE7a5d206386E93049c' as Address,
+    // ProjectLance contracts (BaseHackathon) - Deployed 2025-01-31 (Fixed vault amount tracking)
+    // Uses existing MockIDRX and MockLendingProtocol
+    projectLance: '0xc6237A54029351DFcbcF374698DAB3681964809a' as Address,
     mockLendingProtocol: '0xcAD07A2741E3C08D79452F9CA337DE3a3947eae5' as Address,
     mockIDRX: '0x026632AcAAc18Bc99c3f7fa930116189B6ba8432' as Address,
   },

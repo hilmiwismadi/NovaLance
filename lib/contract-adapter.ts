@@ -26,9 +26,10 @@ export const CONTRACT_ADDRESSES = {
   },
   baseSepolia: {
     // Deployed to Base Sepolia on 2025-01-31 (Fixed vault amount tracking)
-    projectLance: '0xC27E510C4744D9236236dC6FB2019f5685f2c029' as Address,
-    mockLendingProtocol: '0xc5536c5bd33cA2B2034d21486D1ba8739Ab898A3' as Address,
-    mockIDRX: '0x693cF56cE4A233b5D4BB911184e71F3D4BC04E76' as Address,
+    // Uses existing MockIDRX and MockLendingProtocol
+    projectLance: '0xc6237A54029351DFcbcF374698DAB3681964809a' as Address,
+    mockLendingProtocol: '0xcAD07A2741E3C08D79452F9CA337DE3a3947eae5' as Address,
+    mockIDRX: '0x026632AcAAc18Bc99c3f7fa930116189B6ba8432' as Address,
   },
   localhost: {
     // Local anvil deployment - from temp_address.txt
