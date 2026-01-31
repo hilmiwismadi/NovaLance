@@ -244,24 +244,19 @@ function generateDummyData() {
     text
   }));
 
-  const roleCount = Math.floor(Math.random() * 4) + 2; // 2-5 roles
-  const roles = [];
+  // Single role only - no budget needed
+  const kpiCount = Math.floor(Math.random() * 5) + 3; // 3-7 KPIs
 
-  for (let i = 0; i < roleCount; i++) {
-    const kpiCount = Math.floor(Math.random() * 8) + 3; // 3-10 KPIs
-    const budget = (Math.floor(Math.random() * 80) + 20) * 1000000; // 20M-100M
-
-    roles.push({
-      id: `role-${Date.now()}-${i}`,
-      title: getRandomItem(roleTitles),
-      description: getRandomItem(roleDescriptions),
-      budget: budget.toString(),
-      currency,
-      skills: getRandomItems(skills, 3, 6),
-      skillInput: '',
-      kpis: generateKPIs(kpiCount, startDateStr)
-    });
-  }
+  const roles = [{
+    id: `role-${Date.now()}-0`,
+    title: getRandomItem(roleTitles),
+    description: getRandomItem(roleDescriptions),
+    budget: '', // No budget in create phase
+    currency,
+    skills: getRandomItems(skills, 3, 6),
+    skillInput: '',
+    kpis: generateKPIs(kpiCount, startDateStr)
+  }];
 
   return {
     title,
@@ -463,14 +458,6 @@ export default function CreateProjectPage() {
       }
     }
 
-    // Calculate total budget
-    const totalBudget = roles.reduce((sum, role) => sum + parseFloat(role.budget || '0'), 0);
-
-    if (totalBudget <= 0) {
-      showError('Invalid Budget', 'Total budget must be greater than 0');
-      return;
-    }
-
     try {
       // Call ProjectLance smart contract (milestone-based)
       showInfo('Creating Project', 'Preparing transaction...');
@@ -575,8 +562,6 @@ export default function CreateProjectPage() {
   }, [error, hash]);
 
   if (!mounted) return null;
-
-  const totalBudget = roles.reduce((sum, role) => sum + parseFloat(role.budget || '0'), 0);
 
   return (
     <div className="min-h-screen pb-safe">
@@ -753,11 +738,6 @@ export default function CreateProjectPage() {
                         <h3 className="font-semibold text-slate-900 text-base">
                           {roleDisplayTitle}
                         </h3>
-                        {role.budget && (
-                          <p className="text-sm text-slate-500 mt-0.5">
-                            Budget: {parseInt(role.budget).toLocaleString()} {currency}
-                          </p>
-                        )}
                       </div>
                       {role.skills.length > 0 && (
                         <span className="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full flex-shrink-0">
@@ -779,21 +759,6 @@ export default function CreateProjectPage() {
                           value={role.title}
                           onChange={(e) => updateRole(roleIndex, 'title', e.target.value)}
                           placeholder="e.g., Frontend Developer"
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Budget ({currency}) *
-                        </label>
-                        <input
-                          type="number"
-                          value={role.budget}
-                          onChange={(e) => updateRole(roleIndex, 'budget', e.target.value)}
-                          placeholder="2000000"
-                          min="0"
                           className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input"
                           required
                         />
@@ -972,28 +937,6 @@ export default function CreateProjectPage() {
             })}
           </div>
         </div>
-
-        {/* Budget Summary - Compact Card */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-900">Budget Summary</h3>
-            <span className="text-lg font-bold text-brand-600">
-              {totalBudget.toLocaleString()} {currency}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {roles.map((role, i) => (
-              <div key={role.id} className="flex justify-between text-sm">
-                <span className="text-slate-600 truncate mr-2">
-                  {role.title || 'Freelancer'}
-                </span>
-                <span className="font-medium text-slate-900 flex-shrink-0">
-                  {parseInt(role.budget || '0').toLocaleString()}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
 
         {/* Submit Buttons - Stacked on mobile */}
         <div className="space-y-2 pt-2">
