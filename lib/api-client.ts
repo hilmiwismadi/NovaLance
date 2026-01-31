@@ -21,7 +21,13 @@ function getToken(): string | null {
 // Set JWT token
 export function setToken(token: string): void {
   if (typeof window === 'undefined') return;
+  console.log('💾 setToken called with:', token.substring(0, 30) + '...');
   localStorage.setItem('novalance_jwt', token);
+  console.log('✅ setToken: Token stored in localStorage');
+
+  // Verify it was stored
+  const verify = localStorage.getItem('novalance_jwt');
+  console.log('🔍 setToken: Verification - token in storage:', !!verify);
 }
 
 // Clear JWT token

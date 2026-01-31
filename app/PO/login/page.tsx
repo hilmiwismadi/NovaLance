@@ -7,6 +7,7 @@ import { injected } from 'wagmi/connectors';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { useNonce, useVerifySignature } from '@/lib/api-hooks';
+import { setToken } from '@/lib/api-client';
 
 export default function POLoginPage() {
   const router = useRouter();
@@ -51,6 +52,15 @@ export default function POLoginPage() {
       const verifyResult = await verifyMutation.mutateAsync({ address: walletAddress, signature });
       console.log('✅ Backend authentication successful!');
       console.log('📝 Token received:', verifyResult.token.substring(0, 30) + '...');
+
+      // IMPORTANT: Store the JWT token in localStorage
+      // Note: mutateAsync doesn't trigger onSuccess callback, so we set it manually
+      setToken(verifyResult.token);
+      console.log('💾 JWT token stored in localStorage');
+
+      // Verify token was stored
+      const verifyStored = typeof window !== 'undefined' ? localStorage.getItem('novalance_jwt') : null;
+      console.log('🔍 Verification - Token in localStorage after storage:', !!verifyStored, verifyStored ? verifyStored.substring(0, 30) + '...' : 'NOT FOUND');
 
       // Store connection state
       if (typeof window !== 'undefined') {
