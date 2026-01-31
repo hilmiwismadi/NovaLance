@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { mockNotifications } from '@/lib/mockData';
 
 interface Notification {
@@ -15,12 +15,26 @@ interface Notification {
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const notifications: Notification[] = mockNotifications;
   const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const toggleDropdown = () => {
+    if (isOpen) {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setIsOpen(false);
+        setIsAnimating(false);
+      }, 200);
+    } else {
+      setIsOpen(true);
+    }
+  };
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -60,7 +74,7 @@ export default function NotificationBell() {
   return (
     <div className="relative">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleDropdown}
         className="relative p-2 rounded-full hover:bg-slate-100 transition-colors"
       >
         <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,13 +87,22 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {mounted && isOpen && (
+      {mounted && (isOpen || isAnimating) && (
         <>
           <div
             className="fixed inset-0 z-10"
-            onClick={() => setIsOpen(false)}
+            onClick={toggleDropdown}
           />
-          <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto glass-card z-20 bg-white/90">
+          <div
+            ref={dropdownRef}
+            className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto glass-card z-20 bg-white/90"
+            style={{
+              opacity: isOpen ? 1 : 0,
+              transform: isOpen ? 'translateY(0) scale(1)' : 'translateY(-10px) scale(0.95)',
+              transformOrigin: 'top right',
+              transition: 'opacity 200ms ease-out, transform 200ms ease-out',
+            }}
+          >
             <div className="p-4 border-b border-slate-200">
               <h3 className="font-semibold text-slate-800">Notifications</h3>
             </div>

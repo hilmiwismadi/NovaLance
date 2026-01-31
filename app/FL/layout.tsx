@@ -1,8 +1,8 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { RoleProvider, useRole } from '@/lib/useRole';
 import FLHeader from '@/components/layout/FLHeader';
 import FLBottomNav from '@/components/layout/FLBottomNav';
@@ -13,13 +13,22 @@ interface FLLayoutProps {
 
 function FLLayoutContent({ children }: FLLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { role } = useRole();
+  const [mounted, setMounted] = useState(false);
 
-  // Redirect if not in FL mode
-  if (role !== 'FL' && typeof window !== 'undefined') {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/PO';
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && role !== 'FL') {
+      router.push('/PO');
     }
+  }, [role, mounted, router]);
+
+  if (!mounted) {
+    return null;
   }
 
   const navItems = [

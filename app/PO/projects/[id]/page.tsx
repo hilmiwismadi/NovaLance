@@ -461,19 +461,19 @@ export default function POProjectDetailPage() {
 
                   <button
                     onClick={() => toggleMilestoneExpanded(index)}
-                    className="w-full flex items-center justify-center gap-2 py-2 px-3 text-sm text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-all border border-brand-200 hover:border-brand-300"
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 text-sm text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded-lg transition-all duration-300 border border-brand-200 hover:border-brand-300"
                   >
                     {isExpanded ? (
                       <>
                         <span>Hide Details</span>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                         </svg>
                       </>
                     ) : (
                       <>
                         <span>View Details</span>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                       </>
@@ -481,8 +481,12 @@ export default function POProjectDetailPage() {
                   </button>
                 </div>
 
-                {isExpanded && (
-                  <div className="border-t border-slate-100 p-4 sm:p-5 bg-slate-50/30">
+                <div
+                  className={`border-t border-slate-100 overflow-hidden transition-all duration-300 ease-out ${
+                    isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
+                  <div className="p-4 sm:p-5 bg-slate-50/30">
                     <div className="space-y-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Percentage</span>
@@ -523,7 +527,7 @@ export default function POProjectDetailPage() {
                       )}
                     </div>
                   </div>
-                )}
+                </div>
               </Card>
             );
           })}

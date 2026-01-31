@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAccount, useDisconnect } from 'wagmi';
 import NotificationBell from './NotificationBell';
@@ -25,6 +26,8 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
   const [username, setUsername] = useState('');
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [isMenuAnimating, setIsMenuAnimating] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   // Use wagmi's useAccount for real wallet connection state
   const { address, isConnected, status } = useAccount();
@@ -34,35 +37,31 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
     setMounted(true);
 
     // Only access localStorage after component is mounted (client-side only)
-    if (typeof window !== 'undefined') {
-      // Get logged in username
-      const storedUsername = localStorage.getItem('fl-username');
-      if (storedUsername) {
-        setUsername(storedUsername);
-      }
+    // Get logged in username
+    const storedUsername = localStorage.getItem('fl-username');
+    if (storedUsername) {
+      setUsername(storedUsername);
     }
   }, []);
 
   // Sync wallet connection state with wagmi
   useEffect(() => {
     if (isConnected && address && status === 'connected') {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('fl-wallet-connected', 'true');
-        localStorage.setItem('fl-wallet-address', address);
-      }
+      localStorage.setItem('fl-wallet-connected', 'true');
+      localStorage.setItem('fl-wallet-address', address);
     } else {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('fl-wallet-connected');
-        localStorage.removeItem('fl-wallet-address');
-      }
+      localStorage.removeItem('fl-wallet-connected');
+      localStorage.removeItem('fl-wallet-address');
     }
   }, [isConnected, address, status]);
 
   const handleLogout = () => {
     // Also disconnect wallet when logging out
     disconnect();
-    localStorage.removeItem('fl-auth');
-    localStorage.removeItem('fl-username');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('fl-auth');
+      localStorage.removeItem('fl-username');
+    }
     router.push('/FL/login');
   };
 
@@ -75,6 +74,18 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
       await disconnect();
     } catch (error) {
       console.error('Failed to disconnect wallet:', error);
+    }
+  };
+
+  const toggleMobileMenu = () => {
+    if (showMobileMenu) {
+      setIsMenuAnimating(true);
+      setTimeout(() => {
+        setShowMobileMenu(false);
+        setIsMenuAnimating(false);
+      }, 200);
+    } else {
+      setShowMobileMenu(true);
     }
   };
 
@@ -101,16 +112,19 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
             <Link href="/FL" className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
+              <Image
+                src="/NovaLanceLogo.png"
+                alt="NovaLance"
+                width={32}
+                height={32}
+                className="w-8 h-8 object-contain"
+                priority
+              />
               <span className="text-xl font-bold bg-gradient-to-r from-brand-500 to-brand-600 bg-clip-text text-transparent hidden sm:block">
                 NovaLance
               </span>
               <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full ml-1">
-                FL
+                Freelancer
               </span>
             </Link>
 
@@ -146,7 +160,7 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
               {/* Mobile Menu Button */}
               <div className="relative md:hidden">
                 <button
-                  onClick={() => setShowMobileMenu(!showMobileMenu)}
+                  onClick={toggleMobileMenu}
                   className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
                   aria-label="Toggle menu"
                 >
@@ -160,13 +174,22 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
                 </button>
 
                 {/* Mobile Menu Dropdown */}
-                {showMobileMenu && (
+                {(showMobileMenu || isMenuAnimating) && (
                   <>
                     <div
                       className="fixed inset-0 z-10"
-                      onClick={() => setShowMobileMenu(false)}
+                      onClick={toggleMobileMenu}
                     />
-                    <div className="absolute right-0 top-full mt-2 w-80 glass-card z-20 bg-white/90">
+                    <div
+                      ref={mobileMenuRef}
+                      className="absolute right-0 top-full mt-2 w-80 glass-card z-20 bg-white/90"
+                      style={{
+                        opacity: showMobileMenu ? 1 : 0,
+                        transform: showMobileMenu ? 'translateY(0) scale(1)' : 'translateY(-10px) scale(0.95)',
+                        transformOrigin: 'top right',
+                        transition: 'opacity 200ms ease-out, transform 200ms ease-out',
+                      }}
+                    >
                       <div className="p-4 border-b border-slate-200">
                         <h3 className="font-semibold text-slate-800">Menu</h3>
                       </div>
@@ -182,7 +205,7 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
                             <Link
                               key={item.href}
                               href={item.href}
-                              onClick={() => setShowMobileMenu(false)}
+                              onClick={toggleMobileMenu}
                               className={`flex items-center gap-3 p-4 transition-colors ${
                                 isActive
                                   ? 'bg-brand-50 text-brand-600'
@@ -208,7 +231,7 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
                           <button
                             onClick={() => {
                               handleDisconnectWallet();
-                              setShowMobileMenu(false);
+                              toggleMobileMenu();
                             }}
                             className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
                           >
@@ -231,7 +254,7 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
                           <button
                             onClick={() => {
                               setShowWalletModal(true);
-                              setShowMobileMenu(false);
+                              toggleMobileMenu();
                             }}
                             className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
                           >
@@ -250,7 +273,7 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
                         {/* Profile */}
                         <Link
                           href="/FL/profile"
-                          onClick={() => setShowMobileMenu(false)}
+                          onClick={toggleMobileMenu}
                           className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
                         >
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center">
@@ -268,7 +291,7 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
                         <button
                           onClick={() => {
                             handleLogout();
-                            setShowMobileMenu(false);
+                            toggleMobileMenu();
                           }}
                           className="w-full flex items-center gap-3 p-4 hover:bg-red-50 transition-colors"
                         >

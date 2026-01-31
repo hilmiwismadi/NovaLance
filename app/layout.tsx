@@ -26,9 +26,9 @@ export default function Layout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
         <Providers>
-          <RootLayout>{children}</RootLayout>
+          {children}
         </Providers>
       </body>
     </html>

@@ -409,8 +409,12 @@ export default function FLProjectDetailPage() {
                   </div>
                 </div>
 
-                {isExpanded && (
-                  <div className="border-t border-slate-100 p-4 sm:p-5 bg-slate-50/30">
+                <div
+                  className={`border-t border-slate-100 overflow-hidden transition-all duration-300 ease-out ${
+                    isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
+                  <div className="p-4 sm:p-5 bg-slate-50/30">
                     <div className="space-y-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Percentage</span>
@@ -466,7 +470,7 @@ export default function FLProjectDetailPage() {
                       )}
                     </div>
                   </div>
-                )}
+                </div>
               </Card>
             );
           })}
@@ -918,8 +922,12 @@ function MockFLProjectDetailPage({ project }: MockFLProjectDetailPageProps) {
                   </div>
                 </div>
 
-                {isExpanded && (
-                  <div className="border-t border-slate-100 p-4 sm:p-5 bg-slate-50/30">
+                <div
+                  className={`border-t border-slate-100 overflow-hidden transition-all duration-300 ease-out ${
+                    isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
+                  <div className="p-4 sm:p-5 bg-slate-50/30">
                     <div className="space-y-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Percentage</span>
@@ -975,7 +983,7 @@ function MockFLProjectDetailPage({ project }: MockFLProjectDetailPageProps) {
                       )}
                     </div>
                   </div>
-                )}
+                </div>
               </Card>
             );
           })}

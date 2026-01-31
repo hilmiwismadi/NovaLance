@@ -319,8 +319,12 @@ export default function FLDashboard() {
           </div>
 
           {/* Expanded Content - Project Hierarchy */}
-          {activityExpanded && (
-            <div className="border-t border-slate-200 pt-4 space-y-3 max-h-96 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div
+            className={`border-t border-slate-200 overflow-hidden transition-all duration-400 ease-out max-h-96 overflow-y-auto ${
+              activityExpanded ? 'pt-4 opacity-100' : 'pt-0 opacity-0 max-h-0'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
               {freelancerProjects.length === 0 && assignedRoles.length === 0 ? (
                 <p className="text-center text-slate-500 py-4 text-sm">No active jobs to display</p>
               ) : (
@@ -389,13 +393,12 @@ export default function FLDashboard() {
                   })}
                 </>
               )}
-            </div>
-          )}
+          </div>
 
           {/* Expand indicator */}
           <div className="flex justify-center mt-4">
             <svg
-              className={`w-5 h-5 text-slate-400 transition-transform ${activityExpanded ? 'rotate-180' : ''}`}
+              className={`w-5 h-5 text-slate-400 transition-transform duration-400 ease-out ${activityExpanded ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"

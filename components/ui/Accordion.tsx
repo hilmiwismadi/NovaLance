@@ -43,7 +43,7 @@ function Accordion({
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <svg
-            className={`w-5 h-5 text-slate-500 transition-transform duration-200 flex-shrink-0 ${isOpen ? 'rotate-90' : ''}`}
+            className={`w-5 h-5 text-slate-500 transition-transform duration-300 ease-out flex-shrink-0 ${isOpen ? 'rotate-90' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -64,11 +64,13 @@ function Accordion({
           </div>
         )}
       </div>
-      {isOpen && (
+      <div
+        className={`transition-all duration-300 ease-out ${isOpen ? 'opacity-100' : 'opacity-0 max-h-0 overflow-hidden'}`}
+      >
         <div className={`px-4 pb-4 sm:px-5 sm:pb-5 border-t border-slate-200/60 ${contentClassName}`}>
           {children}
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -30,6 +30,11 @@ export function Providers({ children }: ProvidersProps) {
     setMounted(true);
   }, []);
 
+  // Don't render until mounted to prevent SSR/CSR mismatch
+  if (!mounted) {
+    return null;
+  }
+
   return (
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>

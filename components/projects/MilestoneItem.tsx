@@ -96,7 +96,11 @@ export default function MilestoneItem({ milestone, amount, currency, userRole }:
           </div>
 
           {/* Actions */}
-          {showActions && (
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-out ${
+              showActions ? 'opacity-100 max-h-40' : 'opacity-0 max-h-0'
+            }`}
+          >
             <div className="mt-4 flex items-center gap-2">
               {canSubmit && (
                 <>
@@ -122,13 +126,13 @@ export default function MilestoneItem({ milestone, amount, currency, userRole }:
                 </>
               )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Expand indicator */}
         <div className="flex-shrink-0 text-slate-400">
           <svg
-            className={`w-4 h-4 transition-transform ${showActions ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 transition-transform duration-300 ease-out ${showActions ? 'rotate-180' : ''}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

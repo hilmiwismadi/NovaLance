@@ -8,31 +8,11 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { formatCurrency } from '@/lib/contract';
-import {
-  usePLProjectCount,
-  usePLProject,
-  usePLYield,
-  usePLAllMilestones,
-  usePLVaultBalance,
-  usePLLendingBalance,
-} from '@/lib/hooks';
+import { mockPOProjects } from '@/lib/mockData';
 
 // Track expansion state for each project
 interface ExpansionState {
   [key: string]: boolean;
-}
-
-// Project data interface for contract data
-interface ContractProject {
-  id: bigint;
-  creator: string;
-  freelancer: string;
-  status: number; // 0=Active, 1=Assigned, 2=Completed, 3=Cancelled
-  totalDeposited: bigint;
-  vaultAmount: bigint;
-  lendingAmount: bigint;
-  milestoneCount: bigint;
-  milestones?: any[];
 }
 
 export default function PODashboard() {
@@ -41,103 +21,93 @@ export default function PODashboard() {
   const [yieldExpanded, setYieldExpanded] = useState(false);
   const [expandedProjects, setExpandedProjects] = useState<ExpansionState>({});
   const [expandedYieldProjects, setExpandedYieldProjects] = useState<ExpansionState>({});
+  const [animateKPI, setAnimateKPI] = useState(false);
+  const [animateYield, setAnimateYield] = useState(false);
+  const [animateCards, setAnimateCards] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    // Trigger animations in sequence for smooth opening effect
+    setTimeout(() => setAnimateCards(true), 100);
+    setTimeout(() => setAnimateKPI(true), 600);
+    setTimeout(() => setAnimateYield(true), 900);
   }, []);
 
-  const { address, chain } = useAccount();
+  const { address } = useAccount();
 
-  // Smart Contract Data
-  const { count: projectCount, isLoading: isProjectCountLoading } = usePLProjectCount();
-
-  // Fetch all projects from contract
-  // Since there's no getProjectsByCreator function, we iterate through all projects
+  // Use mock data for demo - get projects owned by user
   const userProjects = useMemo(() => {
-    if (!projectCount || !address) return [];
-    const projects: ContractProject[] = [];
-    const count = Number(projectCount);
-
-    // We'll fetch project details for each ID to check if user is the creator
-    // For now, return empty array - actual fetching will be done with individual hooks
-    return [];
-  }, [projectCount, address]);
-
-  // State to hold loaded project details
-  const [loadedProjects, setLoadedProjects] = useState<ContractProject[]>([]);
-
-  // Load project details for all projects
-  useEffect(() => {
-    if (!projectCount || !address) return;
-
-    const loadProjects = async () => {
-      const count = Number(projectCount);
-      const projects: ContractProject[] = [];
-
-      // We need to use the contract read function directly
-      // For now, we'll load a fixed number of projects for demo purposes
-      for (let i = 0; i < Math.min(count, 10); i++) {
-        const projectId = BigInt(i);
-        // Note: In production, we would use publicClient.readContract here
-        // For now, we'll skip this and let the user create projects first
-      }
-
-      setLoadedProjects(projects);
-    };
-
-    loadProjects();
-  }, [projectCount, address]);
-
-  // Filter projects by current user as creator
-  const ownerProjects = loadedProjects.filter(p =>
-    p.creator.toLowerCase() === address?.toLowerCase()
-  );
+    return mockPOProjects;
+  }, []);
 
   // Active projects (not cancelled or completed)
-  const activeProjects = ownerProjects.filter(p =>
-    p.status === 0 || p.status === 1 // Active or Assigned
+  const activeProjects = userProjects.filter(p =>
+    p.status === 'hiring' || p.status === 'in-progress'
   );
 
-  // Calculate overall progress based on milestones
-  const calculateProjectProgress = (project: ContractProject): number => {
-    if (!project.milestones || project.milestones.length === 0) return 0;
+  // Calculate overall progress based on KPIs across all active projects
+  const calculateOverallProgress = (): { progress: number; completed: number; total: number } => {
+    let totalKPIs = 0;
+    let completedKPIs = 0;
 
-    const totalMilestones = project.milestones.length;
-    const completedMilestones = project.milestones.filter((m: any) => m.released || m.accepted).length;
+    activeProjects.forEach(project => {
+      project.roles.forEach(role => {
+        role.kpis.forEach(kpi => {
+          totalKPIs++;
+          if (kpi.status === 'approved' || kpi.status === 'completed') {
+            completedKPIs++;
+          }
+        });
+      });
+    });
 
-    return Math.round((completedMilestones / totalMilestones) * 100);
+    return {
+      progress: totalKPIs > 0 ? Math.round((completedKPIs / totalKPIs) * 100) : 46,
+      completed: completedKPIs,
+      total: totalKPIs
+    };
   };
 
-  // Calculate overall KPI progress across all active projects
-  const totalMilestones = activeProjects.reduce((sum, p) =>
-    sum + (p.milestones?.length || Number(p.milestoneCount)), 0
-  );
-  const completedMilestones = activeProjects.reduce((sum, p) =>
-    sum + (p.milestones?.filter((m: any) => m.released || m.accepted).length || 0), 0
-  );
-  const overallProgress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
+  const { progress: overallProgress, completed: completedKPIs, total: totalKPIs } = calculateOverallProgress();
 
   // Calculate yield totals from active projects
   const calculateYieldTotals = () => {
-    let totalDeposited = BigInt(0);
-    let totalLP = BigInt(0);
-    let totalYield = BigInt(0);
+    let totalDeposited = 0;
+    let totalLP = 0;
+    let totalYield = 0;
+    let activeMilestones = 0;
 
     activeProjects.forEach(project => {
-      totalDeposited += project.vaultAmount || BigInt(0);
-      totalLP += project.lendingAmount || BigInt(0);
+      project.roles.forEach(role => {
+        role.kpis.forEach(kpi => {
+          if (kpi.status === 'approved' || kpi.status === 'pending-approval' || kpi.status === 'in-progress') {
+            activeMilestones++;
+            const roleBudget = role.budget || 0;
+            const kpiBudget = (roleBudget * kpi.percentage) / 100;
+            totalDeposited += kpiBudget;
+
+            // 10% goes to LP
+            const lpAmount = kpiBudget * 0.1;
+            totalLP += lpAmount;
+
+            // Add yield if available
+            if (kpi.yield) {
+              totalYield += (lpAmount * kpi.yield) / 100;
+            }
+          }
+        });
+      });
     });
 
-    // Yield is calculated as the growth in lending amount
-    // Since we can't track the exact principal per project in this view,
-    // we'll estimate yield as a percentage of the lending amount
-    const estimatedYield = (totalLP * BigInt(5)) / BigInt(100); // Assume 5% yield for demo
-    totalYield = estimatedYield;
+    // Estimate yield for demo
+    if (totalYield === 0 && totalLP > 0) {
+      totalYield = totalLP * 0.05; // 5% estimated yield
+    }
 
-    return { totalDeposited, totalLP, totalYield };
+    return { totalDeposited, totalLP, totalYield, activeMilestones };
   };
 
-  const { totalDeposited, totalLP, totalYield } = calculateYieldTotals();
+  const { totalDeposited, totalLP, totalYield, activeMilestones } = calculateYieldTotals();
 
   if (!mounted) return null;
 
@@ -161,23 +131,33 @@ export default function PODashboard() {
   };
 
   // Get status badge variant based on project status
-  const getStatusBadge = (status: number) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case 0: return 'default'; // Active (hiring)
-      case 1: return 'warning'; // Assigned (in progress)
-      case 2: return 'success'; // Completed
-      case 3: return 'error'; // Cancelled
+      case 'hiring': return 'default';
+      case 'in-progress': return 'warning';
+      case 'completed': return 'success';
+      case 'cancelled': return 'error';
       default: return 'default';
     }
   };
 
-  const getStatusText = (status: number) => {
+  const getStatusText = (status: string) => {
     switch (status) {
-      case 0: return 'Hiring';
-      case 1: return 'In Progress';
-      case 2: return 'Completed';
-      case 3: return 'Cancelled';
+      case 'hiring': return 'Hiring';
+      case 'in-progress': return 'In Progress';
+      case 'completed': return 'Completed';
+      case 'cancelled': return 'Cancelled';
       default: return 'Unknown';
+    }
+  };
+
+  const getKPIStatusVariant = (status: string) => {
+    switch (status) {
+      case 'approved': return 'success';
+      case 'pending-approval': return 'warning';
+      case 'in-progress': return 'default';
+      case 'pending': return 'default';
+      default: return 'default';
     }
   };
 
@@ -211,8 +191,9 @@ export default function PODashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* KPI Progress Card */}
         <Card
-          className={`p-5 cursor-pointer hover:shadow-lg transition-all ${kpiExpanded ? 'ring-2 ring-brand-500' : ''}`}
+          className={`p-5 cursor-pointer hover:shadow-xl transition-all duration-1000 ease-out ${kpiExpanded ? 'ring-2 ring-brand-500 shadow-lg' : 'hover:scale-[1.02]'} ${animateCards ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
           onClick={() => setKpiExpanded(!kpiExpanded)}
+          style={{ transitionProperty: 'opacity, transform', transitionTimingFunction: 'ease-out' }}
         >
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -227,99 +208,131 @@ export default function PODashboard() {
               </div>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-brand-600">{overallProgress}%</p>
-              <p className="text-xs text-slate-500">{completedMilestones}/{totalMilestones} completed</p>
+              <p className="text-3xl font-bold text-brand-600 transition-all duration-1000 ease-out">{animateKPI ? overallProgress : 0}%</p>
+              <p className="text-xs text-slate-500">{completedKPIs}/{totalKPIs} completed</p>
             </div>
           </div>
 
           {/* Progress Bar */}
           <div className="mb-4">
-            <div className="w-full bg-slate-100 rounded-full h-3">
-              <div className="bg-gradient-to-r from-brand-400 to-brand-600 h-3 rounded-full transition-all" style={{ width: `${overallProgress}%` }} />
+            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-brand-400 to-brand-600 h-3 rounded-full transition-all duration-1000 ease-out"
+                style={{ width: animateKPI ? `${overallProgress}%` : '0%' }}
+              />
             </div>
           </div>
 
-          {/* Expanded Content - Project → Milestones */}
-          {kpiExpanded && (
-            <div className="border-t border-slate-200 pt-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+          {/* Expanded Content - Project → Roles → KPIs */}
+          <div
+            className={`border-t border-slate-200 overflow-hidden transition-all duration-400 ease-out ${
+              kpiExpanded ? 'pt-4 opacity-100' : 'pt-0 opacity-0 max-h-0'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
               {activeProjects.map((project) => {
-                const projectProgress = calculateProjectProgress(project);
-                const isProjectExpanded = expandedProjects[project.id.toString()];
-                const projectMilestones = project.milestones || [];
-                const completedMilestones = projectMilestones.filter((m: any) => m.released || m.accepted).length;
+                const isProjectExpanded = expandedProjects[project.id];
 
                 return (
-                  <div key={project.id.toString()} className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div key={project.id} className="border border-slate-200 rounded-xl overflow-hidden transition-all duration-1000">
                     {/* Project Header */}
                     <div
-                      className="flex items-center justify-between p-3 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors"
-                      onClick={() => toggleProject(project.id.toString())}
+                      className="flex items-center justify-between p-3 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors duration-1000"
+                      onClick={() => toggleProject(project.id)}
                     >
                       <div className="flex items-center gap-2 flex-1">
                         <svg
-                          className={`w-4 h-4 text-slate-500 transition-transform ${isProjectExpanded ? 'rotate-90' : ''}`}
+                          className={`w-4 h-4 text-slate-500 transition-transform duration-1000 ${isProjectExpanded ? 'rotate-90' : ''}`}
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
-                        <span className="font-semibold text-slate-900">Project #{project.id.toString()}</span>
+                        <span className="font-semibold text-slate-900">{project.title}</span>
                         <Badge variant={getStatusBadge(project.status)} className="text-xs">
                           {getStatusText(project.status)}
                         </Badge>
                       </div>
-                      <span className="text-sm font-bold text-brand-600">{projectProgress}%</span>
+                      <span className="text-xs text-slate-500">{project.roles.length} role{project.roles.length > 1 ? 's' : ''}</span>
                     </div>
 
-                    {/* Milestones */}
+                    {/* Roles with KPIs */}
                     {isProjectExpanded && (
-                      <div className="p-3 space-y-2">
-                        {projectMilestones.map((milestone: any, index: number) => {
-                          const isCompleted = milestone.released;
-                          const isAccepted = milestone.accepted && !milestone.released;
-                          const isPending = !milestone.accepted && !milestone.released;
+                      <div className="p-3 space-y-2 animate-in fade-in duration-1000">
+                        {project.roles.map((role, roleIndex) => {
+                          const roleKPIs = role.kpis;
+                          const completedRoleKPIs = roleKPIs.filter(k => k.status === 'approved' || k.status === 'completed').length;
+                          const roleProgress = roleKPIs.length > 0 ? Math.round((completedRoleKPIs / roleKPIs.length) * 100) : 0;
 
                           return (
-                            <div key={index} className="flex items-center gap-2 text-xs p-2 bg-white rounded-lg border border-slate-200">
-                              <span className="flex-shrink-0">
-                                {isCompleted ? (
-                                  <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
-                                ) : isAccepted ? (
-                                  <svg className="w-4 h-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                  </svg>
-                                ) : (
-                                  <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
-                                )}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className={`font-medium truncate ${isCompleted ? 'text-emerald-700' : isAccepted ? 'text-amber-700' : 'text-slate-700'}`}>
-                                    Milestone {index + 1}
-                                  </span>
-                                  <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-                                    {Number(milestone.percentage) / 100}%
-                                  </span>
+                            <div key={role.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                              {/* Role Header */}
+                              <div className="flex items-center justify-between p-2.5 bg-slate-50/80">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <span className="font-medium text-slate-900 text-sm truncate">{role.title}</span>
+                                  {role.assignedToEns && (
+                                    <span className="text-xs text-slate-500">by {role.assignedToEns}</span>
+                                  )}
                                 </div>
-                                <div className="w-full bg-slate-200 rounded-full h-1.5">
-                                  <div
-                                    className={`h-1.5 rounded-full transition-all ${
-                                      isCompleted ? 'bg-emerald-500' : isAccepted ? 'bg-amber-500' : 'bg-slate-300'
-                                    }`}
-                                    style={{ width: `${isCompleted ? 100 : isAccepted ? 75 : 0}%` }}
-                                  />
-                                </div>
+                                <span className="text-xs font-semibold text-brand-600">{roleProgress}%</span>
+                              </div>
+
+                              {/* KPIs */}
+                              <div className="p-2.5 space-y-2">
+                                {roleKPIs.map((kpi, kpiIndex) => {
+                                  const isCompleted = kpi.status === 'approved' || kpi.status === 'completed';
+                                  const isPendingApproval = kpi.status === 'pending-approval';
+                                  const isInProgress = kpi.status === 'in-progress';
+                                  const isPending = kpi.status === 'pending';
+
+                                  return (
+                                    <div key={kpi.id} className="flex items-center gap-2 text-xs p-2 bg-slate-50 rounded-lg border border-slate-200 transition-all duration-1000 hover:border-brand-200">
+                                      <span className="flex-shrink-0">
+                                        {isCompleted ? (
+                                          <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                          </svg>
+                                        ) : isPendingApproval ? (
+                                          <svg className="w-4 h-4 text-amber-500 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                          </svg>
+                                        ) : isInProgress ? (
+                                          <div className="w-4 h-4 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
+                                        ) : (
+                                          <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
+                                        )}
+                                      </span>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between mb-1">
+                                          <span className={`font-medium truncate ${isCompleted ? 'text-emerald-700' : isPendingApproval ? 'text-amber-700' : isInProgress ? 'text-brand-700' : 'text-slate-700'}`}>
+                                            {kpi.name}
+                                          </span>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs font-semibold text-slate-600 bg-white px-1.5 py-0.5 rounded">
+                                              {kpi.percentage}%
+                                            </span>
+                                            <Badge variant={getKPIStatusVariant(kpi.status)} className="text-xs py-0 px-1.5">
+                                              {kpi.status === 'pending-approval' ? 'Review' : kpi.status}
+                                            </Badge>
+                                          </div>
+                                        </div>
+                                        <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                          <div
+                                            className={`h-1.5 rounded-full transition-all duration-1000 ${
+                                              isCompleted ? 'bg-emerald-500' : isPendingApproval ? 'bg-amber-500' : isInProgress ? 'bg-brand-400' : 'bg-slate-300'
+                                            }`}
+                                            style={{ width: isCompleted ? '100%' : isPendingApproval ? '75%' : isInProgress ? '40%' : '0%' }}
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           );
                         })}
-
-                        {projectMilestones.length === 0 && (
-                          <p className="text-center text-slate-500 py-2">No milestones</p>
-                        )}
                       </div>
                     )}
                   </div>
@@ -329,13 +342,12 @@ export default function PODashboard() {
               {activeProjects.length === 0 && (
                 <p className="text-center text-slate-500 py-4">No active projects. Create your first project to get started!</p>
               )}
-            </div>
-          )}
+          </div>
 
           {/* Expand indicator */}
           <div className="flex justify-center mt-4">
             <svg
-              className={`w-5 h-5 text-slate-400 transition-transform ${kpiExpanded ? 'rotate-180' : ''}`}
+              className={`w-5 h-5 text-slate-400 transition-transform duration-400 ease-out ${kpiExpanded ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -347,8 +359,9 @@ export default function PODashboard() {
 
         {/* Yield Performance Card */}
         <Card
-          className={`p-5 cursor-pointer hover:shadow-lg transition-all ${yieldExpanded ? 'ring-2 ring-emerald-500' : ''}`}
+          className={`p-5 cursor-pointer hover:shadow-xl transition-all duration-1000 ease-out ${yieldExpanded ? 'ring-2 ring-emerald-500 shadow-lg' : 'hover:scale-[1.02]'} ${animateCards ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
           onClick={() => setYieldExpanded(!yieldExpanded)}
+          style={{ transitionProperty: 'opacity, transform', transitionTimingFunction: 'ease-out' }}
         >
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
@@ -363,34 +376,28 @@ export default function PODashboard() {
               </div>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-emerald-600">
-                {activeProjects.reduce((count, p) => {
-                  const projectMilestones = p.milestones || [];
-                  const activeMilestones = projectMilestones.filter((m: any) => m.accepted || m.submissionTime > 0).length;
-                  return count + activeMilestones;
-                }, 0)}
-              </p>
+              <p className="text-3xl font-bold text-emerald-600">{activeMilestones}</p>
               <p className="text-xs text-slate-500">Active Milestones</p>
             </div>
           </div>
 
           {/* Current Progress Summary */}
           <div className="grid grid-cols-3 gap-2 mb-4">
-            <div className="bg-slate-50 rounded-xl p-3 text-center">
+            <div className="bg-slate-50 rounded-xl p-3 text-center transition-all duration-1000 hover:scale-105">
               <p className="text-sm font-bold text-slate-800">
-                {formatCurrency(totalDeposited, 'IDRX')}
+                <CurrencyDisplay amount={totalDeposited} currency="IDRX" />
               </p>
               <p className="text-xs text-slate-600">Deposited</p>
             </div>
-            <div className="bg-blue-50 rounded-xl p-3 text-center">
+            <div className="bg-blue-50 rounded-xl p-3 text-center transition-all duration-1000 hover:scale-105">
               <p className="text-sm font-bold text-blue-700">
-                {formatCurrency(totalLP, 'IDRX')}
+                <CurrencyDisplay amount={totalLP} currency="IDRX" />
               </p>
               <p className="text-xs text-blue-600">LP (10%)</p>
             </div>
-            <div className="bg-emerald-50 rounded-xl p-3 text-center">
+            <div className="bg-emerald-50 rounded-xl p-3 text-center transition-all duration-1000 hover:scale-105">
               <p className="text-sm font-bold text-emerald-700">
-                {formatCurrency(totalYield, 'IDRX')}
+                <CurrencyDisplay amount={totalYield} currency="IDRX" />
               </p>
               <p className="text-xs text-emerald-600">Est. Yield</p>
             </div>
@@ -399,131 +406,147 @@ export default function PODashboard() {
           {/* Rate Info */}
           <div className="flex justify-center gap-4 mb-4 text-xs">
             <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
               <span className="text-slate-600">10% LP Allocation</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
               <span className="text-slate-600">Variable Yield</span>
             </div>
           </div>
 
           {/* Expanded Content - Projects with yield info */}
-          {yieldExpanded && (
-            <div className="border-t border-slate-200 pt-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div
+            className={`border-t border-slate-200 overflow-hidden transition-all duration-400 ease-out ${
+              yieldExpanded ? 'pt-4 opacity-100' : 'pt-0 opacity-0 max-h-0'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
               {activeProjects.map((project) => {
-                const hasDeposits = project.totalDeposited > BigInt(0);
-                if (!hasDeposits) return null;
+                const hasKPIsWithYield = project.roles.some(r => r.kpis.some(k => k.status === 'approved' || k.status === 'pending-approval' || k.status === 'in-progress'));
+                if (!hasKPIsWithYield) return null;
 
-                const isYieldProjectExpanded = expandedYieldProjects[project.id.toString()];
-                const projectMilestones = project.milestones || [];
-                const acceptedMilestones = projectMilestones.filter((m: any) => m.accepted);
+                const isYieldProjectExpanded = expandedYieldProjects[project.id];
 
                 return (
-                  <div key={project.id.toString()} className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div key={project.id} className="border border-slate-200 rounded-xl overflow-hidden transition-all duration-1000">
                     {/* Project Header */}
                     <div
-                      className="flex items-center justify-between p-3 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors"
-                      onClick={() => toggleYieldProject(project.id.toString())}
+                      className="flex items-center justify-between p-3 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors duration-1000"
+                      onClick={() => toggleYieldProject(project.id)}
                     >
                       <div className="flex items-center gap-2 flex-1">
                         <svg
-                          className={`w-4 h-4 text-slate-500 transition-transform ${isYieldProjectExpanded ? 'rotate-90' : ''}`}
+                          className={`w-4 h-4 text-slate-500 transition-transform duration-1000 ${isYieldProjectExpanded ? 'rotate-90' : ''}`}
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
-                        <span className="font-semibold text-slate-900">Project #{project.id.toString()}</span>
+                        <span className="font-semibold text-slate-900 truncate">{project.title}</span>
                       </div>
                       <Badge variant="success" className="text-xs">
-                        {acceptedMilestones.length} Active
+                        {project.roles.reduce((sum, r) => sum + r.kpis.filter(k => k.status === 'approved' || k.status === 'pending-approval' || k.status === 'in-progress').length, 0)} Active
                       </Badge>
                     </div>
 
-                    {/* Milestones with yield */}
+                    {/* Roles with KPIs and yield */}
                     {isYieldProjectExpanded && (
-                      <div className="p-3 space-y-2">
-                        {projectMilestones.map((milestone: any, index: number) => {
-                          const isAccepted = milestone.accepted && !milestone.released;
-                          const isReleased = milestone.released;
+                      <div className="p-3 space-y-2 animate-in fade-in duration-1000">
+                        {project.roles.map((role) => {
+                          const activeKPIs = role.kpis.filter(k => k.status === 'approved' || k.status === 'pending-approval' || k.status === 'in-progress');
 
-                          // Show only accepted/released milestones (those with yield)
-                          if (!isAccepted && !isReleased) return null;
-
-                          const milestoneAmount = (project.totalDeposited * BigInt(milestone.percentage)) / BigInt(10000);
-                          const lpAmount = milestoneAmount / BigInt(10); // 10% goes to LP
-                          const yieldRate = 5.0; // Assume 5% for demo
-                          const yieldAmount = (lpAmount * BigInt(Math.round(yieldRate * 100))) / BigInt(10000);
+                          if (activeKPIs.length === 0) return null;
 
                           return (
-                            <div key={index} className="bg-white rounded-lg p-2.5 border border-slate-200">
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="text-xs font-semibold text-slate-900">
-                                  Milestone {index + 1}
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <span className={`text-[10px] font-bold ${getYieldColor(yieldRate)} bg-white px-2 py-0.5 rounded-full border border-slate-200`}>
-                                    +{formatYieldRate(yieldRate)}%
-                                  </span>
-                                  {isReleased && (
-                                    <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                                      Released
-                                    </span>
-                                  )}
-                                  {isAccepted && !isReleased && (
-                                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
-                                      Withdrawable
-                                    </span>
-                                  )}
-                                </div>
+                            <div key={role.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                              <div className="p-2.5 bg-slate-50/80 border-b border-slate-100">
+                                <span className="font-medium text-slate-900 text-sm">{role.title}</span>
                               </div>
+                              <div className="p-2.5 space-y-2">
+                                {activeKPIs.map((kpi) => {
+                                  const isReleased = kpi.status === 'approved' || kpi.status === 'completed';
+                                  const isPending = kpi.status === 'pending-approval';
+                                  const isInProgress = kpi.status === 'in-progress';
 
-                              {/* 3-Box Breakdown */}
-                              <div className="grid grid-cols-3 gap-1.5">
-                                <div className="bg-slate-50 rounded-lg p-2 text-center">
-                                  <p className="text-xs font-bold text-slate-800 truncate">
-                                    {formatCurrency(milestoneAmount, 'IDRX')}
-                                  </p>
-                                  <p className="text-[10px] text-slate-600">Vault (90%)</p>
-                                </div>
-                                <div className="bg-blue-50 rounded-lg p-2 text-center">
-                                  <p className="text-xs font-bold text-blue-700 truncate">
-                                    {formatCurrency(lpAmount, 'IDRX')}
-                                  </p>
-                                  <p className="text-[10px] text-blue-600">LP (10%)</p>
-                                </div>
-                                <div className={`${getYieldBgColor(yieldRate)} rounded-lg p-2 text-center`}>
-                                  <p className={`text-xs font-bold truncate ${getYieldColor(yieldRate)}`}>
-                                    {formatCurrency(yieldAmount, 'IDRX')}
-                                  </p>
-                                  <p className={`text-[10px] ${getYieldColor(yieldRate)}`}>Yield</p>
-                                </div>
+                                  const roleBudget = role.budget || 0;
+                                  const kpiBudget = (roleBudget * kpi.percentage) / 100;
+                                  const lpAmount = kpiBudget * 0.1;
+                                  const yieldRate = kpi.yield || 5.2;
+                                  const yieldAmount = (lpAmount * yieldRate) / 100;
+
+                                  return (
+                                    <div key={kpi.id} className="bg-slate-50 rounded-lg p-2.5 border border-slate-200 transition-all duration-1000 hover:border-emerald-200">
+                                      <div className="flex items-start justify-between mb-2">
+                                        <div className="text-xs font-semibold text-slate-900 flex-1 min-w-0">
+                                          <span className="truncate">{kpi.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                                          <span className={`text-[10px] font-bold ${getYieldColor(yieldRate)} bg-white px-2 py-0.5 rounded-full border border-slate-200`}>
+                                            +{formatYieldRate(yieldRate)}%
+                                          </span>
+                                          {isReleased && (
+                                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                                              Earned
+                                            </span>
+                                          )}
+                                          {isPending && (
+                                            <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                                              Pending
+                                            </span>
+                                          )}
+                                          {isInProgress && (
+                                            <span className="text-[10px] font-semibold text-brand-700 bg-brand-100 px-2 py-0.5 rounded-full border border-brand-200">
+                                              Active
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* 3-Box Breakdown */}
+                                      <div className="grid grid-cols-3 gap-1.5">
+                                        <div className="bg-white rounded-lg p-2 text-center transition-all duration-1000 hover:scale-105">
+                                          <p className="text-xs font-bold text-slate-800 truncate">
+                                            <CurrencyDisplay amount={kpiBudget} currency="IDRX" />
+                                          </p>
+                                          <p className="text-[10px] text-slate-600">Vault (90%)</p>
+                                        </div>
+                                        <div className="bg-blue-50 rounded-lg p-2 text-center transition-all duration-1000 hover:scale-105">
+                                          <p className="text-xs font-bold text-blue-700 truncate">
+                                            <CurrencyDisplay amount={lpAmount} currency="IDRX" />
+                                          </p>
+                                          <p className="text-[10px] text-blue-600">LP (10%)</p>
+                                        </div>
+                                        <div className={`${getYieldBgColor(yieldRate)} rounded-lg p-2 text-center transition-all duration-1000 hover:scale-105`}>
+                                          <p className={`text-xs font-bold truncate ${getYieldColor(yieldRate)}`}>
+                                            <CurrencyDisplay amount={yieldAmount} currency="IDRX" />
+                                          </p>
+                                          <p className={`text-[10px] ${getYieldColor(yieldRate)}`}>Yield</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           );
                         })}
-
-                        {acceptedMilestones.length === 0 && (
-                          <p className="text-center text-slate-500 py-2 text-sm">No active milestones with yield</p>
-                        )}
                       </div>
                     )}
                   </div>
                 );
               })}
 
-              {activeProjects.filter(p => p.totalDeposited > BigInt(0)).length === 0 && (
-                <p className="text-center text-slate-500 py-4">No projects with deposits yet. Deposit funds to start earning yield!</p>
+              {activeProjects.filter(p => p.roles.some(r => r.kpis.some(k => k.status === 'approved' || k.status === 'pending-approval' || k.status === 'in-progress'))).length === 0 && (
+                <p className="text-center text-slate-500 py-4">No projects with active milestones yet. Deposit funds to start earning yield!</p>
               )}
-            </div>
-          )}
+          </div>
 
           {/* Expand indicator */}
           <div className="flex justify-center mt-4">
             <svg
-              className={`w-5 h-5 text-slate-400 transition-transform ${yieldExpanded ? 'rotate-180' : ''}`}
+              className={`w-5 h-5 text-slate-400 transition-transform duration-400 ease-out ${yieldExpanded ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -538,12 +561,12 @@ export default function PODashboard() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-900">Your Projects</h2>
-          <Link href="/PO/projects" className="text-brand-600 hover:text-brand-700 text-sm font-medium">
+          <Link href="/PO/projects" className="text-brand-600 hover:text-brand-700 text-sm font-medium transition-colors">
             View All →
           </Link>
         </div>
 
-        {ownerProjects.length === 0 ? (
+        {userProjects.length === 0 ? (
           <Card className="p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -558,29 +581,57 @@ export default function PODashboard() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {ownerProjects.slice(0, 6).map((project) => {
-              const progress = calculateProjectProgress(project);
-              const milestoneCount = Number(project.milestoneCount);
+            {userProjects.slice(0, 6).map((project, index) => {
+              // Calculate project progress
+              let totalKPIs = 0;
+              let completedKPIs = 0;
+              project.roles.forEach(role => {
+                role.kpis.forEach(kpi => {
+                  totalKPIs++;
+                  if (kpi.status === 'approved' || kpi.status === 'completed') {
+                    completedKPIs++;
+                  }
+                });
+              });
+              const progress = totalKPIs > 0 ? Math.round((completedKPIs / totalKPIs) * 100) : 0;
 
               return (
-                <Link key={project.id.toString()} href={`/PO/projects/${project.id}`}>
-                  <Card className="p-4 hover:shadow-lg transition-shadow cursor-pointer h-full">
+                <Link key={project.id} href={`/PO/projects/${project.id}`}>
+                  <Card
+                    className={`p-4 hover:shadow-xl transition-all duration-1000 cursor-pointer h-full hover:scale-[1.02] hover:-translate-y-1 ${animateCards ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+                    style={{ transition: 'opacity 1s ease-out, transform 1s ease-out, box-shadow 0.5s ease-out' }}
+                  >
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-slate-900">Project #{project.id.toString()}</h3>
+                      <h3 className="font-semibold text-slate-900 flex-1 min-w-0">{project.title}</h3>
                       <Badge
                         variant={getStatusBadge(project.status)}
-                        className="shrink-0 text-xs"
+                        className="shrink-0 text-xs ml-2"
                       >
                         {getStatusText(project.status)}
                       </Badge>
                     </div>
 
-                    <p className="text-xs text-slate-600 mb-3">
-                      {project.freelancer && project.freelancer !== '0x0000000000000000000000000000000000000000'
-                        ? `Freelancer: ${project.freelancer.slice(0, 6)}...${project.freelancer.slice(-4)}`
-                        : 'Not assigned yet'
-                      }
+                    <p className="text-xs text-slate-600 mb-3 line-clamp-2">
+                      {project.description}
                     </p>
+
+                    {/* Roles/Freelancer info */}
+                    <div className="flex items-center gap-2 mb-3 flex-wrap">
+                      {project.roles.map((role) => (
+                        role.assignedToEns ? (
+                          <div key={role.id} className="flex items-center gap-1 text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                            </svg>
+                            {role.assignedToEns}
+                          </div>
+                        ) : (
+                          <span key={role.id} className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-full">
+                            {role.title}: Hiring
+                          </span>
+                        )
+                      ))}
+                    </div>
 
                     {/* Progress */}
                     <div className="mb-3">
@@ -588,21 +639,21 @@ export default function PODashboard() {
                         <span className="text-slate-600">Progress</span>
                         <span className="font-medium text-slate-900">{progress}%</span>
                       </div>
-                      <div className="w-full bg-slate-200 rounded-full h-1.5">
+                      <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
                         <div
-                          className="bg-brand-500 h-1.5 rounded-full transition-all"
+                          className="bg-brand-500 h-1.5 rounded-full transition-all duration-1000"
                           style={{ width: `${progress}%` }}
                         />
                       </div>
                     </div>
 
-                    {/* Milestones info */}
+                    {/* KPIs info */}
                     <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-200">
                       <span className="text-slate-600">
-                        {milestoneCount} milestone{milestoneCount !== 1 ? 's' : ''}
+                        {project.roles.reduce((sum, r) => sum + r.kpis.length, 0)} KPI{project.roles.reduce((sum, r) => sum + r.kpis.length, 0) !== 1 ? 's' : ''}
                       </span>
                       <span className="font-semibold text-brand-600">
-                        {formatCurrency(project.totalDeposited, 'IDRX')} deposited
+                        <CurrencyDisplay amount={project.totalBudget} currency="IDRX" />
                       </span>
                     </div>
                   </Card>

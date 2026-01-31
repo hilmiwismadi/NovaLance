@@ -348,22 +348,24 @@ export function basisPointsToYield(basisPoints: bigint): number {
 // ============================================================================
 
 /**
- * Format currency for display
+ * Format currency for display (Indonesian number format)
+ * Examples: 1.000.000 IDRX, 500.000 IDRX
  */
 export function formatCurrency(amount: bigint, currency: string): string {
   const decimals = getTokenDecimals(currency);
   const formatted = formatUnits(amount, decimals);
 
   if (currency.toUpperCase() === 'IDRX') {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(Number(formatted));
+    // Format with Indonesian thousand separators (dots)
+    const numValue = Number(formatted);
+    const withSeparators = numValue
+      .toFixed(0)
+      .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+    return withSeparators;
   }
 
-  return `${new Intl.NumberFormat('en-US').format(Number(formatted))} ${currency}`;
+  return new Intl.NumberFormat('en-US').format(Number(formatted));
 }
 
 // ============================================================================
