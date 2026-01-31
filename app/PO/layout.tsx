@@ -26,7 +26,7 @@ function POLayoutContent({ children }: POLayoutProps) {
     if (!mounted) return;
 
     // Check if user is authenticated
-    const authStatus = typeof window !== 'undefined' ? localStorage.getItem('po-auth') : null;
+    const authStatus = localStorage.getItem('po-auth');
     const isLoginRoute = pathname === '/PO/login';
 
     if (!authStatus && !isLoginRoute) {
@@ -56,10 +56,8 @@ function POLayoutContent({ children }: POLayoutProps) {
   }
 
   // Redirect if not in PO mode
-  if (role !== 'PO' && typeof window !== 'undefined') {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/FL';
-    }
+  if (role !== 'PO') {
+    router.push('/FL');
   }
 
   const navItems = [
