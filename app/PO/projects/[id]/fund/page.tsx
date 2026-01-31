@@ -22,7 +22,7 @@ import {
   showInfo,
   showError,
 } from '@/lib/transactions';
-import { formatCurrency } from '@/lib/contract';
+import { formatCurrency, parseTokenAmount, formatTokenAmount } from '@/lib/contract';
 
 export default function FundProjectPage() {
   const params = useParams();
@@ -79,7 +79,8 @@ export default function FundProjectPage() {
     if (useMaxBalance && walletBalance !== undefined) {
       // Keep 1 IDRX for gas fees
       const maxAmount = walletBalance > BigInt(1e18) ? walletBalance - BigInt(1e18) : walletBalance;
-      setDepositAmount(maxAmount.toString());
+      // Format to human-readable amount (e.g., "1000" instead of "1000000000000000000000")
+      setDepositAmount(formatTokenAmount(maxAmount, 'IDRX'));
     }
   }, [useMaxBalance, walletBalance]);
 
@@ -96,7 +97,8 @@ export default function FundProjectPage() {
       return;
     }
 
-    const amount = BigInt(depositAmount || 0);
+    // Parse the deposit amount with correct decimals (18 for IDRX)
+    const amount = parseTokenAmount(depositAmount || '0', 'IDRX');
     if (amount <= 0) {
       showError('Invalid Amount', 'Please enter a valid amount');
       return;
