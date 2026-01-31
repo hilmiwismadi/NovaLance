@@ -11,7 +11,6 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import {
-  usePLDepositFunds,
   usePLAcceptMilestone,
   usePLAllMilestones,
   usePLVaultBalance,
@@ -60,7 +59,6 @@ export default function POProjectDetailPage() {
   const router = useRouter();
   const { address, chain } = useAccount();
   const [mounted, setMounted] = useState(false);
-  const [depositModalOpen, setDepositModalOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -79,13 +77,11 @@ export default function POProjectDetailPage() {
   const { applicants } = usePLApplicants(projectLanceId);
 
   // Write hooks
-  const { deposit: depositFunds, isPending: isDepositPending, error: depositError, hash: depositHash, isSuccess: isDepositSuccess } = usePLDepositFunds();
   const { accept: acceptMilestone, isPending: isAcceptPending, error: acceptError, hash: acceptHash, isSuccess: isAcceptSuccess } = usePLAcceptMilestone();
   const { accept: acceptFreelancer, isPending: isHirePending, error: hireError, hash: hireHash, isSuccess: isHireSuccess } = usePLAcceptFreelancer();
   const { cancel: cancelProject, isPending: isCancelPending, error: cancelError, hash: cancelHash, isSuccess: isCancelSuccess } = usePLCancelProject();
 
   // Transaction wait hooks
-  const { isLoading: isDepositConfirming, isSuccess: isDepositConfirmed } = useTransactionWait(depositHash ?? undefined);
   const { isLoading: isAcceptConfirming, isSuccess: isAcceptConfirmed } = useTransactionWait(acceptHash ?? undefined);
   const { isLoading: isHireConfirming, isSuccess: isHireConfirmed } = useTransactionWait(hireHash ?? undefined);
   const { isLoading: isCancelConfirming, isSuccess: isCancelConfirmed } = useTransactionWait(cancelHash ?? undefined);
@@ -109,27 +105,6 @@ export default function POProjectDetailPage() {
   }, [milestones]);
 
   // Transaction handlers
-  useEffect(() => {
-    if (isDepositSuccess && depositHash) {
-      showTransactionPending(depositHash, 'Deposit to Escrow', chain?.id || 84532);
-    }
-  }, [isDepositSuccess, depositHash, chain]);
-
-  useEffect(() => {
-    if (isDepositConfirmed && depositHash) {
-      showTransactionSuccess(depositHash, 'Funds deposited successfully!');
-      setDepositModalOpen(false);
-      refetchProject();
-      refetchMilestones();
-    }
-  }, [isDepositConfirmed, depositHash, refetchProject, refetchMilestones]);
-
-  useEffect(() => {
-    if (depositError) {
-      showTransactionError(depositHash || '0x0', depositError, 'Failed to deposit funds');
-    }
-  }, [depositError, depositHash]);
-
   useEffect(() => {
     if (isAcceptSuccess && acceptHash) {
       showTransactionPending(acceptHash, 'Accept Milestone', chain?.id || 84532);
@@ -194,24 +169,6 @@ export default function POProjectDetailPage() {
       showTransactionError(cancelHash || '0x0', cancelError, 'Failed to cancel project');
     }
   }, [cancelError, cancelHash]);
-
-  const handleDeposit = async () => {
-    if (!address || !chain) {
-      showError('Wallet Not Connected', 'Please connect your wallet to deposit funds');
-      return;
-    }
-
-    try {
-      showInfo('Depositing to Escrow', 'Enter amount to deposit...');
-      // For simplicity, using a fixed amount. In production, this would be user input
-      const amount = 10 * 1e6; // 10 IDRX
-      await depositFunds(projectLanceId, BigInt(amount));
-    } catch (err) {
-      const error = err as Error;
-      showTransactionError(depositHash || '0x0', error, 'Failed to deposit');
-      setDepositModalOpen(false);
-    }
-  };
 
   const handleAcceptMilestone = async () => {
     if (!address || !chain || !selectedMilestone) return;
@@ -580,9 +537,13 @@ export default function POProjectDetailPage() {
               </div>
             </div>
 
-            {isProjectOwner && (
-              <Button variant="primary" className="w-full mt-4" onClick={() => setDepositModalOpen(true)}>
-                Deposit Funds
+            {isProjectOwner && totalDeposited === 0n && (
+              <Button
+                variant="primary"
+                className="w-full mt-4"
+                onClick={() => router.push(`/PO/projects/${projectId}/fund`)}
+              >
+                Fund Project
               </Button>
             )}
           </Card>
@@ -606,47 +567,6 @@ export default function POProjectDetailPage() {
           )}
         </div>
       </div>
-
-      {/* Deposit Modal */}
-      <Modal isOpen={depositModalOpen} onClose={() => setDepositModalOpen(false)} title="Deposit to Escrow">
-        <div className="space-y-4">
-          <p className="text-slate-600">
-            Funds will be automatically split between escrow (90%) and yield generation (10%).
-          </p>
-
-          <div className="bg-slate-50 rounded-lg p-4 space-y-3">
-            <p className="text-sm text-slate-600">
-              Enter the amount to deposit in IDRX. The funds will be split:
-            </p>
-            <div className="border-t border-slate-200 pt-3">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-slate-600">Vault (Escrow - 90%):</span>
-                <span className="font-semibold text-brand-600">90%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-600">Lending (10%):</span>
-                <span className="font-semibold text-blue-600">10%</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => setDepositModalOpen(false)} className="flex-1">
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleDeposit} className="flex-1" disabled={isDepositPending || isDepositConfirming}>
-              {isDepositPending || isDepositConfirming ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  Depositing...
-                </span>
-              ) : (
-                'Deposit 10 IDRX'
-              )}
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Approve Milestone Modal */}
       <Modal isOpen={approveModalOpen} onClose={() => setApproveModalOpen(false)} title="Approve Milestone">
