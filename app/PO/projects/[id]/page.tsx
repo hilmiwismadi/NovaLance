@@ -29,9 +29,9 @@ import {
   showError,
 } from '@/lib/transactions';
 
-// Format currency for IDRX (6 decimals)
+// Format currency for IDRX (18 decimals)
 function formatIDRX(amount: bigint | number): string {
-  const value = typeof amount === 'bigint' ? Number(amount) / 1e6 : amount;
+  const value = typeof amount === 'bigint' ? Number(amount) / 1e18 : amount;
   return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
@@ -264,9 +264,18 @@ export default function POProjectDetailPage() {
   const lendingAmount = projectArray?.[5] ?? BigInt(0);
   const milestoneCount = projectArray?.[6] ?? BigInt(0);
   const cancelledTimestamp = projectArray?.[7] ?? BigInt(0);
-  const totalBudget = Number(totalDeposited) / 1e6;
+  const totalBudget = Number(totalDeposited) / 1e18;
   const hasFreelancer = freelancer !== '0x0000000000000000000000000000000000000000' as Address;
   const isProjectOwner = address?.toLowerCase() === creator.toLowerCase();
+
+  // Calculate milestone amount (projected) based on vault and percentage
+  const calculateMilestoneAmount = (milestone: any): bigint => {
+    if (milestone.actualAmount > BigInt(0)) {
+      return milestone.actualAmount; // Use actual if already calculated
+    }
+    // Projected amount = vault amount * milestone percentage
+    return (vaultAmount * BigInt(milestone.percentage)) / BigInt(10000);
+  };
 
   // Calculate progress
   const completedMilestones = (milestones as any[])?.filter(m => m.accepted || m.released).length || 0;
@@ -404,7 +413,7 @@ export default function POProjectDetailPage() {
                     <div className="flex flex-col items-end gap-1">
                       <p className="text-xs text-slate-500">Amount</p>
                       <p className="text-base sm:text-lg font-bold text-brand-600">
-                        {formatIDRX(milestone.actualAmount)} IDRX
+                        {formatIDRX(calculateMilestoneAmount(milestone))} IDRX
                       </p>
                     </div>
                   </div>
