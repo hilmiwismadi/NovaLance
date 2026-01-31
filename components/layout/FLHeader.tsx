@@ -168,7 +168,7 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
                       </div>
                       <div className="divide-y divide-slate-100">
                         {/* Wallet Connection */}
-                        {isConnected && address ? (
+                        {mounted && isConnected && address ? (
                           <>
                             <div className="w-full flex items-center gap-3 p-4 bg-emerald-50 border-b border-slate-100">
                               <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200">
@@ -252,7 +252,7 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
               </div>
 
               {/* Wallet Connection Button - Desktop */}
-              {isConnected && address ? (
+              {mounted && isConnected && address ? (
                 <div className="hidden sm:flex items-center gap-2">
                   {/* Token Balance Display */}
                   <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200">
