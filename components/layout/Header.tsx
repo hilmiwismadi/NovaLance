@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAccount } from 'wagmi';
 import NotificationBell from './NotificationBell';
-import { mockUser } from '@/lib/mockData';
 
 const navItems = [
   { href: '/', label: 'Dashboard' },
@@ -15,14 +15,15 @@ const navItems = [
 export default function Header() {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+  const { address } = useAccount();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Compute these once to avoid hydration issues
-  const userInitial = mockUser.ens ? mockUser.ens[0].toUpperCase() : mockUser.address[2].toUpperCase();
-  const userDisplay = mockUser.ens || `${mockUser.address.slice(0, 6)}...${mockUser.address.slice(-4)}`;
+  // Compute user display from actual wallet address
+  const userInitial = address ? address.slice(2, 3).toUpperCase() : '?';
+  const userDisplay = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Connect Wallet';
 
   return (
     <header className="sticky top-0 z-40 glass-card border-t-0 border-x-0 rounded-none bg-white/70">

@@ -7,19 +7,72 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import ExpandableFilter from '@/components/ui/ExpandableFilter';
-import { mockJobs } from '@/lib/mockData';
-import { formatCurrency } from '@/lib/utils';
+import { useProjects } from '@/lib/api-hooks';
+import { formatCurrency } from '@/lib/contract';
 
 interface FilterState {
   searchTerm: string;
   selectedSkills: string[];
 }
 
-// Calculate job progress based on milestones - memoized
-function calculateJobProgress(job: typeof mockJobs[0]): number {
-  if (!job.milestones || job.milestones.length === 0) return 0;
-  const completedMilestones = job.milestones.filter(m => m.status === 'completed').length;
-  return Math.round((completedMilestones / job.milestones.length) * 100);
+// Mapped project type for display
+interface DisplayProject {
+  id: string;
+  title: string;
+  description: string;
+  skills: string[];
+  budget: string;
+  currency: string;
+  status: string;
+  kpiCount: number;
+  roles: Array<{
+    status: string;
+  }>;
+  ownerAddress: string;
+  ownerEns?: string;
+  createdAt?: string;
+}
+
+// Map API Project to DisplayProject
+function mapProjectToDisplay(project: any): DisplayProject {
+  // Get all skills from all roles
+  const allSkills = project.roles
+    ?.flatMap((role: any) => role.skills || [])
+    .filter((skill: string) => skill) || [];
+
+  // Count total KPIs across all roles
+  const kpiCount = project.roles
+    ?.reduce((sum: number, role: any) => sum + (role.kpiCount || 0), 0) || 0;
+
+  // Calculate budget from roles
+  const budget = project.roles
+    ?.reduce((sum: string, role: any) => {
+      const roleBudget = BigInt(role.paymentPerKpi || 0) * BigInt(role.kpiCount || 0);
+      return (BigInt(sum) + roleBudget).toString();
+    }, '0') || '0';
+
+  return {
+    id: project.id,
+    title: project.title,
+    description: project.description,
+    skills: allSkills,
+    budget: budget,
+    currency: 'IDRX',
+    status: project.status,
+    kpiCount: kpiCount,
+    roles: project.roles || [],
+    ownerAddress: project.ownerAddress,
+    ownerEns: project.owner?.ens,
+    createdAt: project.createdAt,
+  };
+}
+
+// Calculate job progress based on KPIs - memoized
+function calculateJobProgress(job: DisplayProject): number {
+  if (job.kpiCount === 0) return 0;
+  // Count assigned roles as progress indicator
+  const assignedRoles = job.roles.filter(r => r.status === 'assigned').length;
+  return Math.round((assignedRoles / Math.max(job.roles.length, 1)) * 100);
 }
 
 // Memoized job card component
@@ -27,7 +80,7 @@ const JobCard = memo(({
   job,
   progress,
 }: {
-  job: typeof mockJobs[0];
+  job: DisplayProject;
   progress: number;
 }) => {
   return (
@@ -36,10 +89,10 @@ const JobCard = memo(({
         <div className="flex items-start justify-between mb-3">
           <h3 className="font-semibold text-slate-900 text-lg">{job.title}</h3>
           <Badge
-            variant={job.status === 'hiring' ? 'pending' : 'default'}
+            variant={job.status === 'open' ? 'pending' : 'default'}
             className="shrink-0"
           >
-            {job.status === 'hiring' ? 'Hiring' : job.status}
+            {job.status === 'open' ? 'Hiring' : job.status === 'in_progress' ? 'Active' : job.status}
           </Badge>
         </div>
 
@@ -61,12 +114,12 @@ const JobCard = memo(({
           )}
         </div>
 
-        {/* Progress */}
-        {job.milestones && job.milestones.length > 0 && (
+        {/* Progress - based on KPIs */}
+        {job.kpiCount > 0 && (
           <div className="mb-3">
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="text-slate-600">
-                {job.milestones.length} milestone{job.milestones.length > 1 ? 's' : ''}
+                {job.kpiCount} KPI{job.kpiCount > 1 ? 's' : ''}
               </span>
               <span className="font-medium text-slate-900">{progress}%</span>
             </div>
@@ -79,25 +132,25 @@ const JobCard = memo(({
           </div>
         )}
 
-        {/* Budget & Applicants */}
+        {/* Budget & Owner */}
         <div className="flex items-center justify-between text-xs pt-3 border-t border-slate-200">
           <div className="flex items-center gap-3">
             <span className="text-slate-600">
-              {job.applicantCount} applicant{job.applicantCount !== 1 ? 's' : ''}
+              {job.roles.length} role{job.roles.length !== 1 ? 's' : ''}
             </span>
             <span className="text-slate-400">•</span>
             <span className="text-slate-600">
-              {job.postedByEns || job.postedBy.slice(0, 8)}
+              {job.ownerEns || job.ownerAddress.slice(0, 8)}
             </span>
           </div>
           <span className="font-semibold text-brand-600 inline-flex items-center gap-1">
-            <CurrencyDisplay amount={formatCurrency(job.budget, job.currency)} currency={job.currency} />
+            <CurrencyDisplay amount={formatCurrency(BigInt(job.budget || '0'), job.currency)} currency={job.currency} />
           </span>
         </div>
 
         {job.createdAt && (
           <div className="mt-2 text-xs text-slate-500">
-            Posted {job.createdAt}
+            Posted {new Date(job.createdAt).toLocaleDateString()}
           </div>
         )}
       </Card>
@@ -113,18 +166,26 @@ export default function FLJobsPage() {
     selectedSkills: [],
   });
 
+  // API hook for projects
+  const { data: projects, isLoading } = useProjects();
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Map projects to display format
+  const displayProjects = useMemo(() => {
+    return projects?.map(mapProjectToDisplay) || [];
+  }, [projects]);
+
   // Memoized skills
   const allSkills = useMemo(() => {
-    return Array.from(new Set(mockJobs.flatMap(job => job.skills))).sort();
-  }, []);
+    return Array.from(new Set(displayProjects.flatMap(job => job.skills))).sort();
+  }, [displayProjects]);
 
   // Filter jobs based on search and skills - memoized
   const filteredJobs = useMemo(() => {
-    return mockJobs.filter(job => {
+    return displayProjects.filter(job => {
       const matchesSearch = filters.searchTerm === '' ||
         job.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
         job.description.toLowerCase().includes(filters.searchTerm.toLowerCase());
@@ -134,7 +195,7 @@ export default function FLJobsPage() {
 
       return matchesSearch && matchesSkills;
     });
-  }, [filters]);
+  }, [displayProjects, filters]);
 
   // Memoized callback
   const handleFilterChange = useCallback((newFilters: FilterState) => {
@@ -142,6 +203,24 @@ export default function FLJobsPage() {
   }, []);
 
   if (!mounted) return null;
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Browse Jobs</h1>
+          <p className="text-slate-600 text-sm mt-0.5 sm:mt-1">
+            Find your next opportunity
+          </p>
+        </div>
+        <Card className="p-12 text-center">
+          <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading jobs...</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -160,7 +239,7 @@ export default function FLJobsPage() {
         allSkills={allSkills}
         onFilterChange={handleFilterChange}
         resultCount={filteredJobs.length}
-        totalCount={mockJobs.length}
+        totalCount={displayProjects.length}
       />
 
       {/* Jobs List */}

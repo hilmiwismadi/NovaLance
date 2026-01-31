@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { useAccount } from 'wagmi';
 import NotificationBell from './NotificationBell';
 import RoleSwitcher from '@/components/ui/RoleSwitcher';
-import { mockUser } from '@/lib/mockData';
 import { useIDRXBalance } from '@/lib/hooks';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { formatCurrency } from '@/lib/contract';
@@ -25,7 +24,7 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
   const pathname = usePathname();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
-  // Get wallet address for token balance
+  // Get wallet address for token balance and display
   const { address } = useAccount();
   const { balance: tokenBalance, formatted: tokenBalanceFormatted, isLoading: isBalanceLoading } = useIDRXBalance(address);
 
@@ -33,9 +32,9 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
     setMounted(true);
   }, []);
 
-  // Compute these once to avoid hydration issues
-  const userInitial = mockUser.ens ? mockUser.ens[0].toUpperCase() : mockUser.address[2].toUpperCase();
-  const userDisplay = mockUser.ens || `${mockUser.address.slice(0, 6)}...${mockUser.address.slice(-4)}`;
+  // Compute user display from actual wallet address
+  const userInitial = address ? address.slice(2, 3).toUpperCase() : '?';
+  const userDisplay = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Connect Wallet';
 
   return (
     <header className="sticky top-0 z-40 glass-card border-t-0 border-x-0 rounded-none bg-white/70">

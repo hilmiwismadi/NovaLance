@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useConnect, useAccount, useDisconnect } from 'wagmi';
+import { useConnect, useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { injected, walletConnect } from 'wagmi/connectors';
+import { useNonce, useVerifySignature } from '@/lib/api-hooks';
 import Modal from '@/components/ui/Modal';
 import Button from '@/components/ui/Button';
 
@@ -20,34 +21,64 @@ export default function WalletConnectModal({
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [connectionSuccess, setConnectionSuccess] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const { connect, isPending } = useConnect();
   const { address, isConnected, status } = useAccount();
   const { disconnect } = useDisconnect();
+  const { signMessageAsync } = useSignMessage();
+
+  // Backend authentication mutations
+  const nonceMutation = useNonce();
+  const verifyMutation = useVerifySignature();
 
   // Watch for connection success after connect() is called
   useEffect(() => {
-    if (selectedWallet && isConnected && address && status === 'connected') {
-      // Connection successful - store state and close modal
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('po-wallet-connected', 'true');
-        localStorage.setItem('po-wallet-address', address);
+    const authenticateWithBackend = async () => {
+      if (selectedWallet && isConnected && address && status === 'connected' && !connectionSuccess) {
+        setIsAuthenticating(true);
+
+        try {
+          // Step 1: Get nonce from backend
+          const nonceData = await nonceMutation.mutateAsync(address);
+          const messageToSign = nonceData.message || `Sign this message to authenticate with NovaLance:\n\nNonce: ${nonceData.nonce}`;
+
+          // Step 2: Sign the message with wallet
+          const signature = await signMessageAsync({ message: messageToSign });
+
+          // Step 3: Verify signature with backend to get JWT
+          await verifyMutation.mutateAsync({ address, signature });
+
+          // Connection successful - store state and close modal
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('po-wallet-connected', 'true');
+            localStorage.setItem('po-wallet-address', address);
+          }
+
+          setConnectionSuccess(true);
+
+          if (onConnected) {
+            onConnected();
+          }
+
+          // Small delay before closing to show success
+          setTimeout(() => {
+            onClose();
+            setSelectedWallet(null);
+            setConnectionSuccess(false);
+          }, 500);
+        } catch (err) {
+          const error = err as Error;
+          setError(`Authentication failed: ${error.message}`);
+          console.error('Backend authentication error:', error);
+        } finally {
+          setIsAuthenticating(false);
+        }
       }
+    };
 
-      setConnectionSuccess(true);
-
-      if (onConnected) {
-        onConnected();
-      }
-
-      // Small delay before closing to show success
-      setTimeout(() => {
-        onClose();
-        setSelectedWallet(null);
-        setConnectionSuccess(false);
-      }, 500);
-    }
-  }, [selectedWallet, isConnected, address, status, onConnected, onClose]);
+    authenticateWithBackend();
+  }, [selectedWallet, isConnected, address, status, onConnected, onClose, connectionSuccess, nonceMutation, verifyMutation, signMessageAsync]);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -110,7 +141,7 @@ export default function WalletConnectModal({
   };
 
   // Show connecting state
-  const isConnecting = selectedWallet && isPending;
+  const isConnecting = selectedWallet && (isPending || isAuthenticating);
   // Show success state (explicitly boolean)
   const showSuccess: boolean = connectionSuccess && isConnected && !!address;
 
@@ -149,7 +180,9 @@ export default function WalletConnectModal({
             </h2>
             <p className="text-slate-600 mb-6">
               {isConnecting
-                ? 'Confirm the connection in your wallet...'
+                ? isAuthenticating
+                  ? 'Authenticating with backend...'
+                  : 'Confirm the connection in your wallet...'
                 : 'Connect your wallet to interact with smart contracts and manage payments'}
             </p>
 
@@ -208,6 +241,7 @@ export default function WalletConnectModal({
                       <li>• Secure project escrow payments</li>
                       <li>• Automatic milestone releases</li>
                       <li>• Earn yield on deposited funds</li>
+                      <li>• Backend authentication for offchain data</li>
                     </ul>
                   </div>
                 </div>

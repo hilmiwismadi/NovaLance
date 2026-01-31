@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
-import { mockProjects, mockPOProjects, getProjectsByRole, formatCurrency } from '@/lib/mockData';
+import { useMyApplications } from '@/lib/api-hooks';
+import { formatCurrency } from '@/lib/contract';
 import KPIDetailModal from '@/components/fl/KPIDetailModal';
 
 type FilterType = 'all' | 'in-progress' | 'completed';
@@ -25,44 +27,63 @@ export default function FLProjectsPage() {
     kpi: any;
   } | null>(null);
 
+  // Wallet address
+  const { address } = useAccount();
+
+  // API hook for applications (shows projects where user is assigned)
+  const { data: applications, isLoading } = useMyApplications();
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Get projects where user is freelancer or both
-  const freelancerProjects = getProjectsByRole('freelancer').filter(
-    p => p.userRole === 'freelancer' || p.userRole === 'both'
-  );
+  // Filter accepted applications (active work)
+  const assignedApplications = applications?.filter(a => a.status === 'accepted') || [];
 
-  // Also get PO projects where user is assigned as freelancer
-  const assignedRoles = mockPOProjects.flatMap(project =>
-    project.roles
-      .filter(r => r.assignedTo && r.assignedToEns === 'alice.eth')
-      .map(role => ({ project, role }))
-  );
+  // Map applications to project + role structure
+  const assignedRoles = assignedApplications.map(app => ({
+    project: app.projectRole.project,
+    role: app.projectRole,
+  }));
 
   // Filter projects
-  const filteredProjects = freelancerProjects.filter(project => {
+  const filteredRoles = assignedRoles.filter(({ role }) => {
     if (filter === 'all') return true;
-    return project.status === filter;
+    if (filter === 'in-progress') return role.project.status === 'in_progress' || role.project.status === 'open';
+    if (filter === 'completed') return role.project.status === 'completed';
+    return true;
   });
 
   const stats = {
-    all: freelancerProjects.length,
-    inProgress: freelancerProjects.filter(p => p.status === 'in-progress').length,
-    completed: freelancerProjects.filter(p => p.status === 'completed').length,
+    all: assignedRoles.length,
+    inProgress: assignedRoles.filter(({ role }) => role.project.status === 'in_progress' || role.project.status === 'open').length,
+    completed: assignedRoles.filter(({ role }) => role.project.status === 'completed').length,
   };
 
   // Calculate overall progress across all projects
-  const calculateProjectProgress = (project: any) => {
-    const completedMilestones = project.milestones.filter((m: any) => m.status === 'approved' || m.status === 'completed').length;
-    return (completedMilestones / project.milestones.length) * 100;
+  const calculateProjectProgress = (role: any) => {
+    // Use kpiCount as indicator of progress
+    const totalKpis = role.kpiCount || 0;
+    // We don't have individual KPI status in the application, so estimate progress
+    return totalKpis > 0 ? 50 : 0; // Default to 50% for assigned roles
   };
 
-  const totalProgress = freelancerProjects.reduce((sum, p) => sum + calculateProjectProgress(p), 0);
-  const overallProgress = freelancerProjects.length > 0 ? Math.round(totalProgress / freelancerProjects.length) : 0;
+  const totalProgress = assignedRoles.reduce((sum, { role }) => sum + calculateProjectProgress(role), 0);
+  const overallProgress = assignedRoles.length > 0 ? Math.round(totalProgress / assignedRoles.length) : 0;
 
   if (!mounted) return null;
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card className="p-12 text-center">
+          <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading projects...</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -121,7 +142,7 @@ export default function FLProjectsPage() {
       </Card>
 
       {/* Projects List */}
-      {filteredProjects.length === 0 && assignedRoles.length === 0 ? (
+      {filteredRoles.length === 0 ? (
         <Card className="p-6 sm:p-12 text-center border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50/50 to-white">
           <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-sm">
             <svg className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,83 +159,29 @@ export default function FLProjectsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          {/* Legacy projects */}
-          {filteredProjects.map((project) => {
-            const progress = Math.round(calculateProjectProgress(project));
-            const completedMilestones = project.milestones.filter(m => m.status === 'approved' || m.status === 'completed').length;
-
-            return (
-              <Link key={project.id} href={`/FL/projects/${project.id}`}>
-                <Card className="p-4 sm:p-5 hover:shadow-lg transition-all cursor-pointer h-full border-2 border-transparent hover:border-brand-200">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-slate-900 text-base sm:text-lg line-clamp-1">{project.title}</h3>
-                    <Badge
-                      variant={project.status === 'in-progress' ? 'warning' : project.status === 'completed' ? 'success' : 'default'}
-                      className="shrink-0"
-                    >
-                      {project.status === 'in-progress' ? 'Active' : project.status}
-                    </Badge>
-                  </div>
-
-                  <p className="text-sm text-slate-600 mb-4 line-clamp-2">
-                    {project.description}
-                  </p>
-
-                  {/* Progress */}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="text-slate-600">Progress</span>
-                      <span className="font-medium text-slate-900">{progress}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-1.5">
-                      <div
-                        className="bg-brand-500 h-1.5 rounded-full transition-all"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {completedMilestones}/{project.milestones.length} milestones completed
-                    </p>
-                  </div>
-
-                  {/* Budget & Client */}
-                  <div className="flex items-center justify-between text-xs pt-3 border-t border-slate-200">
-                    <span className="font-semibold text-brand-600 inline-flex items-center gap-1">
-                      <CurrencyDisplay amount={formatCurrency(project.totalBudget, project.currency)} currency={project.currency} />
-                    </span>
-                    <span className="text-slate-600">
-                      {project.ownerEns || `${project.owner.slice(0, 6)}...${project.owner.slice(-4)}`}
-                    </span>
-                  </div>
-                </Card>
-              </Link>
-            );
-          })}
-
-          {/* PO Projects where user is assigned */}
-          {assignedRoles.map(({ project, role }) => {
-            const completedKPIs = role.kpis.filter(k => k.status === 'completed' || k.status === 'approved').length;
-            const totalKPIs = role.kpis.length;
-            const progress = totalKPIs > 0 ? (completedKPIs / totalKPIs) * 100 : 0;
+          {filteredRoles.map(({ project, role }) => {
+            const progress = calculateProjectProgress(role);
+            const totalKPIs = role.kpiCount || 0;
+            const roleBudget = BigInt(role.paymentPerKpi || 0) * BigInt(totalKPIs);
 
             return (
               <div
                 key={`${project.id}-${role.id}`}
                 onClick={() => {
-                  // Find the first in-progress or pending KPI to show in modal
-                  const nextKPI = role.kpis.find(k =>
-                    k.status === 'in-progress' ||
-                    k.status === 'pending' ||
-                    k.status === 'pending-approval' ||
-                    k.status === 'rejected'
-                  ) || role.kpis[0];
-
+                  // Set up a placeholder KPI for the modal
+                  // In production, this would fetch actual KPIs from the API
                   setSelectedKPI({
                     projectId: project.id,
                     roleId: role.id,
-                    roleTitle: role.title,
-                    roleBudget: role.budget,
-                    kpi: nextKPI,
+                    roleTitle: role.name,
+                    roleBudget: Number(roleBudget) / 1e6, // Convert from IDRX (6 decimals)
+                    kpi: {
+                      id: 'placeholder',
+                      name: 'Key Performance Indicator',
+                      percentage: 100 / Math.max(totalKPIs, 1),
+                      status: 'pending' as const,
+                      description: role.description,
+                    },
                   });
                   setKpiModalOpen(true);
                 }}
@@ -224,9 +191,11 @@ export default function FLProjectsPage() {
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <h3 className="font-semibold text-slate-900 text-base sm:text-lg">{project.title}</h3>
-                      <p className="text-xs text-slate-500">{role.title}</p>
+                      <p className="text-xs text-slate-500">{role.name}</p>
                     </div>
-                    <Badge variant="warning">Active</Badge>
+                    <Badge variant={project.status === 'in_progress' ? 'warning' : project.status === 'completed' ? 'success' : 'default'}>
+                      {project.status === 'open' ? 'Hiring' : project.status === 'in_progress' ? 'Active' : project.status}
+                    </Badge>
                   </div>
 
                   <p className="text-sm text-slate-600 mb-4 line-clamp-2">
@@ -234,29 +203,31 @@ export default function FLProjectsPage() {
                   </p>
 
                   {/* KPIs Progress */}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs mb-1.5">
-                      <span className="text-slate-600">Progress</span>
-                      <span className="font-medium text-slate-900">
-                        {completedKPIs}/{totalKPIs} KPIs
-                      </span>
+                  {totalKPIs > 0 && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <span className="text-slate-600">KPIs</span>
+                        <span className="font-medium text-slate-900">
+                          {totalKPIs} KPI{totalKPIs > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-1.5">
+                        <div
+                          className="bg-gradient-to-r from-brand-400 to-brand-600 h-1.5 rounded-full transition-all"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-1.5">
-                      <div
-                        className="bg-gradient-to-r from-brand-400 to-brand-600 h-1.5 rounded-full transition-all"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                  </div>
+                  )}
 
                   <div className="flex items-center justify-between pt-3 border-t border-slate-200">
                     <span className="text-xs sm:text-sm text-slate-600">
                       Budget: <span className="font-semibold text-brand-600 inline-flex items-center gap-1">
-                        <CurrencyDisplay amount={formatCurrency(role.budget, 'IDRX')} currency="IDRX" />
+                        <CurrencyDisplay amount={formatCurrency(roleBudget, 'IDRX')} currency="IDRX" />
                       </span>
                     </span>
                     <span className="text-xs sm:text-sm text-slate-600">
-                      {project.ownerEns || project.owner.slice(0, 8)}
+                      {role.project.ownerAddress?.slice(0, 8)}
                     </span>
                   </div>
                 </Card>

@@ -25,18 +25,18 @@ function POLayoutContent({ children }: POLayoutProps) {
   useEffect(() => {
     if (!mounted) return;
 
-    // Check if user is authenticated
-    const authStatus = typeof window !== 'undefined' ? localStorage.getItem('po-auth') : null;
+    // Check if user is authenticated (has JWT token)
+    const jwtToken = typeof window !== 'undefined' ? localStorage.getItem('novalance_jwt') : null;
     const isLoginRoute = pathname === '/PO/login';
 
-    if (!authStatus && !isLoginRoute) {
+    if (!jwtToken && !isLoginRoute) {
       // Not authenticated and not on login page, redirect to login
       router.push('/PO/login');
-    } else if (authStatus && isLoginRoute) {
+    } else if (jwtToken && isLoginRoute) {
       // Already authenticated and on login page, redirect to dashboard
       router.push('/PO');
     } else {
-      setIsAuthenticated(!!authStatus);
+      setIsAuthenticated(!!jwtToken);
     }
     setIsLoading(false);
   }, [pathname, router, mounted]);

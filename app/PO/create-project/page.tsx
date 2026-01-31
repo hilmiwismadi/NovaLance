@@ -492,6 +492,31 @@ export default function CreateProjectPage() {
 
   // Handle ProjectLance transaction confirmation - extract projectId from logs
   useEffect(() => {
+    const syncProjectToBackend = async (projectId: bigint) => {
+      if (!address || !title || !description || !startDate || !endDate) return;
+
+      try {
+        console.log('🔄 Syncing project to backend...', projectId.toString());
+
+        // Import API client
+        const { projectApi } = await import('@/lib/api-client');
+
+        // Create the offchain project record with on-chain projectId as id
+        const result = await projectApi.create({
+          id: projectId.toString(),
+          title,
+          description,
+          timelineStart: new Date(startDate).toISOString(),
+          timelineEnd: new Date(endDate).toISOString(),
+        });
+
+        console.log('✅ Project synced to backend:', result);
+      } catch (error) {
+        console.error('❌ Failed to sync project to backend:', error);
+        // Don't show error to user - on-chain creation succeeded
+      }
+    };
+
     if (isPLConfirmed && plReceipt) {
       // Extract projectId from ProjectCreated event
       let projectId: bigint | undefined;
@@ -517,7 +542,11 @@ export default function CreateProjectPage() {
 
       if (projectId !== undefined) {
         setCreatedProjectId(projectId);
-        showTransactionSuccess(plHash || '0x0', 'Project created successfully!');
+        showTransactionSuccess(plHash || '0x', 'Project created successfully!');
+
+        // Sync to backend API (fire and forget)
+        syncProjectToBackend(projectId);
+
         // Navigate to fund project page
         setTimeout(() => {
           router.push(`/PO/projects/${projectId}/fund`);
@@ -530,7 +559,7 @@ export default function CreateProjectPage() {
         }, 1500);
       }
     }
-  }, [isPLConfirmed, plReceipt, plHash, router]);
+  }, [isPLConfirmed, plReceipt, plHash, router, title, description, startDate, endDate, address]);
 
   // Handle ProjectLance transaction error
   useEffect(() => {

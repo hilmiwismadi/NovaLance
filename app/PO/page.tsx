@@ -22,14 +22,17 @@ interface ContractProject {
   milestoneCount: bigint;
 }
 
-// Custom hook to fetch multiple projects
+// Custom hook to fetch multiple projects from smart contract
+// Note: This is the smart contract integration and may cause excessive RPC calls
+// Consider using backend API instead for production
 function usePOProjects(maxProjects: number = 20) {
   const { address, chain } = useAccount();
   const [projects, setProjects] = useState<ContractProject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
-    if (!address || !chain) return;
+    if (!address || !chain || hasLoaded) return; // Only load once
 
     const fetchProjects = async () => {
       setIsLoading(true);
@@ -48,7 +51,7 @@ function usePOProjects(maxProjects: number = 20) {
 
         // Fetch all projects in parallel
         const projectPromises = [];
-        for (let i = 0; i < maxProjects; i++) {
+        for (let i = 0; i < Math.min(maxProjects, 10); i++) { // Limit to 10 to avoid spam
           projectPromises.push(
             publicClient.readContract({
               address: projectLanceAddress as `0x${string}`,
@@ -95,6 +98,7 @@ function usePOProjects(maxProjects: number = 20) {
         setProjects([]);
       } finally {
         setIsLoading(false);
+        setHasLoaded(true); // Mark as loaded to prevent repeated calls
       }
     };
 

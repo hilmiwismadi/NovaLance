@@ -6,8 +6,9 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
-import { mockUser, mockProjects, formatCurrency } from '@/lib/mockData';
+import { useMyProfile, useMyApplications, useFreelancerBalance } from '@/lib/api-hooks';
 import { useWithdrawableBalance, useWithdraw, useTransactionWait } from '@/lib/hooks';
+import { formatCurrency } from '@/lib/contract';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -15,42 +16,28 @@ import {
   showError,
 } from '@/lib/transactions';
 
-// Filter projects where user is freelancer
-const freelancerProjects = mockProjects.filter(p => p.userRole === 'freelancer');
-
-// Calculate earnings from completed jobs
-const totalEarnings = freelancerProjects
-  .filter(p => p.status === 'completed')
-  .reduce((sum, p) => sum + p.totalBudget, 0);
-
-// Pending earnings (active jobs - calculate only completed milestones portion)
-const pendingEarnings = freelancerProjects
-  .filter(p => p.status === 'in-progress')
-  .reduce((sum, p) => {
-    const completedMilestones = p.milestones.filter(m => m.status === 'completed' || m.status === 'approved');
-    const completedPercentage = completedMilestones.reduce((acc, m) => acc + m.percentage, 0) / 100;
-    return sum + (p.totalBudget * completedPercentage);
-  }, 0);
-
-// Mock yield earnings (from LP allocation)
-const mockYieldEarnings = 4560000; // IDRX from yield generation (~$285 USD)
-
-// Total withdrawable (completed earnings + yield)
-const totalWithdrawable = totalEarnings + mockYieldEarnings;
-
 export default function FLProfilePage() {
   const { address, chain } = useAccount();
   const [mounted, setMounted] = useState(false);
+
+  // API hooks for user data
+  const { data: user, isLoading: userLoading, error: userError } = useMyProfile();
+  const { data: applications } = useMyApplications();
+  const { data: freelancerBalance } = useFreelancerBalance();
 
   // Smart contract hooks
   const { balance, isLoading: isBalanceLoading } = useWithdrawableBalance();
   const { withdraw, isPending, error, hash, isSuccess } = useWithdraw();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
 
+  // Calculate earnings from API data
+  const totalEarnings = freelancerBalance?.totalEarned ? BigInt(freelancerBalance.totalEarned) : 0n;
+  const pendingEarnings = 0n; // Can be calculated from approved KPIs
+
   // Calculate real withdrawable balance from smart contract or fall back to mock
   const withdrawableBalance = balance
-    ? Number(balance.totalWithdrawable) / 1e6 // Assuming USDC/IDRX decimals (6)
-    : totalWithdrawable;
+    ? BigInt(balance.totalWithdrawable) / 1000000n // Assuming USDC/IDRX decimals (6)
+    : totalEarnings;
 
   useEffect(() => {
     setMounted(true);
@@ -93,6 +80,38 @@ export default function FLProfilePage() {
 
   if (!mounted) return null;
 
+  // Show loading state
+  if (userLoading) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Profile</h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-1">Manage your freelancer profile and track earnings</p>
+        </div>
+        <Card className="p-8 text-center">
+          <div className="animate-pulse">Loading profile...</div>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (userError || !user) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Profile</h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-1">Manage your freelancer profile and track earnings</p>
+        </div>
+        <Card className="p-8 text-center">
+          <p className="text-red-600">Failed to load profile data</p>
+        </Card>
+      </div>
+    );
+  }
+
+  const { ens, bio, skills, reviewCount, memberSince, completedProjects } = user;
+
   return (
     <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
@@ -113,22 +132,22 @@ export default function FLProfilePage() {
         <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6">
           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-brand-500 via-brand-400 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-200/50 flex-shrink-0">
             <span className="text-2xl sm:text-3xl font-bold text-white">
-              {mockUser.ens ? mockUser.ens[0].toUpperCase() : mockUser.address[2].toUpperCase()}
+              {ens ? ens[0].toUpperCase() : address?.slice(2, 3).toUpperCase() || '?'}
             </span>
           </div>
 
           <div className="flex-1 min-w-0">
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
-              {mockUser.ens || `${mockUser.address.slice(0, 8)}...${mockUser.address.slice(-4)}`}
+              {ens || `${address?.slice(0, 8)}...${address?.slice(-4)}`}
             </h2>
-            <p className="text-sm sm:text-base text-slate-600 mt-1 line-clamp-2">{mockUser.bio}</p>
+            <p className="text-sm sm:text-base text-slate-600 mt-1 line-clamp-2">{bio || 'No bio yet'}</p>
 
             <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-3">
               <div className="flex items-center gap-1.5 bg-amber-50 px-2 py-1 rounded-full">
                 <svg className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
-                <span className="font-semibold text-slate-900 text-sm">{mockUser.reviewCount}</span>
+                <span className="font-semibold text-slate-900 text-sm">{reviewCount}</span>
                 <span className="text-slate-600 text-xs sm:text-sm">reviews</span>
               </div>
 
@@ -136,7 +155,7 @@ export default function FLProfilePage() {
                 <svg className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span className="text-slate-600 text-xs sm:text-sm">Since {mockUser.memberSince}</span>
+                <span className="text-slate-600 text-xs sm:text-sm">Since {memberSince}</span>
               </div>
             </div>
           </div>
@@ -148,11 +167,15 @@ export default function FLProfilePage() {
             Skills & Expertise
           </h3>
           <div className="flex flex-wrap gap-2">
-            {mockUser.skills.map((skill) => (
-              <Badge key={skill} variant="success" className="text-xs bg-emerald-100/80 hover:bg-emerald-200/80 transition-colors">
-                {skill}
-              </Badge>
-            ))}
+            {skills && skills.length > 0 ? (
+              skills.map((skill) => (
+                <Badge key={skill} variant="success" className="text-xs bg-emerald-100/80 hover:bg-emerald-200/80 transition-colors">
+                  {skill}
+                </Badge>
+              ))
+            ) : (
+              <p className="text-sm text-slate-500 italic">No skills listed yet</p>
+            )}
           </div>
         </div>
       </Card>
@@ -199,7 +222,7 @@ export default function FLProfilePage() {
               </svg>
             </div>
             <div>
-              <p className="text-xl sm:text-2xl font-bold text-brand-600">{mockUser.completedProjects}</p>
+              <p className="text-xl sm:text-2xl font-bold text-brand-600">{completedProjects}</p>
               <p className="text-xs text-slate-600">Completed</p>
             </div>
           </div>
@@ -223,13 +246,13 @@ export default function FLProfilePage() {
                   <div className="flex justify-between gap-4">
                     <span>Escrow:</span>
                     <span className="font-medium text-slate-700 inline-flex items-center gap-1">
-                      <CurrencyDisplay amount={formatCurrency(Number(balance.escrowAmount) / 1e6, 'IDRX')} currency="IDRX" />
+                      <CurrencyDisplay amount={formatCurrency(BigInt(balance.escrowAmount) / 1000000n, 'IDRX')} currency="IDRX" />
                     </span>
                   </div>
                   <div className="flex justify-between gap-4">
                     <span>Yield:</span>
                     <span className="font-medium text-slate-700 inline-flex items-center gap-1">
-                      <CurrencyDisplay amount={formatCurrency(Number(balance.yieldAmount) / 1e6, 'IDRX')} currency="IDRX" />
+                      <CurrencyDisplay amount={formatCurrency(BigInt(balance.yieldAmount) / 1000000n, 'IDRX')} currency="IDRX" />
                     </span>
                   </div>
                 </div>
@@ -244,7 +267,7 @@ export default function FLProfilePage() {
 
           <div className="bg-white/80 backdrop-blur rounded-lg p-3 sm:p-3 mb-4 border border-emerald-200/30">
             <p className="text-xs text-slate-600 mb-1">Wallet Address</p>
-            <p className="font-mono text-slate-900 text-xs break-all">{mockUser.address}</p>
+            <p className="font-mono text-slate-900 text-xs break-all">{address}</p>
           </div>
 
           {withdrawableBalance > 0 ? (
@@ -300,45 +323,33 @@ export default function FLProfilePage() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">Your On-Chain Profile</p>
-                <p className="text-xs sm:text-sm text-slate-600 truncate">novalance.eth/profile/{mockUser.address.slice(0, 8)}</p>
+                <p className="text-xs sm:text-sm text-slate-600 truncate">novalance.eth/profile/{address?.slice(0, 8)}</p>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div className="bg-gradient-to-br from-brand-50 to-brand-100/50 rounded-xl p-3 sm:p-4 text-center border border-brand-200/60 hover:shadow-sm transition-shadow">
-              <p className="text-xl sm:text-2xl font-bold text-brand-700">{mockUser.completedProjects}</p>
+              <p className="text-xl sm:text-2xl font-bold text-brand-700">{completedProjects}</p>
               <p className="text-xs text-brand-600 uppercase tracking-wide font-medium mt-1">Completed Projects</p>
             </div>
             <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-3 sm:p-4 text-center border border-emerald-200/60 hover:shadow-sm transition-shadow">
-              <p className="text-xl sm:text-2xl font-bold text-emerald-700">{mockUser.reviewCount}</p>
+              <p className="text-xl sm:text-2xl font-bold text-emerald-700">{reviewCount}</p>
               <p className="text-xs text-emerald-600 uppercase tracking-wide font-medium mt-1">Reviews Received</p>
             </div>
           </div>
         </div>
       </Card>
 
-      {/* Experience */}
-      <Card className="p-4 sm:p-5 border-2 border-transparent">
-        <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-3 sm:mb-4">Experience</h2>
-        <div className="space-y-3 sm:space-y-4">
-          {mockUser.experience.map((exp) => (
-            <div key={exp.id} className="border-l-2 border-brand-300/60 pl-3 sm:pl-4 py-1 hover:bg-brand-50/30 -ml-1 pl-4 rounded-r-lg transition-colors">
-              <h3 className="font-semibold text-slate-900 text-sm sm:text-base">{exp.role}</h3>
-              <p className="text-brand-600 font-medium text-xs sm:text-sm">{exp.company}</p>
-              <p className="text-xs sm:text-sm text-slate-600 mt-1 flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                {exp.startDate} - {exp.current ? 'Present' : exp.endDate}
-              </p>
-              {exp.description && (
-                <p className="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">{exp.description}</p>
-              )}
-            </div>
-          ))}
-        </div>
-      </Card>
+      {/* Experience - Hidden for now since not in backend */}
+      {false && (
+        <Card className="p-4 sm:p-5 border-2 border-transparent">
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 mb-3 sm:mb-4">Experience</h2>
+          <div className="space-y-3 sm:space-y-4">
+            <p className="text-slate-500 italic">Experience data coming soon</p>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

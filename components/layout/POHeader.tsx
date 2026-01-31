@@ -7,7 +7,6 @@ import { useAccount, useDisconnect } from 'wagmi';
 import NotificationBell from './NotificationBell';
 import RoleSwitcher from '@/components/ui/RoleSwitcher';
 import WalletConnectModal from '@/components/auth/WalletConnectModal';
-import { mockUser } from '@/lib/mockData';
 import { useIDRXBalance } from '@/lib/hooks';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { formatCurrency } from '@/lib/contract';
@@ -84,9 +83,9 @@ export default function POHeader({ navItems }: POHeaderProps) {
     }
   };
 
-  // Compute these once to avoid hydration issues - use mock username if logged in, otherwise use mock data
-  const displayUsername = username || (mockUser.ens || `${mockUser.address.slice(0, 6)}...${mockUser.address.slice(-4)}`);
-  const userInitial = username ? username[0].toUpperCase() : (mockUser.ens ? mockUser.ens[0].toUpperCase() : mockUser.address[2].toUpperCase());
+  // Compute these once to avoid hydration issues - use username if available, otherwise use wallet address
+  const displayUsername = username || (address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Connect Wallet');
+  const userInitial = username ? username[0].toUpperCase() : (address ? address.slice(2, 3).toUpperCase() : '?');
 
   // Format wallet address for display
   const formatWalletAddress = (addr: string) => {
