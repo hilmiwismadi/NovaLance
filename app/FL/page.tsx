@@ -1,133 +1,47 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
-import { mockProjects, mockApplications, mockPOProjects } from '@/lib/mockData';
-import { formatCurrency } from '@/lib/mockData';
+import { formatCurrency } from '@/lib/contract';
 import {
   usePLProjectCount,
   usePLProject,
-  usePLWithdrawalAmounts,
-  usePLYield,
+  usePLAllMilestones,
+  usePLVaultBalance,
+  usePLLendingBalance,
 } from '@/lib/hooks';
 
-// Filter projects where user is freelancer
-const freelancerProjects = mockProjects.filter(p => p.userRole === 'freelancer');
+// Contract project interface
+interface ContractProject {
+  id: bigint;
+  creator: string;
+  freelancer: string;
+  status: number; // 0=Active, 1=Assigned, 2=Completed, 3=Cancelled
+  totalDeposited: bigint;
+  vaultAmount: bigint;
+  lendingAmount: bigint;
+  milestoneCount: bigint;
+  milestones?: any[];
+}
 
-// Also get PO projects where user is assigned as freelancer
-const assignedRoles = mockPOProjects.flatMap(project =>
-  project.roles
-    .filter(r => r.assignedTo && r.assignedToEns === 'alice.eth')
-    .map(role => ({ project, role }))
-);
-
-// Calculate stats - moved outside component to avoid recalculation
-const stats = {
-  activeJobs: freelancerProjects.filter(p => p.status === 'in-progress').length + assignedRoles.filter(r => r.role.status === 'in-progress').length,
-  completedJobs: freelancerProjects.filter(p => p.status === 'completed').length,
-  pendingApplications: mockApplications.filter(a => a.status === 'pending').length,
-  totalEarnings: freelancerProjects
-    .filter(p => p.status === 'completed')
-    .reduce((sum, p) => sum + p.totalBudget, 0),
-};
-
-// Mock yield data for earnings
+// Earning data interface (would come from contract in production)
 interface EarningWithYield {
-  projectId: string;
+  projectId: bigint;
   projectTitle: string;
-  roleTitle?: string;
-  totalBudget: number;
+  totalBudget: bigint;
   currency: string;
-  status: string;
-  baseEarnings: number;
-  yieldEarnings: number;
+  status: number;
+  baseEarnings: bigint;
+  yieldEarnings: bigint;
   yieldRate: number;
   isWithdrawable: boolean;
   yieldStatus: 'generating' | 'completed' | 'withdrawn';
 }
-
-const mockEarnings: EarningWithYield[] = [
-  {
-    projectId: 'p2',
-    projectTitle: 'Smart Contract Audit',
-    totalBudget: 2000000,
-    currency: 'IDRX',
-    status: 'completed',
-    baseEarnings: 2000000,
-    yieldEarnings: 156000,
-    yieldRate: 7.8,
-    isWithdrawable: true,
-    yieldStatus: 'completed',
-  },
-  {
-    projectId: 'p5',
-    projectTitle: 'Yield Farming Interface',
-    totalBudget: 1800000,
-    currency: 'IDRX',
-    status: 'completed',
-    baseEarnings: 1800000,
-    yieldEarnings: 143100,
-    yieldRate: 7.95,
-    isWithdrawable: true,
-    yieldStatus: 'completed',
-  },
-  {
-    projectId: 'p7',
-    projectTitle: 'Governance Dashboard',
-    totalBudget: 1600000,
-    currency: 'IDRX',
-    status: 'completed',
-    baseEarnings: 1600000,
-    yieldEarnings: 195200,
-    yieldRate: 12.2,
-    isWithdrawable: true,
-    yieldStatus: 'completed',
-  },
-  {
-    projectId: 'p8',
-    projectTitle: 'Token Swap DEX',
-    totalBudget: 2500000,
-    currency: 'IDRX',
-    status: 'completed',
-    baseEarnings: 2500000,
-    yieldEarnings: -287500,
-    yieldRate: -11.5,
-    isWithdrawable: true,
-    yieldStatus: 'completed',
-  },
-  // Active projects with generating yield
-  {
-    projectId: 'proj-4',
-    projectTitle: 'Web3 Gaming Platform',
-    roleTitle: 'Frontend Developer',
-    totalBudget: 2500000,
-    currency: 'IDRX',
-    status: 'in-progress',
-    baseEarnings: 500000,
-    yieldEarnings: 16250,
-    yieldRate: 3.25,
-    isWithdrawable: false,
-    yieldStatus: 'generating',
-  },
-  {
-    projectId: 'proj-5',
-    projectTitle: 'SocialFi DApp',
-    roleTitle: 'Full Stack Developer',
-    totalBudget: 3500000,
-    currency: 'IDRX',
-    status: 'in-progress',
-    baseEarnings: 700000,
-    yieldEarnings: -35000,
-    yieldRate: -5.0,
-    isWithdrawable: false,
-    yieldStatus: 'generating',
-  },
-];
 
 // Memoized earning card component
 const EarningCard = memo(({
@@ -151,7 +65,7 @@ const EarningCard = memo(({
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-slate-900 text-sm truncate">{earning.projectTitle}</h4>
-          <p className="text-[10px] text-slate-600 truncate">{earning.roleTitle || 'Completed'}</p>
+          <p className="text-[10px] text-slate-600 truncate">{earning.yieldStatus === 'completed' ? 'Completed' : earning.yieldStatus}</p>
         </div>
         <div className="text-right shrink-0">
           <p className={`text-lg font-bold ${isPositive ? 'text-emerald-600' : 'text-red-600'} ${isActive ? 'transition-colors duration-300' : ''}`}>
@@ -170,13 +84,13 @@ const EarningCard = memo(({
         <div className="bg-blue-50 rounded-lg p-1.5 text-center min-w-0">
           <p className="text-[8px] text-blue-600 truncate">LP</p>
           <p className="text-[9px] font-bold text-blue-700 truncate">
-            <CurrencyDisplay amount={formatCurrency(earning.baseEarnings * 0.1, 'IDRX')} currency="IDRX" className="text-[8px]" />
+            <CurrencyDisplay amount={formatCurrency(earning.baseEarnings * BigInt(10) / BigInt(100), 'IDRX')} currency="IDRX" className="text-[8px]" />
           </p>
         </div>
         <div className={`rounded-lg p-1.5 text-center min-w-0 ${isPositive ? 'bg-emerald-50' : 'bg-red-50'}`}>
           <p className={`text-[8px] ${isPositive ? 'text-emerald-600' : 'text-red-600'} truncate`}>Yield</p>
           <p className={`text-[9px] font-bold truncate ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
-            <CurrencyDisplay amount={formatCurrency(Math.abs(earning.baseEarnings * liveRate / 100), 'IDRX')} currency="IDRX" className="text-[8px]" />
+            <CurrencyDisplay amount={formatCurrency(earning.baseEarnings * BigInt(Math.round(Math.abs(liveRate) * 100)) / BigInt(10000), 'IDRX')} currency="IDRX" className="text-[8px]" />
           </p>
         </div>
       </div>
@@ -248,9 +162,48 @@ export default function FLDashboard() {
 
   // ProjectLance contract hooks
   const { count: projectCount } = usePLProjectCount();
-  const demoProjectId = 1n;
-  const { vaultAmount, lendingAmount, yieldPercentage } = usePLYield(demoProjectId);
-  const { amounts: withdrawalAmounts } = usePLWithdrawalAmounts(demoProjectId, 0n);
+  const demoProjectId = BigInt(1);
+  const { balance: vaultBalance } = usePLVaultBalance(demoProjectId);
+  const { balance: lendingBalance } = usePLLendingBalance(demoProjectId);
+
+  // Mock stats for demo
+  const stats = {
+    activeJobs: 2,
+    completedJobs: 5,
+    pendingApplications: 1,
+  };
+
+  // Mock data for demo
+  const freelancerProjects: any[] = [];
+  const assignedRoles: any[] = [];
+
+  // Mock earnings data for demo
+  const mockEarnings: EarningWithYield[] = [
+    {
+      projectId: BigInt(1),
+      projectTitle: 'DeFi Yield Farming Platform',
+      totalBudget: BigInt(5000_000000), // 5000 IDRX (6 decimals)
+      currency: 'IDRX',
+      status: 1,
+      baseEarnings: BigInt(1500_000000),
+      yieldEarnings: BigInt(48_750000),
+      yieldRate: 3.25,
+      isWithdrawable: true,
+      yieldStatus: 'generating',
+    },
+    {
+      projectId: BigInt(2),
+      projectTitle: 'NFT Marketplace Smart Contracts',
+      totalBudget: BigInt(8000_000000),
+      currency: 'IDRX',
+      status: 1,
+      baseEarnings: BigInt(3200_000000),
+      yieldEarnings: BigInt(-160_000000),
+      yieldRate: -5.0,
+      isWithdrawable: false,
+      yieldStatus: 'generating',
+    },
+  ];
 
   // Memoized toggle callback
   const toggleActivity = useCallback(() => {
@@ -276,16 +229,16 @@ export default function FLDashboard() {
 
   // Memoized calculations - only recalculate when liveYields changes
   const earningsCalculations = useMemo(() => {
-    const totalBaseEarnings = mockEarnings.reduce((sum, e) => sum + e.baseEarnings, 0);
+    const totalBaseEarnings = mockEarnings.reduce((sum, e) => sum + e.baseEarnings, BigInt(0));
     const totalYieldEarnings = mockEarnings.reduce((sum, e) => {
-      if (e.status === 'in-progress') {
-        const liveRate = liveYields[e.projectId] || e.yieldRate;
-        return sum + (e.baseEarnings * liveRate / 100);
+      if (e.status === 1) { // 'in-progress' is status 1 (Assigned)
+        const liveRate = liveYields[String(e.projectId)] || e.yieldRate;
+        return sum + (e.baseEarnings * BigInt(Math.round(liveRate * 100)) / BigInt(10000));
       }
       return sum + e.yieldEarnings;
-    }, 0);
+    }, BigInt(0));
     const totalEarnings = totalBaseEarnings + totalYieldEarnings;
-    const avgYieldRate = totalBaseEarnings > 0 ? (totalYieldEarnings / totalBaseEarnings) * 100 : 0;
+    const avgYieldRate = totalBaseEarnings > BigInt(0) ? Number((totalYieldEarnings * BigInt(10000)) / totalBaseEarnings) / 100 : 0;
 
     return { totalBaseEarnings, totalYieldEarnings, totalEarnings, avgYieldRate };
   }, [liveYields]);
@@ -374,7 +327,7 @@ export default function FLDashboard() {
                 <>
                   {/* Legacy projects */}
                   {freelancerProjects.map((project) => {
-                    const completedMilestones = project.milestones.filter(m => m.status === 'completed' || m.status === 'approved').length;
+                    const completedMilestones = project.milestones.filter((m: any) => m.status === 'completed' || m.status === 'approved').length;
                     const progressPercentage = (completedMilestones / project.milestones.length) * 100;
 
                     return (
@@ -395,7 +348,7 @@ export default function FLDashboard() {
 
                         {/* Milestones */}
                         <div className="p-3 bg-white space-y-2">
-                          {project.milestones.map((milestone, index) => (
+                          {project.milestones.map((milestone: any, index: number) => (
                             <MilestoneItem key={milestone.id} milestone={milestone} index={index} />
                           ))}
                         </div>
@@ -405,7 +358,7 @@ export default function FLDashboard() {
 
                   {/* PO Projects where user is assigned */}
                   {assignedRoles.map(({ project, role }) => {
-                    const completedKPIs = role.kpis.filter(k => k.status === 'completed' || k.status === 'approved').length;
+                    const completedKPIs = role.kpis.filter((k: any) => k.status === 'completed' || k.status === 'approved').length;
                     const totalKPIs = role.kpis.length;
                     const progress = totalKPIs > 0 ? (completedKPIs / totalKPIs) * 100 : 0;
 
@@ -427,7 +380,7 @@ export default function FLDashboard() {
 
                         {/* KPIs */}
                         <div className="p-3 bg-white space-y-2">
-                          {role.kpis.map((kpi, index) => (
+                          {role.kpis.map((kpi: any, index: number) => (
                             <MilestoneItem key={kpi.id} milestone={kpi} index={index} />
                           ))}
                         </div>
@@ -471,7 +424,7 @@ export default function FLDashboard() {
             <div className="bg-blue-50 rounded-lg p-2 text-center">
               <p className="text-[8px] text-blue-600 truncate">In LP (10%)</p>
               <p className="text-[10px] font-bold text-blue-700 truncate">
-                <CurrencyDisplay amount={formatCurrency(earningsCalculations.totalBaseEarnings * 0.1, 'IDRX')} currency="IDRX" className="text-[9px]" />
+                <CurrencyDisplay amount={formatCurrency(earningsCalculations.totalBaseEarnings * BigInt(10) / BigInt(100), 'IDRX')} currency="IDRX" className="text-[9px]" />
               </p>
             </div>
             <div className={`rounded-lg p-2 text-center ${earningsCalculations.avgYieldRate >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
@@ -501,7 +454,7 @@ export default function FLDashboard() {
                 <EarningCard
                   key={earning.projectId}
                   earning={earning}
-                  liveRate={earning.status === 'in-progress' ? (liveYields[earning.projectId] || earning.yieldRate) : earning.yieldRate}
+                  liveRate={earning.status === 1 ? (liveYields[String(earning.projectId)] || earning.yieldRate) : earning.yieldRate}
                 />
               ))}
             </div>
@@ -546,7 +499,7 @@ export default function FLDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Legacy projects */}
             {freelancerProjects.map((project) => {
-              const completedMilestones = project.milestones.filter(m => m.status === 'completed' || m.status === 'approved').length;
+              const completedMilestones = project.milestones.filter((m: any) => m.status === 'completed' || m.status === 'approved').length;
               const progressPercentage = (completedMilestones / project.milestones.length) * 100;
 
               return (
@@ -598,7 +551,7 @@ export default function FLDashboard() {
 
             {/* PO Projects where user is assigned */}
             {assignedRoles.map(({ project, role }) => {
-              const completedKPIs = role.kpis.filter(k => k.status === 'completed' || k.status === 'approved').length;
+              const completedKPIs = role.kpis.filter((k: any) => k.status === 'completed' || k.status === 'approved').length;
               const totalKPIs = role.kpis.length;
               const progress = totalKPIs > 0 ? (completedKPIs / totalKPIs) * 100 : 0;
 

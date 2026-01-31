@@ -39,7 +39,7 @@ interface POMilestoneActionsProps {
  * Milestone actions component for Project Owner
  */
 export function POMilestoneActions({ projectId, milestoneIndex, onAccepted, onDeposited }: POMilestoneActionsProps) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const [showAcceptModal, setShowAcceptModal] = useState(false);
 
   const { milestone, isLoading: isMilestoneLoading } = usePLMilestone(projectId, milestoneIndex);
@@ -47,19 +47,22 @@ export function POMilestoneActions({ projectId, milestoneIndex, onAccepted, onDe
   const { penalty, isLoading: isPenaltyLoading } = usePLMilestonePenalty(projectId, milestoneIndex);
   const { project } = usePLProject(projectId);
 
+  // Cast amounts to array type for easier access
+  const amountsArray = amounts as readonly [bigint, bigint, bigint, bigint] | undefined;
+
   const { accept, isPending: isAcceptPending, error: acceptError, hash: acceptHash, isSuccess: isAcceptSuccess } = usePLAcceptMilestone();
 
   // Handle accept milestone
   const handleAccept = async () => {
     try {
-      const hash = await accept({ projectId, milestoneIndex });
+      const hash = await accept(projectId, milestoneIndex);
       if (hash) {
-        showTransactionPending(hash, 'Accept Milestone');
+        showTransactionPending(hash, 'Accept Milestone', chain?.id || 84532);
         setShowAcceptModal(false);
         onAccepted?.();
       }
     } catch (error) {
-      showTransactionError('0x0', error, 'Failed to accept milestone');
+      showTransactionError('0x0', error as Error, 'Failed to accept milestone');
     }
   };
 
@@ -75,15 +78,16 @@ export function POMilestoneActions({ projectId, milestoneIndex, onAccepted, onDe
     return <p className="text-sm text-slate-500">Milestone not found</p>;
   }
 
-  const isSubmitted = milestone.submissionTime > 0;
-  const isAccepted = milestone.accepted;
-  const isReleased = milestone.released;
+  const isSubmitted = (milestone as any)?.submissionTime > BigInt(0);
+  const isAccepted = (milestone as any)?.accepted;
+  const isReleased = (milestone as any)?.released;
 
   // Calculate penalty percentage
-  const penaltyPercent = penalty ? Number(penalty) / 100 : 0;
+  const penaltyPercent: number = penalty ? Number(penalty as bigint) / 100 : 0;
 
   // Check if user is the project creator
-  const isCreator = project && address && project[0].toLowerCase() === address.toLowerCase();
+  const projectArray = project as any[] | undefined;
+  const isCreator = projectArray && address && projectArray[0].toLowerCase() === address.toLowerCase();
 
   return (
     <div className="space-y-3">
@@ -152,36 +156,36 @@ export function POMilestoneActions({ projectId, milestoneIndex, onAccepted, onDe
             )}
 
             {/* Withdrawal Breakdown */}
-            {amounts && (
+            {amountsArray && (
               <div className="p-3 bg-slate-50 rounded-lg space-y-2">
                 <p className="text-sm font-semibold text-slate-900">Freelancer will receive:</p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-slate-600">Vault:</span>
                     <span className="ml-1 font-semibold text-slate-900">
-                      {formatCurrency(Number(amounts[0] || 0) / 1e6, 'IDRX')}
+                      {formatCurrency(Number(amountsArray[0] || BigInt(0)) / 1e6, 'IDRX')}
                     </span>
                   </div>
-                  {amounts[1] > 0 && (
+                  {amountsArray[1] > BigInt(0) && (
                     <div>
                       <span className="text-slate-600">Creator Yield:</span>
                       <span className="ml-1 font-semibold text-emerald-700">
-                        {formatCurrency(Number(amounts[1]) / 1e6, 'IDRX')}
+                        {formatCurrency(Number(amountsArray[1]) / 1e6, 'IDRX')}
                       </span>
                     </div>
                   )}
-                  {amounts[2] > 0 && (
+                  {amountsArray[2] > BigInt(0) && (
                     <div>
                       <span className="text-slate-600">Platform Fee:</span>
                       <span className="ml-1 font-semibold text-slate-700">
-                        {formatCurrency(Number(amounts[2]) / 1e6, 'IDRX')}
+                        {formatCurrency(Number(amountsArray[2]) / 1e6, 'IDRX')}
                       </span>
                     </div>
                   )}
                   <div>
                     <span className="text-slate-600">FL Yield:</span>
                     <span className="ml-1 font-semibold text-emerald-700">
-                      {formatCurrency(Number(amounts[3] || 0) / 1e6, 'IDRX')}
+                      {formatCurrency(Number(amountsArray[3] || BigInt(0)) / 1e6, 'IDRX')}
                     </span>
                   </div>
                 </div>
@@ -221,7 +225,7 @@ interface AcceptFreelancerProps {
 }
 
 export function AcceptFreelancer({ projectId, onAccepted }: AcceptFreelancerProps) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [selectedFreelancer, setSelectedFreelancer] = useState<Address | null>(null);
 
@@ -230,20 +234,21 @@ export function AcceptFreelancer({ projectId, onAccepted }: AcceptFreelancerProp
   const { accept, isPending, error, hash, isSuccess } = usePLAcceptFreelancer();
 
   // Check if user is the project creator
-  const isCreator = project && address && project[0].toLowerCase() === address.toLowerCase();
-  const hasFreelancer = project && project[1] !== address && project[1] !== '0x0000000000000000000000000000000000000000';
+  const projectArray = project as any[] | undefined;
+  const isCreator = projectArray && address && projectArray[0].toLowerCase() === address.toLowerCase();
+  const hasFreelancer = projectArray && projectArray[1] !== address && projectArray[1] !== '0x0000000000000000000000000000000000000000';
 
   const handleAccept = async () => {
     if (!selectedFreelancer) return;
     try {
-      const hash = await accept({ projectId, freelancer: selectedFreelancer });
+      const hash = await accept(projectId, selectedFreelancer);
       if (hash) {
-        showTransactionPending(hash, 'Accept Freelancer');
+        showTransactionPending(hash, 'Accept Freelancer', chain?.id || 84532);
         setShowAcceptModal(false);
         onAccepted?.();
       }
     } catch (error) {
-      showTransactionError('0x0', error, 'Failed to accept freelancer');
+      showTransactionError('0x0', error as Error, 'Failed to accept freelancer');
     }
   };
 
@@ -263,7 +268,7 @@ export function AcceptFreelancer({ projectId, onAccepted }: AcceptFreelancerProp
     return (
       <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
         <p className="text-xs text-emerald-800">
-          Freelancer assigned: {project?.[1]?.slice(0, 6)}...{project?.[1]?.slice(-4)}
+          Freelancer assigned: {projectArray?.[1]?.slice(0, 6)}...{projectArray?.[1]?.slice(-4)}
         </p>
       </div>
     );
@@ -349,7 +354,7 @@ interface DepositFundsProps {
 }
 
 export function DepositFunds({ projectId, onDeposited }: DepositFundsProps) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const [amount, setAmount] = useState('');
   const [showDepositModal, setShowDepositModal] = useState(false);
 
@@ -357,21 +362,22 @@ export function DepositFunds({ projectId, onDeposited }: DepositFundsProps) {
   const { deposit, isPending, error, hash, isSuccess } = usePLDepositFunds();
 
   // Check if user is the project creator
-  const isCreator = project && address && project[0].toLowerCase() === address.toLowerCase();
+  const projectArray = project as any[] | undefined;
+  const isCreator = projectArray && address && projectArray[0].toLowerCase() === address.toLowerCase();
 
   const handleDeposit = async () => {
     if (!amount) return;
     try {
       const amountBigInt = BigInt(Math.floor(parseFloat(amount) * 1e6)); // Convert to 6 decimals
-      const hash = await deposit({ projectId, amount: amountBigInt });
+      const hash = await deposit(projectId, amountBigInt);
       if (hash) {
-        showTransactionPending(hash, 'Deposit Funds');
+        showTransactionPending(hash, 'Deposit Funds', chain?.id || 84532);
         setShowDepositModal(false);
         setAmount('');
         onDeposited?.();
       }
     } catch (error) {
-      showTransactionError('0x0', error, 'Failed to deposit funds');
+      showTransactionError('0x0', error as Error, 'Failed to deposit funds');
     }
   };
 

@@ -235,11 +235,11 @@ export function calculateYieldPercentage(
   lendingAmount: bigint,
   currentLendingBalance: bigint
 ): number {
-  if (lendingAmount === 0n) return 0;
+  if (lendingAmount === BigInt(0)) return 0;
   if (currentLendingBalance <= lendingAmount) return 0;
 
   const yieldAmount = currentLendingBalance - lendingAmount;
-  return Number((yieldAmount * 10000n) / lendingAmount) / 100; // Basis points to percentage
+  return Number((yieldAmount * BigInt(10000)) / lendingAmount) / 100; // Basis points to percentage
 }
 
 // ============================================================================

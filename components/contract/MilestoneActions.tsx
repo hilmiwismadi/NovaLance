@@ -16,6 +16,7 @@ import {
   usePLMilestone,
   usePLWithdrawalAmounts,
   usePLMilestonePenalty,
+  usePLAllMilestones,
 } from '@/lib/hooks';
 import Button from '@/components/ui/Button';
 import { formatCurrency } from '@/lib/mockData';
@@ -32,7 +33,7 @@ interface MilestoneActionsProps {
  * Milestone actions component for freelancer
  */
 export function MilestoneActions({ projectId, milestoneIndex, onSubmitted, onWithdrawn }: MilestoneActionsProps) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const { milestone, isLoading: isMilestoneLoading } = usePLMilestone(projectId, milestoneIndex);
@@ -45,27 +46,27 @@ export function MilestoneActions({ projectId, milestoneIndex, onSubmitted, onWit
   // Handle submit milestone
   const handleSubmit = async () => {
     try {
-      const hash = await submit({ projectId, milestoneIndex });
+      const hash = await submit(projectId, milestoneIndex);
       if (hash) {
-        showTransactionPending(hash, 'Submit Milestone');
+        showTransactionPending(hash, 'Submit Milestone', chain?.id || 84532);
         onSubmitted?.();
       }
     } catch (error) {
-      showTransactionError('0x0', error, 'Failed to submit milestone');
+      showTransactionError('0x0', error as Error, 'Failed to submit milestone');
     }
   };
 
   // Handle withdraw milestone
   const handleWithdraw = async () => {
     try {
-      const hash = await withdraw({ projectId, milestoneIndex });
+      const hash = await withdraw(projectId, milestoneIndex);
       if (hash) {
-        showTransactionPending(hash, 'Withdraw Milestone Earnings');
+        showTransactionPending(hash, 'Withdraw Milestone Earnings', chain?.id || 84532);
         setShowConfirmModal(false);
         onWithdrawn?.();
       }
     } catch (error) {
-      showTransactionError('0x0', error, 'Failed to withdraw milestone');
+      showTransactionError('0x0', error as Error, 'Failed to withdraw milestone');
     }
   };
 
@@ -81,12 +82,12 @@ export function MilestoneActions({ projectId, milestoneIndex, onSubmitted, onWit
     return <p className="text-sm text-slate-500">Milestone not found</p>;
   }
 
-  const isSubmitted = milestone.submissionTime > 0;
-  const isAccepted = milestone.accepted;
-  const isReleased = milestone.released;
+  const isSubmitted = (milestone as any)?.submissionTime > 0;
+  const isAccepted = (milestone as any)?.accepted;
+  const isReleased = (milestone as any)?.released;
 
   // Calculate penalty percentage
-  const penaltyPercent = penalty ? Number(penalty) / 100 : 0;
+  const penaltyPercent: number = penalty ? Number(penalty) / 100 : 0;
 
   return (
     <div className="space-y-3">
@@ -136,29 +137,29 @@ export function MilestoneActions({ projectId, milestoneIndex, onSubmitted, onWit
                 <div>
                   <span className="text-slate-600">Vault Amount:</span>
                   <span className="ml-1 font-semibold text-slate-900">
-                    {formatCurrency(Number(amounts[0] || 0) / 1e6, 'IDRX')}
+                    {formatCurrency(Number((amounts as any[])?.[0] || 0) / 1e6, 'IDRX')}
                   </span>
                 </div>
-                {amounts[1] > 0 && (
+                {(amounts as any[])?.[1] > 0 && (
                   <div>
                     <span className="text-slate-600">Creator Yield:</span>
                     <span className="ml-1 font-semibold text-emerald-700">
-                      {formatCurrency(Number(amounts[1]) / 1e6, 'IDRX')}
+                      {formatCurrency(Number((amounts as any[])?.[1]) / 1e6, 'IDRX')}
                     </span>
                   </div>
                 )}
-                {amounts[2] > 0 && (
+                {(amounts as any[])?.[2] > 0 && (
                   <div>
                     <span className="text-slate-600">Platform Fee:</span>
                     <span className="ml-1 font-semibold text-slate-700">
-                      {formatCurrency(Number(amounts[2]) / 1e6, 'IDRX')}
+                      {formatCurrency(Number((amounts as any[])?.[2]) / 1e6, 'IDRX')}
                     </span>
                   </div>
                 )}
                 <div>
                   <span className="text-slate-600">FL Yield:</span>
                   <span className="ml-1 font-semibold text-emerald-700">
-                    {formatCurrency(Number(amounts[3] || 0) / 1e6, 'IDRX')}
+                    {formatCurrency(Number((amounts as any[])?.[3] || 0) / 1e6, 'IDRX')}
                   </span>
                 </div>
               </div>
@@ -190,14 +191,14 @@ export function MilestoneActions({ projectId, milestoneIndex, onSubmitted, onWit
             <p className="text-sm text-slate-600">
               By confirming, you will withdraw your milestone earnings. This action cannot be undone.
             </p>
-            {amounts && (
+            {(amounts as any[] | undefined) && (
               <div className="p-3 bg-slate-50 rounded-lg space-y-1">
                 <p className="text-sm font-semibold text-slate-900">You will receive:</p>
                 <p className="text-xs text-slate-700">
-                  Vault: {formatCurrency(Number(amounts[0] || 0) / 1e6, 'IDRX')} IDRX
+                  Vault: {formatCurrency(Number((amounts as any[])?.[0] || 0) / 1e6, 'IDRX')} IDRX
                 </p>
                 <p className="text-xs text-emerald-700">
-                  Yield: {formatCurrency(Number(amounts[3] || 0) / 1e6, 'IDRX')} IDRX
+                  Yield: {formatCurrency(Number((amounts as any[])?.[3] || 0) / 1e6, 'IDRX')} IDRX
                 </p>
               </div>
             )}
@@ -244,13 +245,13 @@ export function MilestoneList({ projectId, onAction }: MilestoneListProps) {
     );
   }
 
-  if (!milestones || milestones.length === 0) {
+  if (!milestones || (milestones as any[]).length === 0) {
     return <p className="text-center text-slate-500 py-4">No milestones found</p>;
   }
 
   return (
     <div className="space-y-3">
-      {milestones.map((m, index) => {
+      {(milestones as any[]).map((m: any, index: number) => {
         const milestoneIndex = BigInt(index);
         const isLast = m.isLastMilestone;
         const percentage = Number(m.percentage) / 100;

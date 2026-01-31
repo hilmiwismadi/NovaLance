@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAccount } from 'wagmi';
+import { decodeEventLog, type Log, type Address } from 'viem';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -13,6 +14,7 @@ import {
   // ProjectLance hooks
   usePLCreateProject,
 } from '@/lib/hooks';
+import { PROJECTLANCE_ABI } from '@/lib/abi';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -303,7 +305,10 @@ export default function CreateProjectPage() {
 
   // Smart contract hooks - Use ProjectLance for milestone-based projects
   const { createProject: createPLProject, isPending: isPLPending, error: plError, hash: plHash, isSuccess: isPLSuccess } = usePLCreateProject();
-  const { isLoading: isPLConfirming, isSuccess: isPLConfirmed } = useTransactionWait(plHash ?? undefined);
+  const { isLoading: isPLConfirming, isSuccess: isPLConfirmed, receipt: plReceipt } = useTransactionWait(plHash ?? undefined);
+
+  // State for the created project ID
+  const [createdProjectId, setCreatedProjectId] = useState<bigint | null>(null);
 
   // Legacy hooks for KPI-based projects
   const { createProject, isPending, error, hash, isSuccess } = useCreateProject();
@@ -534,16 +539,47 @@ export default function CreateProjectPage() {
     }
   }, [isPLSuccess, plHash, chain]);
 
-  // Handle ProjectLance transaction confirmation
+  // Handle ProjectLance transaction confirmation - extract projectId from logs
   useEffect(() => {
-    if (isPLConfirmed && plHash) {
-      showTransactionSuccess(plHash, 'Project created successfully!');
-      // Navigate to projects list after a short delay
-      setTimeout(() => {
-        router.push('/PO/projects');
-      }, 1500);
+    if (isPLConfirmed && plReceipt) {
+      // Extract projectId from ProjectCreated event
+      let projectId: bigint | undefined;
+
+      for (const log of plReceipt.logs) {
+        try {
+          const decoded = decodeEventLog({
+            abi: PROJECTLANCE_ABI,
+            data: log.data,
+            topics: log.topics,
+          });
+
+          if (decoded.eventName === 'ProjectCreated' && decoded.args) {
+            // args is readonly unknown[], access by index (projectId is first indexed arg)
+            projectId = decoded.args[0] as bigint;
+            break;
+          }
+        } catch {
+          // Skip logs that don't match the expected event format
+          continue;
+        }
+      }
+
+      if (projectId !== undefined) {
+        setCreatedProjectId(projectId);
+        showTransactionSuccess(plHash || '0x0', 'Project created successfully!');
+        // Navigate to the newly created project detail page
+        setTimeout(() => {
+          router.push(`/PO/projects/${projectId}`);
+        }, 1500);
+      } else {
+        // Fallback: If we can't extract projectId from logs, navigate to projects list
+        showTransactionSuccess(plHash || '0x0', 'Project created successfully!');
+        setTimeout(() => {
+          router.push('/PO/projects');
+        }, 1500);
+      }
     }
-  }, [isPLConfirmed, plHash, router]);
+  }, [isPLConfirmed, plReceipt, plHash, router]);
 
   // Handle ProjectLance transaction error
   useEffect(() => {

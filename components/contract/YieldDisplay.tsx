@@ -18,6 +18,7 @@ import {
   usePLLendingBalance,
 } from '@/lib/hooks';
 import { formatCurrency } from '@/lib/mockData';
+import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 
 interface YieldDisplayProps {
   projectId?: bigint;
@@ -141,7 +142,7 @@ function CardYieldDisplay({
   // Calculate yield amount
   const yieldAmount = lendingAmount && lendingPrincipal
     ? (lendingAmount - lendingPrincipal)
-    : 0n;
+    : BigInt(0);
 
   return (
     <div className="space-y-3">
@@ -210,7 +211,7 @@ function DetailedYieldDisplay({
   const { vaultAmount, lendingAmount, lendingPrincipal, yieldPercentage, totalValue } = yieldData;
 
   // Get milestone data for progress calculation
-  const milestoneData = milestones.milestones || [];
+  const milestoneData = (milestones.milestones as any[]) || [];
   const completedMilestones = milestoneData.filter((m: any) => m.released).length;
   const totalMilestones = milestoneData.length;
   const progress = totalMilestones > 0 ? (completedMilestones / totalMilestones) * 100 : 0;
@@ -310,10 +311,10 @@ function DetailedYieldDisplay({
 export function useMultiProjectYield(projectIds: bigint[]) {
   const yieldDataArray = projectIds.map(id => usePLYield(id));
 
-  const totalVault = yieldDataArray.reduce((sum, data) => sum + (data.vaultAmount || 0n), 0n);
-  const totalLending = yieldDataArray.reduce((sum, data) => sum + (data.lendingAmount || 0n), 0n);
-  const totalLendingPrincipal = yieldDataArray.reduce((sum, data) => sum + (data.lendingPrincipal || 0n), 0n);
-  const totalValue = yieldDataArray.reduce((sum, data) => sum + (data.totalValue || 0n), 0n);
+  const totalVault = yieldDataArray.reduce((sum, data) => sum + (data.vaultAmount || BigInt(0)), BigInt(0));
+  const totalLending = yieldDataArray.reduce((sum, data) => sum + (data.lendingAmount || BigInt(0)), BigInt(0));
+  const totalLendingPrincipal = yieldDataArray.reduce((sum, data) => sum + (data.lendingPrincipal || BigInt(0)), BigInt(0));
+  const totalValue = yieldDataArray.reduce((sum, data) => sum + (data.totalValue || BigInt(0)), BigInt(0));
 
   // Calculate weighted average yield percentage
   let totalYieldRate = 0;

@@ -1360,24 +1360,25 @@ export function usePLYield(projectId: bigint) {
   // Calculate yield percentage
   const yieldPercentage = useMemo(() => {
     if (!project.project || !lendingBalance.balance) return 0;
-    const lendingAmount = project.project[5] as bigint; // lendingAmount
-    if (lendingAmount === 0n) return 0;
+    const projectArray = project.project as any[];
+    const lendingAmount = projectArray[5] as bigint; // lendingAmount
+    if (lendingAmount === BigInt(0)) return 0;
     if (lendingBalance.balance <= lendingAmount) return 0;
     const yieldAmount = lendingBalance.balance - lendingAmount;
-    return Number((yieldAmount * 10000n) / lendingAmount) / 100; // Basis points to percentage
+    return Number((yieldAmount * BigInt(10000)) / lendingAmount) / 100; // Basis points to percentage
   }, [project.project, lendingBalance.balance]);
 
   // Calculate total value
   const totalValue = useMemo(() => {
-    const vault = vaultBalance.balance || 0n;
-    const lending = lendingBalance.balance || 0n;
+    const vault = vaultBalance.balance || BigInt(0);
+    const lending = lendingBalance.balance || BigInt(0);
     return vault + lending;
   }, [vaultBalance.balance, lendingBalance.balance]);
 
   return {
     vaultAmount: vaultBalance.balance,
     lendingAmount: lendingBalance.balance,
-    lendingPrincipal: project.project?.[5] as bigint | undefined,
+    lendingPrincipal: (project.project as any[])?.[5] as bigint | undefined,
     yieldPercentage,
     totalValue,
     isLoading: vaultBalance.isLoading || lendingBalance.isLoading,
