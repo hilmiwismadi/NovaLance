@@ -14,7 +14,10 @@ import {
   usePLLendingBalance,
   useIDRXBalance,
   useTransactionWait,
+  useTokenApproval,
 } from '@/lib/hooks';
+import { getContractAddresses, getTokenAddresses } from '@/lib/contract';
+import { Address } from 'viem';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -22,7 +25,7 @@ import {
   showInfo,
   showError,
 } from '@/lib/transactions';
-import { formatCurrency } from '@/lib/contract';
+import { formatCurrency, parseTokenAmount, formatTokenAmount } from '@/lib/contract';
 
 export default function FundProjectPage() {
   const params = useParams();
@@ -31,9 +34,14 @@ export default function FundProjectPage() {
   const [mounted, setMounted] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [useMaxBalance, setUseMaxBalance] = useState(false);
+  const [pendingDepositAmount, setPendingDepositAmount] = useState<bigint | null>(null);
 
   const projectId = params.id as string;
   const projectLanceId = BigInt(parseInt(projectId) || 0);
+
+  // Get token addresses
+  const idrxTokenAddress = chain ? getTokenAddresses(chain.id).IDRX : undefined;
+  const projectLanceAddress = chain ? getContractAddresses(chain.id).projectLance : undefined;
 
   // Project data
   const { project, isLoading: isProjectLoading, refetch: refetchProject } = usePLProject(projectLanceId);
@@ -41,13 +49,48 @@ export default function FundProjectPage() {
   const { balance: lendingBalance } = usePLLendingBalance(projectLanceId);
   const { balance: walletBalance, formatted: walletBalanceFormatted } = useIDRXBalance(address);
 
+  // Token approval hook
+  const {
+    allowance,
+    isApproved,
+    isLoading: allowanceLoading,
+    refetch: refetchAllowance,
+    approve,
+    isApproving,
+    approveHash,
+    approveIsSuccess,
+  } = useTokenApproval(idrxTokenAddress!, projectLanceAddress!, address);
+
   // Deposit hook
   const { deposit, isPending, error, hash, isSuccess } = usePLDepositFunds();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
+  const { isLoading: isApproveConfirming, isSuccess: isApproveConfirmed } = useTransactionWait(approveHash ?? undefined);
 
   useEffect(() => {
     setMounted(true);
   }, [projectId]);
+
+  // Refetch allowance after approval is confirmed and auto-deposit if pending
+  useEffect(() => {
+    if (isApproveConfirmed && approveHash) {
+      showTransactionSuccess(approveHash, 'Token approved! Depositing funds...');
+      refetchAllowance();
+
+      // Auto-trigger deposit if there's a pending amount
+      if (pendingDepositAmount) {
+        setTimeout(async () => {
+          try {
+            await deposit(projectLanceId, pendingDepositAmount);
+            setPendingDepositAmount(null);
+          } catch (err) {
+            const error = err as Error;
+            showError('Deposit Failed', error.message);
+            setPendingDepositAmount(null);
+          }
+        }, 500);
+      }
+    }
+  }, [isApproveConfirmed, approveHash, refetchAllowance, pendingDepositAmount, projectLanceId]);
 
   // Handle deposit success
   useEffect(() => {
@@ -61,9 +104,8 @@ export default function FundProjectPage() {
     if (isConfirmed && hash) {
       showTransactionSuccess(hash, 'Funds deposited successfully!');
       refetchProject();
-      setTimeout(() => {
-        router.push(`/PO/projects/${projectId}`);
-      }, 2000);
+      // Navigate immediately after showing success
+      router.push(`/PO/projects/${projectId}`);
     }
   }, [isConfirmed, hash, router, projectId, refetchProject]);
 
@@ -79,7 +121,8 @@ export default function FundProjectPage() {
     if (useMaxBalance && walletBalance !== undefined) {
       // Keep 1 IDRX for gas fees
       const maxAmount = walletBalance > BigInt(1e18) ? walletBalance - BigInt(1e18) : walletBalance;
-      setDepositAmount(maxAmount.toString());
+      // Format to human-readable amount (e.g., "1000" instead of "1000000000000000000000")
+      setDepositAmount(formatTokenAmount(maxAmount, 'IDRX'));
     }
   }, [useMaxBalance, walletBalance]);
 
@@ -96,7 +139,8 @@ export default function FundProjectPage() {
       return;
     }
 
-    const amount = BigInt(depositAmount || 0);
+    // Parse the deposit amount with correct decimals (18 for IDRX)
+    const amount = parseTokenAmount(depositAmount || '0', 'IDRX');
     if (amount <= 0) {
       showError('Invalid Amount', 'Please enter a valid amount');
       return;
@@ -108,11 +152,21 @@ export default function FundProjectPage() {
     }
 
     try {
+      // Check if we need to approve tokens first
+      if (!isApproved || (allowance !== undefined && allowance < amount)) {
+        showInfo('Approving Tokens', 'Please approve IDRX spending in your wallet...');
+        setPendingDepositAmount(amount);
+        await approve(amount);
+        // Deposit will auto-trigger after approval is confirmed
+        return;
+      }
+
       showInfo('Depositing Funds', 'Please confirm the transaction in your wallet...');
       await deposit(projectLanceId, amount);
     } catch (err) {
       const error = err as Error;
-      showError('Failed to Deposit', error.message);
+      showError('Transaction Failed', error.message);
+      setPendingDepositAmount(null);
     }
   };
 
@@ -163,7 +217,7 @@ export default function FundProjectPage() {
             <div>
               <p className="text-sm text-slate-500">Your IDRX Balance</p>
               <p className="text-2xl font-bold text-slate-900 mt-1">
-                {walletBalance !== undefined ? formatCurrency(walletBalance, 'IDRX') : '...'}
+                {walletBalanceFormatted !== '0' ? new Intl.NumberFormat('id-ID').format(parseFloat(walletBalanceFormatted)) : '...'}
               </p>
             </div>
             <button
@@ -192,7 +246,7 @@ export default function FundProjectPage() {
                 required
               />
               <p className="text-xs text-slate-500 mt-1">
-                Available: {walletBalance !== undefined ? formatCurrency(walletBalance, 'IDRX') : '...'} IDRX
+                Available: {walletBalanceFormatted !== '0' ? new Intl.NumberFormat('id-ID').format(parseFloat(walletBalanceFormatted)) : '...'} IDRX
               </p>
             </div>
 
@@ -216,7 +270,7 @@ export default function FundProjectPage() {
                 </div>
                 <div className="border-t border-slate-200 pt-2 mt-2">
                   <p className="text-xs text-slate-500">
-                    Total: <span className="font-semibold text-slate-900">{formatCurrency(BigInt(depositAmount || 0), 'IDRX')}</span>
+                    Total: <span className="font-semibold text-slate-900">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(depositAmount || 0))} IDRX</span>
                   </p>
                 </div>
               </div>
@@ -228,13 +282,20 @@ export default function FundProjectPage() {
                 type="submit"
                 variant="primary"
                 className="w-full h-12 text-base font-semibold"
-                disabled={isPending || isConfirming}
+                disabled={isPending || isConfirming || isApproving || isApproveConfirming}
               >
-                {isPending || isConfirming ? (
+                {isApproving || isApproveConfirming ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    Approving...
+                  </span>
+                ) : isPending || isConfirming ? (
                   <span className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                     Depositing...
                   </span>
+                ) : !isApproved ? (
+                  'Approve & Deposit'
                 ) : (
                   'Deposit Funds'
                 )}
@@ -244,7 +305,7 @@ export default function FundProjectPage() {
                 variant="ghost"
                 onClick={() => router.push(`/PO/projects/${projectId}`)}
                 className="w-full h-11 text-sm"
-                disabled={isPending || isConfirming}
+                disabled={isPending || isConfirming || isApproving || isApproveConfirming}
               >
                 Skip for Now
               </Button>
