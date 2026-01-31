@@ -31,10 +31,21 @@ function usePOProjects(maxProjects: number = 20) {
   const [isLoading, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
 
+  console.log('[PO Dashboard] usePOProjects hook called', { address, chainId: chain?.id, maxProjects, isLoading });
+
   useEffect(() => {
+    console.log('\n-------- PO DASHBOARD USEEFFECT (FETCH PROJECTS) --------');
+    console.log('[PO Dashboard] address:', address);
+    console.log('[PO Dashboard] chainId:', chain?.id);
+    console.log('[PO Dashboard] maxProjects:', maxProjects);
+    console.log('[PO Dashboard] Current URL:', typeof window !== 'undefined' ? window.location.href : 'SSR');
+    console.log('[PO Dashboard] hasLoaded:', hasLoaded);
+    console.log('----------------------------------------------------------\n');
+
     if (!address || !chain || hasLoaded) return; // Only load once
 
     const fetchProjects = async () => {
+      console.log('\n[PO Dashboard] >>> FETCHING PROJECTS START <<<\n');
       setIsLoading(true);
       try {
         const { getContractAddresses } = await import('@/lib/contract-adapter');
@@ -93,6 +104,8 @@ function usePOProjects(maxProjects: number = 20) {
         }
 
         setProjects(userProjects);
+        console.log('\n[PO Dashboard] >>> FETCHING PROJECTS COMPLETE <<<\n');
+        console.log('[PO Dashboard] Found', userProjects.length, 'user projects\n');
       } catch (error) {
         console.error('Failed to load projects:', error);
         setProjects([]);
@@ -103,7 +116,7 @@ function usePOProjects(maxProjects: number = 20) {
     };
 
     fetchProjects();
-  }, [address, chain, maxProjects]);
+  }, [address, chain?.id, maxProjects, hasLoaded]);
 
   return { projects, isLoading };
 }
@@ -114,12 +127,16 @@ export default function PODashboard() {
   const [yieldExpanded, setYieldExpanded] = useState(false);
 
   useEffect(() => {
+    console.log('\n======== PO DASHBOARD MOUNTED ========');
+    console.log('[PO Dashboard] Component mounted');
+    console.log('[PO Dashboard] Current URL:', typeof window !== 'undefined' ? window.location.href : 'SSR');
+    console.log('========================================\n');
     setMounted(true);
   }, []);
 
   // Smart Contract Data
   const { count: projectCount } = usePLProjectCount();
-  const { projects: userProjects, isLoading: isProjectsLoading } = usePOProjects(50);
+  const { projects: userProjects, isLoading: isProjectsLoading } = usePOProjects(20);
 
   // Active projects (not cancelled or completed)
   const activeProjects = userProjects.filter(p =>

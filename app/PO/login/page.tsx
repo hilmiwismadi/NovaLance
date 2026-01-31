@@ -14,6 +14,7 @@ export default function POLoginPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState('');
+  const [hasRedirected, setHasRedirected] = useState(false);
 
   const { address, isConnected, status } = useAccount();
   const { connect } = useConnect();
@@ -62,9 +63,10 @@ export default function POLoginPage() {
       const verifyStored = typeof window !== 'undefined' ? localStorage.getItem('novalance_jwt') : null;
       console.log('🔍 Verification - Token in localStorage after storage:', !!verifyStored, verifyStored ? verifyStored.substring(0, 30) + '...' : 'NOT FOUND');
 
-      // Store connection state
+      // Store connection state AND auth status
       if (typeof window !== 'undefined') {
         localStorage.setItem('po-wallet-connected', 'true');
+        localStorage.setItem('po-auth', 'true'); // IMPORTANT: This is checked by the layout
         localStorage.setItem('po-wallet-address', walletAddress);
       }
 
@@ -86,15 +88,28 @@ export default function POLoginPage() {
 
   // Watch for connection and trigger authentication
   useEffect(() => {
-    if (isConnected && address && status === 'connected' && !isAuthenticating && !error) {
+    console.log('\n======== LOGIN PAGE USEEFFECT TRIGGERED ========');
+    console.log('[Login Page] isConnected:', isConnected);
+    console.log('[Login Page] address:', address);
+    console.log('[Login Page] hasRedirected:', hasRedirected);
+    console.log('[Login Page] Current URL:', window.location.href);
+    console.log('===================================================\n');
+
+    if (isConnected && address && status === 'connected' && !isAuthenticating && !error && !hasRedirected) {
       // Check if we already have a JWT token
       const hasJwt = typeof window !== 'undefined' ? localStorage.getItem('novalance_jwt') : null;
       if (!hasJwt) {
         console.log('Wallet connected, starting authentication...');
         authenticateWithBackend(address);
+      } else {
+        // Already authenticated, redirect
+        console.log('\n>>> [Login Page] REDIRECTING TO /PO (already authenticated)<<<\n');
+        setHasRedirected(true);
+        router.push('/PO');
       }
     }
-  }, [isConnected, address, status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address, status, isAuthenticating, error, hasRedirected]);
 
   const handleWalletConnect = async () => {
     setIsConnecting(true);
