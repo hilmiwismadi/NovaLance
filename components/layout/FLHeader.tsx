@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useAccount, useDisconnect } from 'wagmi';
 import NotificationBell from './NotificationBell';
 import RoleSwitcher from '@/components/ui/RoleSwitcher';
+import WalletConnectModal from '@/components/auth/WalletConnectModal';
 import { useIDRXBalance } from '@/lib/hooks';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { formatCurrency } from '@/lib/contract';
@@ -60,6 +61,12 @@ export default function FLHeader({ navItems }: FLHeaderProps) {
 
   return (
     <>
+      <WalletConnectModal
+        isOpen={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+        onConnected={handleWalletConnected}
+      />
+
       <header className="sticky top-0 z-40 glass-card border-t-0 border-x-0 rounded-none bg-white/70">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-3">
           <div className="flex items-center justify-between gap-4">
