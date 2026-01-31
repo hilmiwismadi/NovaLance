@@ -415,15 +415,19 @@ export default function CreateProjectPage() {
   };
 
   const removeKPI = (roleIndex: number, kpiIndex: number) => {
-    const role = roles[roleIndex];
-    if (role.kpis.length > 1) {
-      const updated = [...roles];
-      updated[roleIndex] = {
-        ...role,
-        kpis: role.kpis.filter((_, i) => i !== kpiIndex),
-      };
-      setRoles(updated);
+    const updated = [...roles];
+    const role = { ...updated[roleIndex] };
+
+    // Remove the KPI
+    role.kpis = role.kpis.filter((_, i) => i !== kpiIndex);
+
+    // If no KPIs left, add a fresh empty one
+    if (role.kpis.length === 0) {
+      role.kpis = [{ id: `kpi-${Date.now()}`, name: '', percentage: 0, description: '', deadline: '' }];
     }
+
+    updated[roleIndex] = role;
+    setRoles(updated);
   };
 
   const updateKPI = (roleIndex: number, kpiIndex: number, field: keyof KPIInput, value: string | number) => {
@@ -527,9 +531,9 @@ export default function CreateProjectPage() {
       if (projectId !== undefined) {
         setCreatedProjectId(projectId);
         showTransactionSuccess(plHash || '0x0', 'Project created successfully!');
-        // Navigate to the newly created project detail page
+        // Navigate to fund project page
         setTimeout(() => {
-          router.push(`/PO/projects/${projectId}`);
+          router.push(`/PO/projects/${projectId}/fund`);
         }, 1500);
       } else {
         // Fallback: If we can't extract projectId from logs, navigate to projects list
@@ -886,19 +890,18 @@ export default function CreateProjectPage() {
                           <div key={kpi.id} className="border border-slate-200/60 rounded-xl p-3 bg-white/30 backdrop-blur-sm">
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-sm font-semibold text-slate-900">KPI {kpiIndex + 1}</span>
-                              {role.kpis.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeKPI(roleIndex, kpiIndex)}
-                                  className="h-7 w-7 p-0"
-                                >
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </Button>
-                              )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeKPI(roleIndex, kpiIndex)}
+                                className="h-8 px-2 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                title="Remove KPI"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </Button>
                             </div>
 
                             {/* KPI Inputs - Stacked on mobile, 2x2 on tablet+ */}
