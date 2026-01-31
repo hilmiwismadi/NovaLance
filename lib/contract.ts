@@ -356,8 +356,6 @@ export function formatCurrency(amount: bigint, currency: string): string {
   const decimals = getTokenDecimals(currency);
   const formatted = formatUnits(amount, decimals);
 
-  console.log('[formatCurrency] amount:', amount, 'decimals:', decimals, 'formatted:', formatted);
-
   if (currency.toUpperCase() === 'IDRX') {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',

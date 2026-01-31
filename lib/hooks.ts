@@ -1498,29 +1498,18 @@ export function useIDRXBalance(userAddress?: Address): UseIDRXBalanceResult {
   const { chain, address: connectedAddress } = useAccount();
   const targetAddress = userAddress || connectedAddress;
 
-  console.log('[useIDRXBalance] Hook called - chain:', chain, 'targetAddress:', targetAddress);
-
   // Get IDRX token address based on chain
   const tokenAddress = useMemo(() => {
-    console.log('[useIDRXBalance] useMemo - chain:', chain, 'chain.id:', chain?.id);
-    if (!chain) {
-      console.log('[useIDRXBalance] No chain object');
-      return null;
-    }
+    if (!chain) return null;
     try {
-      console.log('[useIDRXBalance] Getting token addresses for chain.id:', chain.id, 'typeof:', typeof chain.id);
       const addresses = getTokenAddresses(chain.id);
-      console.log('[useIDRXBalance] Token addresses:', addresses);
       const idrxAddress = addresses.IDRX;
-      console.log('[useIDRXBalance] Chain ID:', chain.id, 'Token Address:', idrxAddress);
       // Check if it's a zero address (placeholder for baseMainnet)
       if (idrxAddress === '0x0000000000000000000000000000000000000000' as Address) {
-        console.log('[useIDRXBalance] IDRX is zero address, returning null');
         return null;
       }
       return idrxAddress;
-    } catch (e) {
-      console.error('[useIDRXBalance] Error getting token address:', e);
+    } catch {
       return null;
     }
   }, [chain]);
@@ -1536,21 +1525,10 @@ export function useIDRXBalance(userAddress?: Address): UseIDRXBalanceResult {
     },
   });
 
-  // Log results for debugging
-  useEffect(() => {
-    console.log('[useIDRXBalance] Result:', {
-      tokenAddress,
-      targetAddress,
-      data: result.data,
-      isLoading: result.isLoading,
-      error: result.error,
-    });
-  }, [result.data, result.isLoading, result.error, tokenAddress, targetAddress]);
-
-  // Format the balance (IDRX uses 6 decimals)
+  // Format the balance (IDRX uses 18 decimals)
   const formatted = useMemo(() => {
     if (!result.data) return '0';
-    return formatUnits(result.data as bigint, 6);
+    return formatUnits(result.data as bigint, 18);
   }, [result.data]);
 
   return {
