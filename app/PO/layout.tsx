@@ -20,44 +20,54 @@ function POLayoutContent({ children }: POLayoutProps) {
 
   useEffect(() => {
     setMounted(true);
+    console.log('📍 PO Layout mounted, pathname:', pathname);
   }, []);
 
   useEffect(() => {
     if (!mounted) return;
 
-    // Check if user is authenticated
-    const authStatus = localStorage.getItem('po-auth');
-    const isLoginRoute = pathname === '/PO/login';
+    console.log('🔍 PO Layout: Checking authentication...');
 
-    if (!authStatus && !isLoginRoute) {
+    // Check if user is authenticated (has JWT token)
+    const jwtToken = typeof window !== 'undefined' ? localStorage.getItem('novalance_jwt') : null;
+    const isLoginRoute = pathname === '/PO/login';
+    console.log('📝 PO JWT Token present:', !!jwtToken, 'isLoginRoute:', isLoginRoute);
+    console.log('📝 All localStorage keys:', typeof window !== 'undefined' ? Object.keys(localStorage) : 'N/A');
+
+    // Debug: show actual token (truncated)
+    if (jwtToken) {
+      console.log('🔑 JWT Token value (first 50 chars):', jwtToken.substring(0, 50) + '...');
+    }
+
+    if (!jwtToken && !isLoginRoute) {
       // Not authenticated and not on login page, redirect to login
+      console.log('❌ PO: No JWT and not on login, redirecting to /PO/login');
       router.push('/PO/login');
-    } else if (authStatus && isLoginRoute) {
+    } else if (jwtToken && isLoginRoute) {
       // Already authenticated and on login page, redirect to dashboard
+      console.log('✅ PO: Has JWT and on login, redirecting to /PO');
       router.push('/PO');
     } else {
-      setIsAuthenticated(!!authStatus);
+      console.log('✅ PO: Authentication check passed');
+      setIsAuthenticated(!!jwtToken);
     }
     setIsLoading(false);
   }, [pathname, router, mounted]);
 
   // Show login page without header/footer
   if (pathname === '/PO/login') {
+    console.log('🔓 PO: Showing login page without header/footer');
     return <>{children}</>;
   }
 
   // Show loading state
   if (isLoading) {
+    console.log('⏳ PO: Showing loading state');
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
       </div>
     );
-  }
-
-  // Redirect if not in PO mode
-  if (role !== 'PO') {
-    router.push('/FL');
   }
 
   const navItems = [

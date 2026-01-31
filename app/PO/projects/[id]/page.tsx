@@ -11,7 +11,6 @@ import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import {
-  usePLDepositFunds,
   usePLAcceptMilestone,
   usePLAllMilestones,
   usePLVaultBalance,
@@ -22,6 +21,7 @@ import {
   usePLCancelProject,
   useTransactionWait,
 } from '@/lib/hooks';
+import { useProject, useProjectRoles } from '@/lib/api-hooks';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -30,21 +30,21 @@ import {
   showError,
 } from '@/lib/transactions';
 
-// Format currency for IDRX (6 decimals)
+// Format currency for IDRX (18 decimals)
 function formatIDRX(amount: bigint | number): string {
-  const value = typeof amount === 'bigint' ? Number(amount) / 1e6 : amount;
+  const value = typeof amount === 'bigint' ? Number(amount) / 1e18 : amount;
   return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Get project status text
-function getProjectStatus(status: number): string {
-  switch (status) {
-    case 0: return 'Hiring';
-    case 1: return 'In Progress';
-    case 2: return 'Completed';
-    case 3: return 'Cancelled';
-    default: return 'Unknown';
+// Get project status text - based on both status and freelancer assignment
+function getProjectStatus(status: number, freelancer: string): string {
+  if (status === 3) return 'Cancelled';
+  if (status === 2) return 'Completed';
+  if (status === 0) {
+    // Active projects can be "Hired" (freelancer assigned) or just "Active" (hiring)
+    return freelancer && freelancer !== '0x0000000000000000000000000000000000000000' ? 'Hired' : 'Active';
   }
+  return 'Unknown';
 }
 
 // Get milestone status
@@ -60,7 +60,6 @@ export default function POProjectDetailPage() {
   const router = useRouter();
   const { address, chain } = useAccount();
   const [mounted, setMounted] = useState(false);
-  const [depositModalOpen, setDepositModalOpen] = useState(false);
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -71,21 +70,23 @@ export default function POProjectDetailPage() {
   const projectId = params.id as string;
   const projectLanceId = BigInt(parseInt(projectId) || 0);
 
-  // ProjectLance hooks
+  // ProjectLance hooks (on-chain data)
   const { project, isLoading: isProjectLoading, refetch: refetchProject } = usePLProject(projectLanceId);
   const { milestones, isLoading: isMilestonesLoading, refetch: refetchMilestones } = usePLAllMilestones(projectLanceId);
   const { balance: vaultBalance } = usePLVaultBalance(projectLanceId);
   const { balance: lendingBalance } = usePLLendingBalance(projectLanceId);
   const { applicants } = usePLApplicants(projectLanceId);
 
+  // Backend hooks (off-chain metadata)
+  const { data: backendProject, isLoading: isBackendLoading } = useProject(projectId);
+  const { data: backendRoles, isLoading: isRolesLoading } = useProjectRoles(projectId);
+
   // Write hooks
-  const { deposit: depositFunds, isPending: isDepositPending, error: depositError, hash: depositHash, isSuccess: isDepositSuccess } = usePLDepositFunds();
   const { accept: acceptMilestone, isPending: isAcceptPending, error: acceptError, hash: acceptHash, isSuccess: isAcceptSuccess } = usePLAcceptMilestone();
   const { accept: acceptFreelancer, isPending: isHirePending, error: hireError, hash: hireHash, isSuccess: isHireSuccess } = usePLAcceptFreelancer();
   const { cancel: cancelProject, isPending: isCancelPending, error: cancelError, hash: cancelHash, isSuccess: isCancelSuccess } = usePLCancelProject();
 
   // Transaction wait hooks
-  const { isLoading: isDepositConfirming, isSuccess: isDepositConfirmed } = useTransactionWait(depositHash ?? undefined);
   const { isLoading: isAcceptConfirming, isSuccess: isAcceptConfirmed } = useTransactionWait(acceptHash ?? undefined);
   const { isLoading: isHireConfirming, isSuccess: isHireConfirmed } = useTransactionWait(hireHash ?? undefined);
   const { isLoading: isCancelConfirming, isSuccess: isCancelConfirmed } = useTransactionWait(cancelHash ?? undefined);
@@ -109,27 +110,6 @@ export default function POProjectDetailPage() {
   }, [milestones]);
 
   // Transaction handlers
-  useEffect(() => {
-    if (isDepositSuccess && depositHash) {
-      showTransactionPending(depositHash, 'Deposit to Escrow', chain?.id || 84532);
-    }
-  }, [isDepositSuccess, depositHash, chain]);
-
-  useEffect(() => {
-    if (isDepositConfirmed && depositHash) {
-      showTransactionSuccess(depositHash, 'Funds deposited successfully!');
-      setDepositModalOpen(false);
-      refetchProject();
-      refetchMilestones();
-    }
-  }, [isDepositConfirmed, depositHash, refetchProject, refetchMilestones]);
-
-  useEffect(() => {
-    if (depositError) {
-      showTransactionError(depositHash || '0x0', depositError, 'Failed to deposit funds');
-    }
-  }, [depositError, depositHash]);
-
   useEffect(() => {
     if (isAcceptSuccess && acceptHash) {
       showTransactionPending(acceptHash, 'Accept Milestone', chain?.id || 84532);
@@ -194,24 +174,6 @@ export default function POProjectDetailPage() {
       showTransactionError(cancelHash || '0x0', cancelError, 'Failed to cancel project');
     }
   }, [cancelError, cancelHash]);
-
-  const handleDeposit = async () => {
-    if (!address || !chain) {
-      showError('Wallet Not Connected', 'Please connect your wallet to deposit funds');
-      return;
-    }
-
-    try {
-      showInfo('Depositing to Escrow', 'Enter amount to deposit...');
-      // For simplicity, using a fixed amount. In production, this would be user input
-      const amount = 10 * 1e6; // 10 IDRX
-      await depositFunds(projectLanceId, BigInt(amount));
-    } catch (err) {
-      const error = err as Error;
-      showTransactionError(depositHash || '0x0', error, 'Failed to deposit');
-      setDepositModalOpen(false);
-    }
-  };
 
   const handleAcceptMilestone = async () => {
     if (!address || !chain || !selectedMilestone) return;
@@ -307,9 +269,23 @@ export default function POProjectDetailPage() {
   const lendingAmount = projectArray?.[5] ?? BigInt(0);
   const milestoneCount = projectArray?.[6] ?? BigInt(0);
   const cancelledTimestamp = projectArray?.[7] ?? BigInt(0);
-  const totalBudget = Number(totalDeposited) / 1e6;
+  const totalBudget = Number(totalDeposited) / 1e18;
   const hasFreelancer = freelancer !== '0x0000000000000000000000000000000000000000' as Address;
   const isProjectOwner = address?.toLowerCase() === creator.toLowerCase();
+
+  // Calculate milestone amount (projected) based on total budget and percentage
+  const calculateMilestoneAmount = (milestone: any): bigint => {
+    if (milestone.actualAmount > BigInt(0)) {
+      return milestone.actualAmount; // Use actual if already calculated
+    }
+    // Projected amount = total deposited * milestone percentage
+    return (totalDeposited * BigInt(milestone.percentage)) / BigInt(10000);
+  };
+
+  // Get estimated amount as number for display
+  const getEstimatedAmount = (percentage: bigint): number => {
+    return (totalBudget * Number(percentage)) / 10000; // percentage is in basis points (100 = 1%)
+  };
 
   // Calculate progress
   const completedMilestones = (milestones as any[])?.filter(m => m.accepted || m.released).length || 0;
@@ -319,7 +295,7 @@ export default function POProjectDetailPage() {
   return (
     <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="space-y-3">
         <div>
           <Link
             href="/PO/projects"
@@ -331,11 +307,20 @@ export default function POProjectDetailPage() {
             Back to Projects
           </Link>
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">Project #{projectId}</h1>
-            <Badge variant={status === 1 ? 'warning' : status === 2 ? 'success' : 'default'}>
-              {getProjectStatus(status)}
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">
+              {backendProject?.title || `Project #${projectId}`}
+            </h1>
+            <Badge variant={
+              status === 3 ? 'error' :
+              status === 2 ? 'success' :
+              (status === 0 && freelancer && freelancer !== '0x0000000000000000000000000000000000000000') ? 'pending' : 'default'
+            }>
+              {getProjectStatus(status, freelancer as string)}
             </Badge>
           </div>
+          {backendProject?.description && (
+            <p className="text-slate-600 text-sm mt-1 max-w-3xl">{backendProject.description}</p>
+          )}
         </div>
       </div>
 
@@ -391,6 +376,57 @@ export default function POProjectDetailPage() {
         </div>
       </Card>
 
+      {/* Roles Section - Backend Data */}
+      {backendRoles && backendRoles.length > 0 && (
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v2c0 .656-.126 1.283-.356 1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Project Roles</h3>
+                <p className="text-xs text-slate-500">KPIs and requirements</p>
+              </div>
+            </div>
+            <Badge variant="default">{backendRoles.length} Role{backendRoles.length !== 1 ? 's' : ''}</Badge>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {backendRoles.map((role: any) => {
+              const roleSkills = role.skills ? JSON.parse(role.skills) : [];
+              return (
+                <div key={role.id} className="border border-slate-200 rounded-xl p-3 bg-slate-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-slate-900">{role.name}</h4>
+                    <Badge variant={role.status === 'open' ? 'pending' : 'default'} className="text-xs">
+                      {role.status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-600 mb-2 line-clamp-2">{role.description}</p>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">{role.kpiCount} KPI{role.kpiCount > 1 ? 's' : ''}</span>
+                    {roleSkills.length > 0 && (
+                      <div className="flex gap-1 flex-wrap">
+                        {roleSkills.slice(0, 3).map((skill: string) => (
+                          <span key={skill} className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
+                            {skill}
+                          </span>
+                        ))}
+                        {roleSkills.length > 3 && (
+                          <span className="text-slate-500">+{roleSkills.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content - Milestones */}
         <div className="lg:col-span-2 space-y-4">
@@ -403,6 +439,8 @@ export default function POProjectDetailPage() {
             const milestoneStatus = getMilestoneStatus(milestone);
             const isExpanded = expandedMilestones.has(index);
             const needsApproval = milestone.submissionTime > BigInt(0) && !milestone.accepted;
+            const hasActualAmount = milestone.actualAmount > BigInt(0);
+            const estimatedAmount = getEstimatedAmount(milestone.percentage);
 
             return (
               <Card key={index} className="overflow-hidden">
@@ -445,10 +483,18 @@ export default function POProjectDetailPage() {
                     </div>
 
                     <div className="flex flex-col items-end gap-1">
-                      <p className="text-xs text-slate-500">Amount</p>
-                      <p className="text-base sm:text-lg font-bold text-brand-600">
-                        {formatIDRX(milestone.actualAmount)} IDRX
+                      <p className="text-xs text-slate-500">
+                        {hasActualAmount ? 'Actual Amount' : 'Est. Amount'}
                       </p>
+                      <p className="text-base sm:text-lg font-bold text-brand-600">
+                        {hasActualAmount
+                          ? formatIDRX(milestone.actualAmount)
+                          : formatIDRX(estimatedAmount)
+                        } IDRX
+                      </p>
+                      {!hasActualAmount && (
+                        <p className="text-[10px] text-slate-400">before penalties</p>
+                      )}
                     </div>
                   </div>
 
@@ -481,6 +527,25 @@ export default function POProjectDetailPage() {
                         <span className="text-slate-600">Percentage</span>
                         <span className="font-medium text-slate-900">{Number(milestone.percentage) / 100}%</span>
                       </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">
+                          {hasActualAmount ? 'Actual Amount' : 'Est. Amount'}
+                        </span>
+                        <span className={`font-medium ${hasActualAmount ? 'text-brand-600' : 'text-slate-900'}`}>
+                          {hasActualAmount
+                            ? formatIDRX(milestone.actualAmount)
+                            : formatIDRX(estimatedAmount)
+                          } IDRX
+                        </span>
+                      </div>
+                      {!hasActualAmount && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600">Note</span>
+                          <span className="font-medium text-slate-500 text-xs">
+                            Amount calculated on approval (may include late penalty)
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Submitted</span>
                         <span className="font-medium text-slate-900">
@@ -539,7 +604,7 @@ export default function POProjectDetailPage() {
                     <p className="text-sm font-medium text-slate-900">
                       {(freelancer as string).slice(0, 6)}...{(freelancer as string).slice(-4)}
                     </p>
-                    <p className="text-xs text-slate-500">Assigned</p>
+                    <p className="text-xs text-slate-500">Hired</p>
                   </div>
                 </div>
               </div>
@@ -580,9 +645,13 @@ export default function POProjectDetailPage() {
               </div>
             </div>
 
-            {isProjectOwner && (
-              <Button variant="primary" className="w-full mt-4" onClick={() => setDepositModalOpen(true)}>
-                Deposit Funds
+            {isProjectOwner && totalDeposited === 0n && (
+              <Button
+                variant="primary"
+                className="w-full mt-4"
+                onClick={() => router.push(`/PO/projects/${projectId}/fund`)}
+              >
+                Fund Project
               </Button>
             )}
           </Card>
@@ -607,47 +676,6 @@ export default function POProjectDetailPage() {
         </div>
       </div>
 
-      {/* Deposit Modal */}
-      <Modal isOpen={depositModalOpen} onClose={() => setDepositModalOpen(false)} title="Deposit to Escrow">
-        <div className="space-y-4">
-          <p className="text-slate-600">
-            Funds will be automatically split between escrow (90%) and yield generation (10%).
-          </p>
-
-          <div className="bg-slate-50 rounded-lg p-4 space-y-3">
-            <p className="text-sm text-slate-600">
-              Enter the amount to deposit in IDRX. The funds will be split:
-            </p>
-            <div className="border-t border-slate-200 pt-3">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-slate-600">Vault (Escrow - 90%):</span>
-                <span className="font-semibold text-brand-600">90%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-600">Lending (10%):</span>
-                <span className="font-semibold text-blue-600">10%</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            <Button variant="ghost" onClick={() => setDepositModalOpen(false)} className="flex-1">
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleDeposit} className="flex-1" disabled={isDepositPending || isDepositConfirming}>
-              {isDepositPending || isDepositConfirming ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  Depositing...
-                </span>
-              ) : (
-                'Deposit 10 IDRX'
-              )}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
       {/* Approve Milestone Modal */}
       <Modal isOpen={approveModalOpen} onClose={() => setApproveModalOpen(false)} title="Approve Milestone">
         <div className="space-y-4">
@@ -668,7 +696,12 @@ export default function POProjectDetailPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Amount:</span>
-                  <span className="font-medium text-brand-600">{formatIDRX(selectedMilestone.data.actualAmount)} IDRX</span>
+                  <span className="font-medium text-brand-600">
+                    {selectedMilestone.data.actualAmount > BigInt(0)
+                      ? formatIDRX(selectedMilestone.data.actualAmount)
+                      : formatIDRX(getEstimatedAmount(selectedMilestone.data.percentage))
+                    } IDRX
+                  </span>
                 </div>
                 {selectedMilestone.data.isLastMilestone && selectedMilestone.data.yieldAmount > BigInt(0) && (
                   <div className="flex justify-between text-sm">

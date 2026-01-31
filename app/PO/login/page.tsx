@@ -1,52 +1,142 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAccount, useConnect } from 'wagmi';
+import { useAccount, useConnect, useSignMessage, useDisconnect } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
+import { useNonce, useVerifySignature } from '@/lib/api-hooks';
+import { setToken } from '@/lib/api-client';
 
 export default function POLoginPage() {
   const router = useRouter();
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [error, setError] = useState('');
+  const [hasRedirected, setHasRedirected] = useState(false);
 
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, status } = useAccount();
   const { connect } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { signMessageAsync } = useSignMessage();
 
-  // If already connected, redirect to dashboard
-  if (isConnected && address) {
-    router.push('/PO');
-    return null;
-  }
+  // Backend authentication mutations
+  const nonceMutation = useNonce();
+  const verifyMutation = useVerifySignature();
 
-  const handleWalletConnect = async () => {
-    setIsConnecting(true);
-    setError('');
+  // If already authenticated, redirect to dashboard
+  useEffect(() => {
+    const hasJwt = typeof window !== 'undefined' ? localStorage.getItem('novalance_jwt') : null;
+    if (hasJwt) {
+      router.push('/PO');
+    }
+  }, [router]);
 
+  const authenticateWithBackend = async (walletAddress: string) => {
     try {
-      // Try to connect with MetaMask via injected connector
-      await connect({ connector: injected() });
+      setIsAuthenticating(true);
+      console.log('🔐 Starting backend authentication for:', walletAddress);
 
-      // Store connection state
+      // Step 1: Get nonce from backend
+      console.log('1️⃣ Requesting nonce...');
+      const nonceData = await nonceMutation.mutateAsync(walletAddress);
+      console.log('✅ Nonce received:', nonceData.nonce);
+
+      // Step 2: Sign the message with wallet
+      console.log('2️⃣ Signing message...');
+      const signature = await signMessageAsync({ message: nonceData.message });
+      console.log('✅ Signature received:', signature.substring(0, 30) + '...');
+
+      // Step 3: Verify signature with backend to get JWT
+      console.log('3️⃣ Verifying with backend...');
+      const verifyResult = await verifyMutation.mutateAsync({ address: walletAddress, signature });
+      console.log('✅ Backend authentication successful!');
+      console.log('📝 Token received:', verifyResult.token.substring(0, 30) + '...');
+
+      // IMPORTANT: Store the JWT token in localStorage
+      // Note: mutateAsync doesn't trigger onSuccess callback, so we set it manually
+      setToken(verifyResult.token);
+      console.log('💾 JWT token stored in localStorage');
+
+      // Verify token was stored
+      const verifyStored = typeof window !== 'undefined' ? localStorage.getItem('novalance_jwt') : null;
+      console.log('🔍 Verification - Token in localStorage after storage:', !!verifyStored, verifyStored ? verifyStored.substring(0, 30) + '...' : 'NOT FOUND');
+
+      // Store connection state AND auth status
       if (typeof window !== 'undefined') {
         localStorage.setItem('po-wallet-connected', 'true');
-        if (address) {
-          localStorage.setItem('po-wallet-address', address);
-        }
+        localStorage.setItem('po-auth', 'true'); // IMPORTANT: This is checked by the layout
+        localStorage.setItem('po-wallet-address', walletAddress);
       }
 
       // Redirect to dashboard
       router.push('/PO');
     } catch (err) {
       const error = err as Error;
-      setError('Failed to connect wallet. Please make sure MetaMask is installed and unlocked.');
-      console.error('Wallet connection error:', error);
+      setError(`Authentication failed: ${error.message}`);
+      console.error('❌ Backend authentication error:', error);
+
+      // Disconnect wallet on auth failure
+      await disconnect();
+      setIsAuthenticating(false);
     } finally {
+      setIsAuthenticating(false);
       setIsConnecting(false);
     }
   };
+
+  // Watch for connection and trigger authentication
+  useEffect(() => {
+    console.log('\n======== LOGIN PAGE USEEFFECT TRIGGERED ========');
+    console.log('[Login Page] isConnected:', isConnected);
+    console.log('[Login Page] address:', address);
+    console.log('[Login Page] hasRedirected:', hasRedirected);
+    console.log('[Login Page] Current URL:', window.location.href);
+    console.log('===================================================\n');
+
+    if (isConnected && address && status === 'connected' && !isAuthenticating && !error && !hasRedirected) {
+      // Check if we already have a JWT token
+      const hasJwt = typeof window !== 'undefined' ? localStorage.getItem('novalance_jwt') : null;
+      if (!hasJwt) {
+        console.log('Wallet connected, starting authentication...');
+        authenticateWithBackend(address);
+      } else {
+        // Already authenticated, redirect
+        console.log('\n>>> [Login Page] REDIRECTING TO /PO (already authenticated)<<<\n');
+        setHasRedirected(true);
+        router.push('/PO');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address, status, isAuthenticating, error, hasRedirected]);
+
+  const handleWalletConnect = async () => {
+    setIsConnecting(true);
+    setError('');
+
+    try {
+      // First disconnect any existing connection
+      if (isConnected) {
+        await disconnect();
+        // Small delay to ensure disconnect completes
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      // Connect wallet via MetaMask
+      console.log('Connecting wallet...');
+      await connect({ connector: injected() });
+
+      // Authentication will be triggered by the useEffect when connection is established
+    } catch (err) {
+      const error = err as Error;
+      setError('Failed to connect wallet. Please make sure MetaMask is installed and unlocked.');
+      console.error('❌ Wallet connection error:', error);
+      setIsConnecting(false);
+    }
+  };
+
+  const isLoading = isConnecting || isAuthenticating;
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-gradient-to-br from-slate-50 to-slate-100">
@@ -71,12 +161,12 @@ export default function POLoginPage() {
               size="lg"
               className="w-full"
               onClick={handleWalletConnect}
-              disabled={isConnecting}
+              disabled={isLoading}
             >
-              {isConnecting ? (
+              {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
                   <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  Connecting...
+                  {isAuthenticating ? 'Authenticating...' : 'Connecting...'}
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
@@ -100,7 +190,7 @@ export default function POLoginPage() {
             {/* Info */}
             <div className="bg-blue-50 rounded-lg p-3">
               <p className="text-xs text-blue-700">
-                <strong className="font-semibold">Wallet Required:</strong> Connect your MetaMask wallet to access the Project Owner portal.
+                <strong className="font-semibold">Authentication Required:</strong> You'll need to sign a message to verify your wallet ownership. This doesn't cost any gas fees.
               </p>
             </div>
 

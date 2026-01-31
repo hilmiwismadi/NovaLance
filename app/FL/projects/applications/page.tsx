@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
-import { mockApplications, getApplicationStatusColor } from '@/lib/mockData';
+import { useMyApplications } from '@/lib/api-hooks';
 
 type FilterType = 'all' | 'pending' | 'accepted' | 'rejected';
 
@@ -48,28 +48,54 @@ const applicationFilters: FilterConfig[] = [
   },
 ];
 
+// Helper function for status badge color
+function getApplicationStatusColor(status: string): 'default' | 'pending' | 'success' | 'error' {
+  switch (status) {
+    case 'pending': return 'pending';
+    case 'accepted': return 'success';
+    case 'rejected': return 'error';
+    case 'withdrawn': return 'default';
+    default: return 'default';
+  }
+}
+
 export default function FLApplicationsPage() {
   const [mounted, setMounted] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
+
+  // API hook for applications
+  const { data: applications, isLoading } = useMyApplications();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   // Filter applications
-  const filteredApplications = mockApplications.filter(app => {
+  const filteredApplications = applications?.filter(app => {
     if (filter === 'all') return true;
     return app.status === filter;
-  });
+  }) || [];
 
   const applicationStats = {
-    all: mockApplications.length,
-    pending: mockApplications.filter(a => a.status === 'pending').length,
-    accepted: mockApplications.filter(a => a.status === 'accepted').length,
-    rejected: mockApplications.filter(a => a.status === 'rejected').length,
+    all: applications?.length || 0,
+    pending: applications?.filter(a => a.status === 'pending').length || 0,
+    accepted: applications?.filter(a => a.status === 'accepted').length || 0,
+    rejected: applications?.filter(a => a.status === 'rejected').length || 0,
   };
 
   if (!mounted) return null;
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Card className="p-12 text-center">
+          <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading applications...</p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -181,22 +207,32 @@ export default function FLApplicationsPage() {
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3 mb-2">
-                      <h3 className="text-base sm:text-lg font-semibold text-slate-900 leading-tight">{application.jobTitle}</h3>
+                      <h3 className="text-base sm:text-lg font-semibold text-slate-900 leading-tight">
+                        {application.projectRole.project.title}
+                      </h3>
                       <Badge variant={getApplicationStatusColor(application.status)} className="self-start">
                         {application.status}
                       </Badge>
                     </div>
 
                     <p className="text-xs sm:text-sm text-slate-600 mb-3 line-clamp-2 leading-relaxed">
-                      {application.coverLetter}
+                      Role: {application.projectRole.name}
                     </p>
+
+                    {application.coverLetter && (
+                      <p className="text-xs sm:text-sm text-slate-600 mb-3 line-clamp-2 leading-relaxed italic">
+                        "{application.coverLetter}"
+                      </p>
+                    )}
 
                     <div className="flex flex-col gap-1.5 text-xs sm:text-sm text-slate-600">
                       <span className="flex items-center gap-1.5">
                         <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        Applied: <span className="font-medium text-slate-900">{application.appliedAt}</span>
+                        Applied: <span className="font-medium text-slate-900">
+                          {new Date(application.createdAt || '').toLocaleDateString()}
+                        </span>
                       </span>
                       <span className="flex items-center gap-1.5">
                         <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -209,7 +245,7 @@ export default function FLApplicationsPage() {
 
                   <div className="flex items-center gap-2 sm:ml-4 pt-2 sm:pt-0">
                     {isAccepted && (
-                      <Link href={`/FL/jobs/${application.jobId}`} className="w-full sm:w-auto">
+                      <Link href={`/FL/projects/${application.projectRole.project.id}`} className="w-full sm:w-auto">
                         <Button variant="primary" size="sm" className="gap-1.5 w-full sm:w-auto shadow-md shadow-brand-200/50">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />

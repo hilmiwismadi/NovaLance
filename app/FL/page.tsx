@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, memo, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
@@ -8,150 +8,127 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { formatCurrency } from '@/lib/contract';
-import {
-  usePLProjectCount,
-  usePLProject,
-  usePLAllMilestones,
-  usePLVaultBalance,
-  usePLLendingBalance,
-} from '@/lib/hooks';
+import { usePLProjectCount } from '@/lib/hooks';
 
-// Contract project interface
+// Project data interface for contract data
 interface ContractProject {
   id: bigint;
   creator: string;
   freelancer: string;
-  status: number; // 0=Active, 1=Assigned, 2=Completed, 3=Cancelled
+  status: number; // 0=Active, 2=Completed, 3=Cancelled (Assigned status is never set by contract)
   totalDeposited: bigint;
   vaultAmount: bigint;
   lendingAmount: bigint;
   milestoneCount: bigint;
-  milestones?: any[];
+  hasApplied?: boolean; // Whether user has applied (for Active projects)
 }
 
-// Earning data interface (would come from contract in production)
-interface EarningWithYield {
-  projectId: bigint;
-  projectTitle: string;
-  totalBudget: bigint;
-  currency: string;
-  status: number;
-  baseEarnings: bigint;
-  yieldEarnings: bigint;
-  yieldRate: number;
-  isWithdrawable: boolean;
-  yieldStatus: 'generating' | 'completed' | 'withdrawn';
+// Custom hook to fetch projects where user is the freelancer
+function useFLProjects(maxProjects: number = 50) {
+  const { address, chain } = useAccount();
+  const [projects, setProjects] = useState<ContractProject[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!address || !chain) return;
+
+    const fetchProjects = async () => {
+      setIsLoading(true);
+      try {
+        const { getContractAddresses } = await import('@/lib/contract-adapter');
+        const { PROJECTLANCE_ABI } = await import('@/lib/abi');
+        const { createPublicClient, http } = await import('viem');
+
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http()
+        });
+
+        const addresses = getContractAddresses(chain.id);
+        const projectLanceAddress = addresses.projectLance;
+
+        // Fetch all projects in parallel
+        const projectPromises = [];
+        for (let i = 0; i < maxProjects; i++) {
+          projectPromises.push(
+            publicClient.readContract({
+              address: projectLanceAddress as `0x${string}`,
+              abi: PROJECTLANCE_ABI,
+              functionName: 'getProject',
+              args: [BigInt(i)]
+            }).catch(() => null)
+          );
+        }
+
+        const results = await Promise.all(projectPromises);
+
+        // Check which projects the user has applied to (for Active projects where they're not yet hired)
+        const applicationPromises = [];
+        for (let i = 0; i < maxProjects; i++) {
+          applicationPromises.push(
+            publicClient.readContract({
+              address: projectLanceAddress as `0x${string}`,
+              abi: PROJECTLANCE_ABI,
+              functionName: 'hasApplied',
+              args: [BigInt(i), address]
+            }).catch(() => false)
+          );
+        }
+
+        const applicationResults = await Promise.all(applicationPromises);
+
+        const freelancerProjects: ContractProject[] = [];
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i] as any[] | null;
+          if (!result) continue;
+
+          const creator = result[0] as string;
+          const freelancer = result[1] as string;
+          const status = result[2] as number;
+          const totalDeposited = result[3] as bigint;
+          const vaultAmount = result[4] as bigint;
+          const lendingAmount = result[5] as bigint;
+          const milestoneCount = result[6] as bigint;
+          const hasApplied = applicationResults[i] as boolean;
+
+          const isHired = freelancer && freelancer.toLowerCase() === address.toLowerCase();
+
+          // Include projects where:
+          // 1. User is hired as freelancer (any status)
+          // 2. Project is Active (status 0) AND user has applied but not yet hired
+          if (isHired || (status === 0 && hasApplied && !isHired && creator.toLowerCase() !== address.toLowerCase())) {
+            freelancerProjects.push({
+              id: BigInt(i),
+              creator,
+              freelancer,
+              status,
+              totalDeposited,
+              vaultAmount,
+              lendingAmount,
+              milestoneCount,
+              hasApplied,
+            });
+          }
+        }
+
+        setProjects(freelancerProjects);
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+        setProjects([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, [address, chain, maxProjects]);
+
+  return { projects, isLoading };
 }
-
-// Memoized earning card component
-const EarningCard = memo(({
-  earning,
-  liveRate,
-}: {
-  earning: EarningWithYield;
-  liveRate: number;
-}) => {
-  const isPositive = liveRate >= 0;
-  const isActive = earning.yieldStatus === 'generating';
-
-  return (
-    <div
-      className={`flex-shrink-0 w-80 p-4 rounded-xl border-2 transition-all duration-300 snap-center ${
-        isActive
-          ? 'bg-amber-50 border-amber-200'
-          : 'bg-emerald-50 border-emerald-200'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-slate-900 text-sm truncate">{earning.projectTitle}</h4>
-          <p className="text-[10px] text-slate-600 truncate">{earning.yieldStatus === 'completed' ? 'Completed' : earning.yieldStatus}</p>
-        </div>
-        <div className="text-right shrink-0">
-          <p className={`text-lg font-bold ${isPositive ? 'text-emerald-600' : 'text-red-600'} ${isActive ? 'transition-colors duration-300' : ''}`}>
-            {isPositive ? '+' : ''}{liveRate.toFixed(2)}%
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-1.5">
-        <div className="bg-white/60 rounded-lg p-1.5 text-center min-w-0">
-          <p className="text-[8px] text-slate-600 truncate">Deposited</p>
-          <p className="text-[9px] font-bold text-slate-900 truncate">
-            <CurrencyDisplay amount={formatCurrency(earning.baseEarnings, 'IDRX')} currency="IDRX" className="text-[8px]" />
-          </p>
-        </div>
-        <div className="bg-blue-50 rounded-lg p-1.5 text-center min-w-0">
-          <p className="text-[8px] text-blue-600 truncate">LP</p>
-          <p className="text-[9px] font-bold text-blue-700 truncate">
-            <CurrencyDisplay amount={formatCurrency(earning.baseEarnings * BigInt(10) / BigInt(100), 'IDRX')} currency="IDRX" className="text-[8px]" />
-          </p>
-        </div>
-        <div className={`rounded-lg p-1.5 text-center min-w-0 ${isPositive ? 'bg-emerald-50' : 'bg-red-50'}`}>
-          <p className={`text-[8px] ${isPositive ? 'text-emerald-600' : 'text-red-600'} truncate`}>Yield</p>
-          <p className={`text-[9px] font-bold truncate ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
-            <CurrencyDisplay amount={formatCurrency(earning.baseEarnings * BigInt(Math.round(Math.abs(liveRate) * 100)) / BigInt(10000), 'IDRX')} currency="IDRX" className="text-[8px]" />
-          </p>
-        </div>
-      </div>
-
-      <Badge
-        variant={isActive ? 'warning' : 'success'}
-        className="text-[9px] mt-2 w-full justify-center"
-      >
-        {isActive ? 'In Progress' : 'Withdrawable'}
-      </Badge>
-    </div>
-  );
-});
-EarningCard.displayName = 'EarningCard';
-
-// Memoized milestone component
-const MilestoneItem = memo(({
-  milestone,
-  index,
-}: {
-  milestone: { id: string; description?: string; name: string; percentage: number; status: string };
-  index: number;
-}) => {
-  const isCompleted = milestone.status === 'completed' || milestone.status === 'approved';
-  const isInProgress = milestone.status === 'in-progress';
-
-  return (
-    <div className="flex items-start gap-2 text-xs p-2 bg-slate-50 rounded-lg border border-slate-200">
-      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center font-semibold text-slate-600">
-        {index + 1}
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-1">
-          <span className={`font-medium ${isCompleted ? 'text-emerald-700' : 'text-slate-700'}`}>
-            {milestone.description || milestone.name}
-          </span>
-          <span className="text-xs font-semibold text-slate-600 bg-white px-1.5 py-0.5 rounded">
-            {milestone.percentage}%
-          </span>
-        </div>
-        <div className="w-full bg-slate-200 rounded-full h-1.5">
-          <div
-            className={`h-1.5 rounded-full transition-all ${
-              isCompleted ? 'bg-emerald-500' : isInProgress ? 'bg-brand-500' : 'bg-slate-300'
-            }`}
-            style={{ width: `${milestone.percentage}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-});
-MilestoneItem.displayName = 'MilestoneItem';
 
 export default function FLDashboard() {
   const [mounted, setMounted] = useState(false);
   const [activityExpanded, setActivityExpanded] = useState(false);
-  const [liveYields, setLiveYields] = useState<{[key: string]: number}>({
-    'proj-4': 3.25,
-    'proj-5': -5.0,
-  });
 
   useEffect(() => {
     setMounted(true);
@@ -162,88 +139,78 @@ export default function FLDashboard() {
 
   // ProjectLance contract hooks
   const { count: projectCount } = usePLProjectCount();
-  const demoProjectId = BigInt(1);
-  const { balance: vaultBalance } = usePLVaultBalance(demoProjectId);
-  const { balance: lendingBalance } = usePLLendingBalance(demoProjectId);
+  const { projects: freelancerProjects, isLoading: isProjectsLoading } = useFLProjects(50);
 
-  // Mock stats for demo
+  // Active projects (assigned and in progress - status 1)
+  // Also show projects that are Active (status 0) if user has applied
+  const activeProjects = freelancerProjects.filter(p =>
+    p.status === 1 || p.status === 0 // Assigned or Active (applied)
+  );
+
+  // Display projects where user is hired as freelancer (regardless of status)
+  // A project can be Active (0) but still have a hired freelancer
+  const assignedProjects = freelancerProjects.filter(p =>
+    p.freelancer && address && p.freelancer.toLowerCase() === address.toLowerCase()
+  );
+  const appliedProjects = freelancerProjects.filter(p =>
+    p.hasApplied && (!p.freelancer || p.freelancer === '0x0000000000000000000000000000000000000000')
+  );
+
+  // Stats
   const stats = {
-    activeJobs: 2,
-    completedJobs: 5,
-    pendingApplications: 1,
+    activeJobs: assignedProjects.filter(p => p.status !== 2).length,  // Hired projects that aren't completed
+    completedJobs: freelancerProjects.filter(p => p.status === 2).length,
+    pendingApplications: appliedProjects.length, // Projects applied but not hired
   };
 
-  // Mock data for demo
-  const freelancerProjects: any[] = [];
-  const assignedRoles: any[] = [];
-
-  // Mock earnings data for demo
-  const mockEarnings: EarningWithYield[] = [
-    {
-      projectId: BigInt(1),
-      projectTitle: 'DeFi Yield Farming Platform',
-      totalBudget: BigInt(5000_000000), // 5000 IDRX (6 decimals)
-      currency: 'IDRX',
-      status: 1,
-      baseEarnings: BigInt(1500_000000),
-      yieldEarnings: BigInt(48_750000),
-      yieldRate: 3.25,
-      isWithdrawable: true,
-      yieldStatus: 'generating',
-    },
-    {
-      projectId: BigInt(2),
-      projectTitle: 'NFT Marketplace Smart Contracts',
-      totalBudget: BigInt(8000_000000),
-      currency: 'IDRX',
-      status: 1,
-      baseEarnings: BigInt(3200_000000),
-      yieldEarnings: BigInt(-160_000000),
-      yieldRate: -5.0,
-      isWithdrawable: false,
-      yieldStatus: 'generating',
-    },
-  ];
-
-  // Memoized toggle callback
-  const toggleActivity = useCallback(() => {
-    setActivityExpanded(prev => !prev);
-  }, []);
-
-  // Live yield updates for in-progress projects - optimized with throttling
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLiveYields(prev => {
-        const newYields = { ...prev };
-        (Object.keys(newYields) as Array<keyof typeof newYields>).forEach(projectId => {
-          // Random fluctuation between -0.5% and +0.8%
-          const fluctuation = (Math.random() - 0.4) * 1.3;
-          newYields[projectId] = Math.max(-15, Math.min(20, newYields[projectId] + fluctuation));
-        });
-        return newYields;
-      });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Memoized calculations - only recalculate when liveYields changes
-  const earningsCalculations = useMemo(() => {
-    const totalBaseEarnings = mockEarnings.reduce((sum, e) => sum + e.baseEarnings, BigInt(0));
-    const totalYieldEarnings = mockEarnings.reduce((sum, e) => {
-      if (e.status === 1) { // 'in-progress' is status 1 (Assigned)
-        const liveRate = liveYields[String(e.projectId)] || e.yieldRate;
-        return sum + (e.baseEarnings * BigInt(Math.round(liveRate * 100)) / BigInt(10000));
-      }
-      return sum + e.yieldEarnings;
-    }, BigInt(0));
-    const totalEarnings = totalBaseEarnings + totalYieldEarnings;
-    const avgYieldRate = totalBaseEarnings > BigInt(0) ? Number((totalYieldEarnings * BigInt(10000)) / totalBaseEarnings) / 100 : 0;
-
-    return { totalBaseEarnings, totalYieldEarnings, totalEarnings, avgYieldRate };
-  }, [liveYields]);
-
   if (!mounted) return null;
+
+  if (isProjectsLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  // Get status badge variant based on project status
+  const getStatusBadge = (project: ContractProject) => {
+    // If applied but not hired
+    if (project.hasApplied && (!project.freelancer || project.freelancer === '0x0000000000000000000000000000000000000000')) {
+      return 'warning'; // Applied
+    }
+    // If hired (freelancer assigned)
+    if (project.freelancer && project.freelancer !== '0x0000000000000000000000000000000000000000' && project.status === 0) {
+      return 'info'; // Hired
+    }
+    switch (project.status) {
+      case 0: return 'default'; // Active (hiring)
+      case 2: return 'success'; // Completed
+      case 3: return 'error'; // Cancelled
+      default: return 'default';
+    }
+  };
+
+  const getStatusText = (project: ContractProject) => {
+    // If applied but not hired
+    if (project.hasApplied && (!project.freelancer || project.freelancer === '0x0000000000000000000000000000000000000000')) {
+      return 'Applied';
+    }
+    // If hired (freelancer assigned)
+    if (project.freelancer && project.freelancer !== '0x0000000000000000000000000000000000000000' && project.status === 0) {
+      return 'Hired';
+    }
+    switch (project.status) {
+      case 0: return 'Active';
+      case 2: return 'Completed';
+      case 3: return 'Cancelled';
+      default: return 'Unknown';
+    }
+  };
+
+  const toggleActivity = () => {
+    setActivityExpanded(prev => !prev);
+  };
 
   return (
     <div className="space-y-6">
@@ -257,7 +224,7 @@ export default function FLDashboard() {
             Overview of your active jobs and applications
           </p>
         </div>
-        <Link href="/FL/jobs" prefetch={false}>
+        <Link href="/FL/projects" prefetch={false}>
           <Button variant="primary" size="sm" className="gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -270,10 +237,7 @@ export default function FLDashboard() {
       {/* Main Cards - Job Activity & Earnings Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Job Activity Card */}
-        <Card
-          className={`p-5 cursor-pointer hover:shadow-lg transition-all ${activityExpanded ? 'ring-2 ring-brand-500' : ''}`}
-          onClick={toggleActivity}
-        >
+        <Card className="p-5">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg">
@@ -301,173 +265,25 @@ export default function FLDashboard() {
               />
             </div>
           </div>
-
-          {/* Pending Applications Indicator */}
-          <div className="flex items-center justify-between mb-3 p-3 bg-amber-50 rounded-xl">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-amber-800">Pending Applications</p>
-                <p className="text-xs text-amber-600">Awaiting response</p>
-              </div>
-            </div>
-            <span className="text-2xl font-bold text-amber-700">{stats.pendingApplications}</span>
-          </div>
-
-          {/* Expanded Content - Project Hierarchy */}
-          {activityExpanded && (
-            <div className="border-t border-slate-200 pt-4 space-y-3 max-h-96 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              {freelancerProjects.length === 0 && assignedRoles.length === 0 ? (
-                <p className="text-center text-slate-500 py-4 text-sm">No active jobs to display</p>
-              ) : (
-                <>
-                  {/* Legacy projects */}
-                  {freelancerProjects.map((project) => {
-                    const completedMilestones = project.milestones.filter((m: any) => m.status === 'completed' || m.status === 'approved').length;
-                    const progressPercentage = (completedMilestones / project.milestones.length) * 100;
-
-                    return (
-                      <div key={project.id} className="border border-slate-200 rounded-xl overflow-hidden">
-                        {/* Project Header */}
-                        <div className="flex items-center justify-between p-3 bg-slate-50">
-                          <div className="flex items-center gap-2 flex-1">
-                            <span className="font-semibold text-slate-900 text-sm">{project.title}</span>
-                            <Badge
-                              variant={project.status === 'in-progress' ? 'warning' : project.status === 'completed' ? 'success' : 'default'}
-                              className="text-xs"
-                            >
-                              {project.status === 'in-progress' ? 'Active' : project.status}
-                            </Badge>
-                          </div>
-                          <span className="text-sm font-bold text-brand-600">{Math.round(progressPercentage)}%</span>
-                        </div>
-
-                        {/* Milestones */}
-                        <div className="p-3 bg-white space-y-2">
-                          {project.milestones.map((milestone: any, index: number) => (
-                            <MilestoneItem key={milestone.id} milestone={milestone} index={index} />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {/* PO Projects where user is assigned */}
-                  {assignedRoles.map(({ project, role }) => {
-                    const completedKPIs = role.kpis.filter((k: any) => k.status === 'completed' || k.status === 'approved').length;
-                    const totalKPIs = role.kpis.length;
-                    const progress = totalKPIs > 0 ? (completedKPIs / totalKPIs) * 100 : 0;
-
-                    return (
-                      <div key={`${project.id}-${role.id}`} className="border border-slate-200 rounded-xl overflow-hidden">
-                        {/* Project Header */}
-                        <div className="flex items-center justify-between p-3 bg-slate-50">
-                          <div className="flex items-center gap-2 flex-1">
-                            <span className="font-semibold text-slate-900 text-sm">{project.title}</span>
-                            <Badge variant="warning" className="text-xs">Active</Badge>
-                          </div>
-                          <span className="text-sm font-bold text-brand-600">{Math.round(progress)}%</span>
-                        </div>
-
-                        {/* Role Info */}
-                        <div className="px-3 py-2 bg-white border-b border-slate-100">
-                          <p className="text-xs text-slate-500">Role: {role.title}</p>
-                        </div>
-
-                        {/* KPIs */}
-                        <div className="p-3 bg-white space-y-2">
-                          {role.kpis.map((kpi: any, index: number) => (
-                            <MilestoneItem key={kpi.id} milestone={kpi} index={index} />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Expand indicator */}
-          <div className="flex justify-center mt-4">
-            <svg
-              className={`w-5 h-5 text-slate-400 transition-transform ${activityExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
         </Card>
 
         {/* Earnings Overview Card */}
         <Card className="p-4">
           <div className="flex items-start justify-between gap-3 mb-4">
             <div>
-              <h3 className="font-bold text-slate-900 text-base">Earnings Overview</h3>
+              <h3 className="font-bold text-slate-900 text-base">Your Projects</h3>
             </div>
           </div>
 
           {/* Summary Stats */}
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="grid grid-cols-2 gap-2 mb-4">
             <div className="bg-slate-50 rounded-lg p-2 text-center">
-              <p className="text-[8px] text-slate-600 truncate">Total Deposited</p>
-              <p className="text-[10px] font-bold text-slate-900 truncate">
-                <CurrencyDisplay amount={formatCurrency(earningsCalculations.totalBaseEarnings, 'IDRX')} currency="IDRX" className="text-[9px]" />
-              </p>
+              <p className="text-[8px] text-slate-600">Active Jobs</p>
+              <p className="text-[10px] font-bold text-slate-900">{stats.activeJobs}</p>
             </div>
-            <div className="bg-blue-50 rounded-lg p-2 text-center">
-              <p className="text-[8px] text-blue-600 truncate">In LP (10%)</p>
-              <p className="text-[10px] font-bold text-blue-700 truncate">
-                <CurrencyDisplay amount={formatCurrency(earningsCalculations.totalBaseEarnings * BigInt(10) / BigInt(100), 'IDRX')} currency="IDRX" className="text-[9px]" />
-              </p>
-            </div>
-            <div className={`rounded-lg p-2 text-center ${earningsCalculations.avgYieldRate >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
-              <p className={`text-[8px] ${earningsCalculations.avgYieldRate >= 0 ? 'text-emerald-600' : 'text-red-600'} truncate`}>Avg Yield</p>
-              <p className={`text-[10px] font-bold truncate ${earningsCalculations.avgYieldRate >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                {earningsCalculations.avgYieldRate >= 0 ? '+' : ''}{earningsCalculations.avgYieldRate.toFixed(2)}%
-              </p>
-            </div>
-          </div>
-
-          {/* Horizontal scroll cards */}
-          <style jsx>{`
-            .no-scrollbar::-webkit-scrollbar {
-              display: none;
-            }
-            .no-scrollbar {
-              -ms-overflow-style: none;
-              scrollbar-width: none;
-            }
-          `}</style>
-          <div className="relative -mx-4 px-4">
-            <div
-              className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth no-scrollbar"
-              style={{ scrollPadding: '0 calc(50% - 160px)' }}
-            >
-              {mockEarnings.map((earning) => (
-                <EarningCard
-                  key={earning.projectId}
-                  earning={earning}
-                  liveRate={earning.status === 1 ? (liveYields[String(earning.projectId)] || earning.yieldRate) : earning.yieldRate}
-                />
-              ))}
-            </div>
-
-            {/* Pagination dots */}
-            <div className="flex items-center justify-center gap-2 mt-2">
-              {mockEarnings.map((_, index) => (
-                <button
-                  key={index}
-                  className="h-1.5 rounded-full bg-slate-300 hover:bg-slate-400 w-1.5 transition-all duration-300"
-                  aria-label={`Go to card ${index + 1}`}
-                />
-              ))}
+            <div className="bg-emerald-50 rounded-lg p-2 text-center">
+              <p className="text-[8px] text-emerald-600">Completed</p>
+              <p className="text-[10px] font-bold text-emerald-700">{stats.completedJobs}</p>
             </div>
           </div>
         </Card>
@@ -477,12 +293,12 @@ export default function FLDashboard() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-900">Your Active Jobs</h2>
-          <Link href="/FL/jobs" prefetch={false} className="text-brand-600 hover:text-brand-700 text-sm font-medium">
+          <Link href="/FL/projects" prefetch={false} className="text-brand-600 hover:text-brand-700 text-sm font-medium">
             Browse More Jobs →
           </Link>
         </div>
 
-        {freelancerProjects.length === 0 && assignedRoles.length === 0 ? (
+        {assignedProjects.length === 0 && appliedProjects.length === 0 ? (
           <Card className="p-12 text-center border-2 border-transparent">
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -491,97 +307,47 @@ export default function FLDashboard() {
             </div>
             <h3 className="text-lg font-semibold text-slate-900 mb-2">No active jobs yet</h3>
             <p className="text-slate-600 mb-6">Browse available jobs and submit your applications</p>
-            <Link href="/FL/jobs" prefetch={false}>
-              <Button variant="primary">Browse Jobs</Button>
+            <Link href="/FL/projects" prefetch={false}>
+              <Button variant="primary">Browse Projects</Button>
             </Link>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Legacy projects */}
-            {freelancerProjects.map((project) => {
-              const completedMilestones = project.milestones.filter((m: any) => m.status === 'completed' || m.status === 'approved').length;
-              const progressPercentage = (completedMilestones / project.milestones.length) * 100;
+            {[...assignedProjects, ...appliedProjects].map((project) => {
+              const milestoneCount = Number(project.milestoneCount);
+              const isAppliedOnly = project.hasApplied && (!project.freelancer || project.freelancer === '0x0000000000000000000000000000000000000000');
 
               return (
-                <Link key={project.id} href={`/FL/jobs/${project.id}`} prefetch={false}>
+                <Link key={project.id.toString()} href={`/FL/projects/${project.id}`}>
                   <Card className="p-5 hover:shadow-lg hover:border-brand-200 transition-all cursor-pointer h-full border-2 border-transparent">
                     <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-semibold text-slate-900">{project.title}</h3>
+                      <h3 className="font-semibold text-slate-900">Project #{project.id.toString()}</h3>
                       <Badge
-                        variant={project.status === 'in-progress' ? 'warning' : project.status === 'completed' ? 'success' : 'default'}
+                        variant={getStatusBadge(project) as any}
                       >
-                        {project.status === 'in-progress' ? 'Active' : project.status}
+                        {getStatusText(project)}
                       </Badge>
                     </div>
 
-                    <p className="text-sm text-slate-600 mb-4 line-clamp-2">
-                      {project.description}
+                    <p className="text-sm text-slate-600 mb-4">
+                      {isAppliedOnly
+                        ? `Applied - awaiting approval from ${project.creator.slice(0, 6)}...${project.creator.slice(-4)}`
+                        : `Project Owner: ${project.creator.slice(0, 6)}...${project.creator.slice(-4)}`
+                      }
                     </p>
 
                     {/* Milestones Progress */}
                     <div className="mb-4">
                       <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-slate-600">Progress</span>
+                        <span className="text-slate-600">Milestones</span>
                         <span className="font-medium text-slate-900">
-                          {completedMilestones} / {project.milestones.length} milestones
+                          {milestoneCount}
                         </span>
                       </div>
                       <div className="w-full bg-slate-200 rounded-full h-2">
                         <div
                           className="bg-gradient-to-r from-brand-400 to-brand-600 h-2 rounded-full transition-all"
-                          style={{ width: `${progressPercentage}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-200">
-                      <span className="text-sm text-slate-600">
-                        Earnings: <span className="font-semibold text-brand-600">
-                          <CurrencyDisplay amount={formatCurrency(project.totalBudget, 'IDRX')} currency="IDRX" />
-                        </span>
-                      </span>
-                      <span className="text-sm text-slate-600">
-                        {project.ownerEns || project.owner.slice(0, 8)}
-                      </span>
-                    </div>
-                  </Card>
-                </Link>
-              );
-            })}
-
-            {/* PO Projects where user is assigned */}
-            {assignedRoles.map(({ project, role }) => {
-              const completedKPIs = role.kpis.filter((k: any) => k.status === 'completed' || k.status === 'approved').length;
-              const totalKPIs = role.kpis.length;
-              const progress = totalKPIs > 0 ? (completedKPIs / totalKPIs) * 100 : 0;
-
-              return (
-                <Link key={`${project.id}-${role.id}`} href={`/FL/active-jobs`} prefetch={false}>
-                  <Card className="p-5 hover:shadow-lg hover:border-brand-200 transition-all cursor-pointer h-full border-2 border-transparent">
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{project.title}</h3>
-                        <p className="text-xs text-slate-500">{role.title}</p>
-                      </div>
-                      <Badge variant="warning">Active</Badge>
-                    </div>
-
-                    <p className="text-sm text-slate-600 mb-4 line-clamp-2">
-                      {project.description}
-                    </p>
-
-                    {/* KPIs Progress */}
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-slate-600">Progress</span>
-                        <span className="font-medium text-slate-900">
-                          {completedKPIs} / {totalKPIs} KPIs
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div
-                          className="bg-gradient-to-r from-brand-400 to-brand-600 h-2 rounded-full transition-all"
-                          style={{ width: `${progress}%` }}
+                          style={{ width: `${project.status === 2 ? 100 : isAppliedOnly ? 0 : 50}%` }}
                         />
                       </div>
                     </div>
@@ -589,11 +355,8 @@ export default function FLDashboard() {
                     <div className="flex items-center justify-between pt-3 border-t border-slate-200">
                       <span className="text-sm text-slate-600">
                         Budget: <span className="font-semibold text-brand-600">
-                          <CurrencyDisplay amount={formatCurrency(role.budget, 'IDRX')} currency="IDRX" />
+                          <CurrencyDisplay amount={formatCurrency(BigInt(project.totalDeposited), 'IDRX')} currency="IDRX" />
                         </span>
-                      </span>
-                      <span className="text-sm text-slate-600">
-                        {project.ownerEns || project.owner.slice(0, 8)}
                       </span>
                     </div>
                   </Card>

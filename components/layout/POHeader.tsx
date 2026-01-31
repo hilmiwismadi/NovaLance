@@ -7,7 +7,9 @@ import { useAccount, useDisconnect } from 'wagmi';
 import NotificationBell from './NotificationBell';
 import RoleSwitcher from '@/components/ui/RoleSwitcher';
 import WalletConnectModal from '@/components/auth/WalletConnectModal';
-import { mockUser } from '@/lib/mockData';
+import { useIDRXBalance } from '@/lib/hooks';
+import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
+import { formatCurrency } from '@/lib/contract';
 
 interface NavItem {
   href: string;
@@ -29,6 +31,9 @@ export default function POHeader({ navItems }: POHeaderProps) {
   // Use wagmi's useAccount for real wallet connection state
   const { address, isConnected, status } = useAccount();
   const { disconnect } = useDisconnect();
+
+  // Get user's IDRX token balance
+  const { balance: tokenBalance, formatted: tokenBalanceFormatted, isLoading: isBalanceLoading } = useIDRXBalance(address);
 
   useEffect(() => {
     setMounted(true);
@@ -78,9 +83,9 @@ export default function POHeader({ navItems }: POHeaderProps) {
     }
   };
 
-  // Compute these once to avoid hydration issues - use mock username if logged in, otherwise use mock data
-  const displayUsername = username || (mockUser.ens || `${mockUser.address.slice(0, 6)}...${mockUser.address.slice(-4)}`);
-  const userInitial = username ? username[0].toUpperCase() : (mockUser.ens ? mockUser.ens[0].toUpperCase() : mockUser.address[2].toUpperCase());
+  // Compute these once to avoid hydration issues - use username if available, otherwise use wallet address
+  const displayUsername = username || (address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Connect Wallet');
+  const userInitial = username ? username[0].toUpperCase() : (address ? address.slice(2, 3).toUpperCase() : '?');
 
   // Format wallet address for display
   const formatWalletAddress = (addr: string) => {
@@ -101,11 +106,11 @@ export default function POHeader({ navItems }: POHeaderProps) {
           <div className="flex items-center justify-between gap-4">
             {/* Logo */}
             <Link href="/PO" className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
+              <img
+                src="/NovaLanceLogo.png"
+                alt="NovaLance"
+                className="w-8 h-8 rounded-lg shadow-lg"
+              />
               <span className="text-xl font-bold bg-gradient-to-r from-brand-500 to-brand-600 bg-clip-text text-transparent hidden sm:block">
                 NovaLance
               </span>
@@ -203,28 +208,46 @@ export default function POHeader({ navItems }: POHeaderProps) {
                       <div className="divide-y divide-slate-100">
                         {/* Wallet Connection */}
                         {isConnected && address ? (
-                          <button
-                            onClick={() => {
-                              handleDisconnectWallet();
-                              setShowMobileMenu(false);
-                            }}
-                            className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
-                          >
-                            <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                              <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
-                                <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          <>
+                            <div className="w-full flex items-center gap-3 p-4 bg-emerald-50 border-b border-slate-100">
+                              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200">
+                                <svg className="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
+                                <span className="text-xs font-semibold text-indigo-700">
+                                  {isBalanceLoading ? (
+                                    '...'
+                                  ) : tokenBalance ? (
+                                    <CurrencyDisplay amount={formatCurrency(tokenBalance, 'IDRX')} currency="IDRX" className="text-xs font-semibold" />
+                                  ) : (
+                                    '0 IDRX'
+                                  )}
+                                </span>
                               </div>
                             </div>
-                            <div className="flex-1 text-left">
-                              <p className="text-sm font-medium text-slate-800">Wallet Connected</p>
-                              <p className="text-xs text-slate-500">{formatWalletAddress(address)}</p>
-                            </div>
-                            <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                            <button
+                              onClick={() => {
+                                handleDisconnectWallet();
+                                setShowMobileMenu(false);
+                              }}
+                              className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
+                            >
+                              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                                <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
+                                  <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              </div>
+                              <div className="flex-1 text-left">
+                                <p className="text-sm font-medium text-slate-800">Wallet Connected</p>
+                                <p className="text-xs text-slate-500">{formatWalletAddress(address)}</p>
+                              </div>
+                              <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </>
                         ) : (
                           <button
                             onClick={() => {
@@ -288,23 +311,45 @@ export default function POHeader({ navItems }: POHeaderProps) {
 
               {/* Wallet Connection Button - Desktop */}
               {isConnected && address ? (
-                <button
-                  onClick={handleDisconnectWallet}
-                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors group"
-                  title="Connected - Click to disconnect"
-                >
-                  <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <div className="hidden sm:flex items-center gap-2">
+                  {/* Token Balance Display */}
+                  <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200">
+                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
+                    <span className="text-xs font-semibold text-indigo-700">
+                      {isBalanceLoading ? (
+                        '...'
+                      ) : tokenBalance !== undefined ? (
+                        <CurrencyDisplay
+                          amount={formatCurrency(tokenBalance, 'IDRX')}
+                          currency="IDRX"
+                          className="text-xs font-semibold text-indigo-700"
+                        />
+                      ) : (
+                        '0 IDRX'
+                      )}
+                    </span>
                   </div>
-                  <span className="text-xs font-medium text-emerald-700 hidden md:block">
-                    {formatWalletAddress(address)}
-                  </span>
-                  <svg className="w-3 h-3 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                  {/* Disconnect Button */}
+                  <button
+                    onClick={handleDisconnectWallet}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors group"
+                    title="Connected - Click to disconnect"
+                  >
+                    <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <span className="text-xs font-medium text-emerald-700 hidden md:block">
+                      {formatWalletAddress(address)}
+                    </span>
+                    <svg className="w-3 h-3 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={() => setShowWalletModal(true)}

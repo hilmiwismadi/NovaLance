@@ -200,13 +200,30 @@ function generateKPIs(count: number, startDate: string): Array<{
   const totalDuration = 90; // days
   const interval = Math.floor(totalDuration / count);
 
+  // Generate percentages ensuring last milestone >= 10%
   let remainingPercentage = 100;
+  const percentages: number[] = [];
 
   for (let i = 0; i < count; i++) {
     const isLast = i === count - 1;
-    const percentage = isLast ? remainingPercentage : Math.floor(Math.random() * (remainingPercentage - (count - i - 1) * 5)) + 5;
-    remainingPercentage -= percentage;
+    if (isLast) {
+      // Last milestone gets whatever remains (will be >= 10% due to logic below)
+      percentages.push(remainingPercentage);
+    } else {
+      // For non-last milestones, leave at least 10% for each remaining milestone
+      const remainingMilestones = count - i;
+      const minForLast = 10; // Last milestone must be >= 10%
+      const minForOthers = (remainingMilestones - 1) * 5; // At least 5% for each other remaining
+      const maxPercentage = remainingPercentage - minForLast - minForOthers;
+      const minPercentage = 5;
+      const percentage = Math.floor(Math.random() * (maxPercentage - minPercentage + 1)) + minPercentage;
+      percentages.push(percentage);
+      remainingPercentage -= percentage;
+    }
+  }
 
+  // Create KPIs with the calculated percentages
+  for (let i = 0; i < count; i++) {
     const deadline = new Date(baseDate);
     deadline.setDate(deadline.getDate() + interval);
     const deadlineStr = deadline.toISOString().split('T')[0];
@@ -214,7 +231,7 @@ function generateKPIs(count: number, startDate: string): Array<{
     kpis.push({
       id: `kpi-${Date.now()}-${i}`,
       name: names[i],
-      percentage,
+      percentage: percentages[i],
       description: descriptions[i],
       deadline: deadlineStr
     });
@@ -244,24 +261,19 @@ function generateDummyData() {
     text
   }));
 
-  const roleCount = Math.floor(Math.random() * 4) + 2; // 2-5 roles
-  const roles = [];
+  // Single role only - no budget needed
+  const kpiCount = Math.floor(Math.random() * 5) + 3; // 3-7 KPIs
 
-  for (let i = 0; i < roleCount; i++) {
-    const kpiCount = Math.floor(Math.random() * 8) + 3; // 3-10 KPIs
-    const budget = (Math.floor(Math.random() * 80) + 20) * 1000000; // 20M-100M
-
-    roles.push({
-      id: `role-${Date.now()}-${i}`,
-      title: getRandomItem(roleTitles),
-      description: getRandomItem(roleDescriptions),
-      budget: budget.toString(),
-      currency,
-      skills: getRandomItems(skills, 3, 6),
-      skillInput: '',
-      kpis: generateKPIs(kpiCount, startDateStr)
-    });
-  }
+  const roles = [{
+    id: `role-${Date.now()}-0`,
+    title: getRandomItem(roleTitles),
+    description: getRandomItem(roleDescriptions),
+    budget: '', // No budget in create phase
+    currency,
+    skills: getRandomItems(skills, 3, 6),
+    skillInput: '',
+    kpis: generateKPIs(kpiCount, startDateStr)
+  }];
 
   return {
     title,
@@ -314,24 +326,8 @@ export default function CreateProjectPage() {
   const { createProject, isPending, error, hash, isSuccess } = useCreateProject();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
 
-  // Expanded state for accordions
-  const [expandedSections, setExpandedSections] = useState({
-    projectInfo: true,
-    roles: [] as string[],
-  });
-
-  const toggleSection = (section: string, roleId?: string) => {
-    if (section === 'projectInfo') {
-      setExpandedSections(prev => ({ ...prev, projectInfo: !prev.projectInfo }));
-    } else if (section === 'role' && roleId) {
-      setExpandedSections(prev => {
-        const roles = prev.roles.includes(roleId)
-          ? prev.roles.filter(id => id !== roleId)
-          : [...prev.roles, roleId];
-        return { ...prev, roles };
-      });
-    }
-  };
+  // Expanded state for project info accordion
+  const [projectInfoExpanded, setProjectInfoExpanded] = useState(true);
 
   // Project level
   const [title, setTitle] = useState('');
@@ -386,31 +382,7 @@ export default function CreateProjectPage() {
     setFeatures(features.filter(f => f.id !== id));
   };
 
-  // Role handlers
-  const addRole = () => {
-    setRoles([
-      ...roles,
-      {
-        id: `role-${Date.now()}`,
-        title: '',
-        description: '',
-        budget: '',
-        currency: 'IDRX',
-        skills: [],
-        skillInput: '',
-        kpis: [
-          { id: `kpi-${Date.now()}`, name: '', percentage: 0, description: '', deadline: '' },
-        ],
-      },
-    ]);
-  };
-
-  const removeRole = (index: number) => {
-    if (roles.length > 1) {
-      setRoles(roles.filter((_, i) => i !== index));
-    }
-  };
-
+  // Role handlers (single role only - no add/remove)
   const updateRole = (index: number, field: keyof RoleInput, value: any) => {
     const updated = [...roles];
     updated[index] = { ...updated[index], [field]: value };
@@ -455,15 +427,19 @@ export default function CreateProjectPage() {
   };
 
   const removeKPI = (roleIndex: number, kpiIndex: number) => {
-    const role = roles[roleIndex];
-    if (role.kpis.length > 1) {
-      const updated = [...roles];
-      updated[roleIndex] = {
-        ...role,
-        kpis: role.kpis.filter((_, i) => i !== kpiIndex),
-      };
-      setRoles(updated);
+    const updated = [...roles];
+    const role = { ...updated[roleIndex] };
+
+    // Remove the KPI
+    role.kpis = role.kpis.filter((_, i) => i !== kpiIndex);
+
+    // If no KPIs left, add a fresh empty one
+    if (role.kpis.length === 0) {
+      role.kpis = [{ id: `kpi-${Date.now()}`, name: '', percentage: 0, description: '', deadline: '' }];
     }
+
+    updated[roleIndex] = role;
+    setRoles(updated);
   };
 
   const updateKPI = (roleIndex: number, kpiIndex: number, field: keyof KPIInput, value: string | number) => {
@@ -497,14 +473,6 @@ export default function CreateProjectPage() {
         showError('Invalid KPI Percentages', `Role "${roles[i].title || 'Role ' + (i + 1)}" KPIs must add up to 100%. Currently: ${totalPercentage}%`);
         return;
       }
-    }
-
-    // Calculate total budget
-    const totalBudget = roles.reduce((sum, role) => sum + parseFloat(role.budget || '0'), 0);
-
-    if (totalBudget <= 0) {
-      showError('Invalid Budget', 'Total budget must be greater than 0');
-      return;
     }
 
     try {
@@ -541,7 +509,100 @@ export default function CreateProjectPage() {
 
   // Handle ProjectLance transaction confirmation - extract projectId from logs
   useEffect(() => {
+    const syncProjectToBackend = async (projectId: bigint) => {
+      console.log('🔍 syncProjectToBackend called', {
+        projectId: projectId.toString(),
+        hasAddress: !!address,
+        address,
+        hasTitle: !!title,
+        title,
+        hasDescription: !!description,
+        description,
+        hasStartDate: !!startDate,
+        startDate,
+        hasEndDate: !!endDate,
+        endDate,
+        hasRoles: roles.length > 0,
+        rolesCount: roles.length,
+      });
+
+      if (!address || !title || !description || !startDate || !endDate) {
+        console.error('❌ Missing required data for backend sync');
+        return;
+      }
+
+      try {
+        console.log('🔄 Syncing project to backend...', projectId.toString());
+
+        // Import API client
+        const { projectApi } = await import('@/lib/api-client');
+
+        // Create the offchain project record with on-chain projectId as id
+        const projectResult = await projectApi.create({
+          id: projectId.toString(),
+          title,
+          description,
+          timelineStart: new Date(startDate).toISOString(),
+          timelineEnd: new Date(endDate).toISOString(),
+        });
+        console.log('✅ Project synced to backend:', projectResult);
+
+        // Sync roles and KPIs for each role
+        for (const role of roles) {
+          if (!role.title || !role.description) {
+            console.log('⏭️ Skipping role with missing data:', role.id);
+            continue;
+          }
+
+          // Calculate payment per KPI from role KPIs
+          // For on-chain milestones, we don't have a budget, so use a default
+          const kpiCount = role.kpis.filter(k => k.name || k.description).length || role.kpis.length;
+          const paymentPerKpi = '0'; // Will be determined by on-chain deposits
+
+          // Create role
+          console.log('🔄 Creating role:', role.title);
+          const roleResult = await projectApi.createRole(projectId.toString(), {
+            name: role.title,
+            description: role.description,
+            kpiCount: kpiCount > 0 ? kpiCount : 1,
+            paymentPerKpi,
+            skills: role.skills.length > 0 ? role.skills : undefined,
+          });
+          console.log('✅ Role created:', roleResult);
+
+          // Create KPIs for this role
+          const validKpis = role.kpis
+            .map((kpi, idx) => ({
+              kpiNumber: idx + 1,
+              description: kpi.description || kpi.name || `KPI ${idx + 1}`,
+              deadline: kpi.deadline ? new Date(kpi.deadline).toISOString() : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            }))
+            .filter(kpi => kpi.description && kpi.description.length > 0);
+
+          if (validKpis.length > 0) {
+            console.log(`🔄 Creating ${validKpis.length} KPIs for role ${roleResult.role.id}`);
+            const kpisResult = await projectApi.createKpis(
+              projectId.toString(),
+              roleResult.role.id,
+              validKpis
+            );
+            console.log('✅ KPIs created:', kpisResult);
+          }
+        }
+
+        console.log('✅ All project data synced to backend!');
+      } catch (error) {
+        console.error('❌ Failed to sync project to backend:', error);
+        // Don't show error to user - on-chain creation succeeded
+      }
+    };
+
     if (isPLConfirmed && plReceipt) {
+      console.log('📋 Transaction confirmed, extracting projectId from logs...', {
+        logsCount: plReceipt.logs.length,
+        hash: plHash,
+      });
+
       // Extract projectId from ProjectCreated event
       let projectId: bigint | undefined;
 
@@ -553,23 +614,32 @@ export default function CreateProjectPage() {
             topics: log.topics,
           });
 
+          console.log('📝 Decoded log:', { eventName: decoded.eventName, args: decoded.args });
+
           if (decoded.eventName === 'ProjectCreated' && decoded.args) {
-            // args is readonly unknown[], access by index (projectId is first indexed arg)
-            projectId = decoded.args[0] as bigint;
+            // args is an object with named properties: { projectId, creator, milestoneCount }
+            const args = decoded.args as unknown as { projectId: bigint; creator: string; milestoneCount: bigint };
+            projectId = args.projectId;
+            console.log('✅ Found projectId:', projectId.toString());
             break;
           }
-        } catch {
+        } catch (e) {
           // Skip logs that don't match the expected event format
+          console.log('⏭️ Skipping log (not matching ABI)', e);
           continue;
         }
       }
 
       if (projectId !== undefined) {
         setCreatedProjectId(projectId);
-        showTransactionSuccess(plHash || '0x0', 'Project created successfully!');
-        // Navigate to the newly created project detail page
+        showTransactionSuccess(plHash || '0x', 'Project created successfully!');
+
+        // Sync to backend API (fire and forget)
+        syncProjectToBackend(projectId);
+
+        // Navigate to fund project page
         setTimeout(() => {
-          router.push(`/PO/projects/${projectId}`);
+          router.push(`/PO/projects/${projectId}/fund`);
         }, 1500);
       } else {
         // Fallback: If we can't extract projectId from logs, navigate to projects list
@@ -579,7 +649,7 @@ export default function CreateProjectPage() {
         }, 1500);
       }
     }
-  }, [isPLConfirmed, plReceipt, plHash, router]);
+  }, [isPLConfirmed, plReceipt, plHash, router, title, description, startDate, endDate, address]);
 
   // Handle ProjectLance transaction error
   useEffect(() => {
@@ -612,8 +682,6 @@ export default function CreateProjectPage() {
 
   if (!mounted) return null;
 
-  const totalBudget = roles.reduce((sum, role) => sum + parseFloat(role.budget || '0'), 0);
-
   return (
     <div className="min-h-screen pb-safe">
       {/* Mobile Header */}
@@ -642,8 +710,8 @@ export default function CreateProjectPage() {
         <Accordion
           title="Project Information"
           subtitle="Basic details about your project"
-          isOpen={expandedSections.projectInfo}
-          onToggle={() => toggleSection('projectInfo')}
+          isOpen={projectInfoExpanded}
+          onToggle={() => setProjectInfoExpanded(!projectInfoExpanded)}
         >
           <div className="space-y-4">
             {/* Title */}
@@ -768,64 +836,37 @@ export default function CreateProjectPage() {
           </div>
         </Accordion>
 
-        {/* Step 2: Team Roles */}
+        {/* Step 2: Freelancer Role (single role only) */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-lg font-semibold text-slate-900">Team Roles</h2>
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={addRole}
-              className="h-9 px-3 text-sm"
-            >
-              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Role
-            </Button>
+          <div className="px-1">
+            <h2 className="text-lg font-semibold text-slate-900">Freelancer Role</h2>
+            <p className="text-sm text-slate-500 mt-1">Each project supports one freelancer position</p>
           </div>
 
           <div className="space-y-3">
             {roles.map((role, roleIndex) => {
               const totalKPIPercentage = role.kpis.reduce((sum, kpi) => sum + kpi.percentage, 0);
-              const isExpanded = expandedSections.roles.includes(role.id);
-              const roleDisplayTitle = role.title || `Role ${roleIndex + 1}`;
+              const roleDisplayTitle = role.title || 'Freelancer Position';
 
               return (
-                <Accordion
-                  key={role.id}
-                  title={roleDisplayTitle}
-                  subtitle={role.budget ? `${parseInt(role.budget).toLocaleString()} ${currency}` : 'Set budget and details'}
-                  isOpen={isExpanded}
-                  onToggle={() => toggleSection('role', role.id)}
-                  badge={
-                    role.skills.length > 0 ? (
-                      <span className="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full">
-                        {role.skills.length} skills
-                      </span>
-                    ) : null
-                  }
-                  actionButton={
-                    roles.length > 1 ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeRole(roleIndex);
-                        }}
-                        className="h-8 w-8 p-0 flex-shrink-0"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </Button>
-                    ) : null
-                  }
-                >
-                  <div className="space-y-4">
+                <div key={role.id} className="border border-slate-200/60 rounded-xl overflow-hidden bg-white/40 backdrop-blur-sm">
+                  {/* Role Header */}
+                  <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-slate-200/60 bg-white/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-slate-900 text-base">
+                          {roleDisplayTitle}
+                        </h3>
+                      </div>
+                      {role.skills.length > 0 && (
+                        <span className="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full flex-shrink-0">
+                          {role.skills.length} skill{role.skills.length > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="px-4 py-4 sm:px-5 sm:py-5 space-y-4">
                     {/* Role Title & Budget - Stacked */}
                     <div className="space-y-3">
                       <div>
@@ -837,21 +878,6 @@ export default function CreateProjectPage() {
                           value={role.title}
                           onChange={(e) => updateRole(roleIndex, 'title', e.target.value)}
                           placeholder="e.g., Frontend Developer"
-                          className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">
-                          Budget ({currency}) *
-                        </label>
-                        <input
-                          type="number"
-                          value={role.budget}
-                          onChange={(e) => updateRole(roleIndex, 'budget', e.target.value)}
-                          placeholder="2000000"
-                          min="0"
                           className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all glass-input"
                           required
                         />
@@ -948,19 +974,18 @@ export default function CreateProjectPage() {
                           <div key={kpi.id} className="border border-slate-200/60 rounded-xl p-3 bg-white/30 backdrop-blur-sm">
                             <div className="flex items-center justify-between mb-3">
                               <span className="text-sm font-semibold text-slate-900">KPI {kpiIndex + 1}</span>
-                              {role.kpis.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeKPI(roleIndex, kpiIndex)}
-                                  className="h-7 w-7 p-0"
-                                >
-                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </Button>
-                              )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeKPI(roleIndex, kpiIndex)}
+                                className="h-8 px-2 text-red-600 hover:bg-red-50 hover:text-red-700"
+                                title="Remove KPI"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </Button>
                             </div>
 
                             {/* KPI Inputs - Stacked on mobile, 2x2 on tablet+ */}
@@ -1026,33 +1051,11 @@ export default function CreateProjectPage() {
                       </div>
                     </div>
                   </div>
-                </Accordion>
+                </div>
               );
             })}
           </div>
         </div>
-
-        {/* Budget Summary - Compact Card */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-900">Budget Summary</h3>
-            <span className="text-lg font-bold text-brand-600">
-              {totalBudget.toLocaleString()} {currency}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {roles.map((role, i) => (
-              <div key={role.id} className="flex justify-between text-sm">
-                <span className="text-slate-600 truncate mr-2">
-                  {role.title || `Role ${i + 1}`}
-                </span>
-                <span className="font-medium text-slate-900 flex-shrink-0">
-                  {parseInt(role.budget || '0').toLocaleString()}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
 
         {/* Submit Buttons - Stacked on mobile */}
         <div className="space-y-2 pt-2">

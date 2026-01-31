@@ -18,6 +18,7 @@ import {
   usePLApplyForProject,
   useTransactionWait,
 } from '@/lib/hooks';
+import { useProject, useProjectRoles } from '@/lib/api-hooks';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -26,17 +27,16 @@ import {
   showError,
 } from '@/lib/transactions';
 
-// Format currency for IDRX (6 decimals)
+// Format currency for IDRX (18 decimals - standard ERC20)
 function formatIDRX(amount: bigint | number): string {
-  const value = typeof amount === 'bigint' ? Number(amount) / 1e6 : amount;
+  const value = typeof amount === 'bigint' ? Number(amount) / 1e18 : amount;
   return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // Get project status text
 function getProjectStatus(status: number): string {
   switch (status) {
-    case 0: return 'Hiring';
-    case 1: return 'In Progress';
+    case 0: return 'Active';
     case 2: return 'Completed';
     case 3: return 'Cancelled';
     default: return 'Unknown';
@@ -69,9 +69,13 @@ export default function FLProjectDetailPage() {
   const projectId = params.id as string;
   const projectLanceId = BigInt(parseInt(projectId) || 0);
 
-  // ProjectLance hooks
+  // ProjectLance hooks (on-chain data)
   const { project, isLoading: isProjectLoading, refetch: refetchProject } = usePLProject(projectLanceId);
   const { milestones, isLoading: isMilestonesLoading, refetch: refetchMilestones } = usePLAllMilestones(projectLanceId);
+
+  // Backend hooks (off-chain metadata)
+  const { data: backendProject } = useProject(projectId);
+  const { data: backendRoles } = useProjectRoles(projectId);
 
   // Write hooks
   const { submit: submitMilestone, isPending: isSubmitPending, error: submitError, hash: submitHash, isSuccess: isSubmitSuccess } = usePLSubmitMilestone();
@@ -237,9 +241,16 @@ export default function FLProjectDetailPage() {
   const lendingAmount = projectArray?.[5] ?? BigInt(0);
   const milestoneCount = projectArray?.[6] ?? BigInt(0);
   const cancelledTimestamp = projectArray?.[7] ?? BigInt(0);
-  const totalBudget = Number(totalDeposited) / 1e6;
+  const totalBudget = Number(totalDeposited) / 1e18;
+  const vaultBudget = Number(vaultAmount) / 1e18;
   const isFreelancer = freelancer && address?.toLowerCase() === (freelancer as string).toLowerCase();
   const canApply = !freelancer || freelancer === '0x0000000000000000000000000000000000000000';
+
+  // Calculate estimated milestone amount (before penalty)
+  // Percentage is based on total deposited budget, not just vault
+  const getEstimatedAmount = (percentage: bigint): number => {
+    return (totalBudget * Number(percentage)) / 10000; // percentage is in basis points (100 = 1%)
+  };
 
   // Calculate progress
   const completedMilestones = (milestones as any[])?.filter(m => m.accepted || m.released).length || 0;
@@ -249,7 +260,7 @@ export default function FLProjectDetailPage() {
   return (
     <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="space-y-3">
         <div>
           <Link
             href="/FL/projects"
@@ -261,11 +272,16 @@ export default function FLProjectDetailPage() {
             Back to Projects
           </Link>
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">Project #{projectId}</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">
+              {backendProject?.title || `Project #${projectId}`}
+            </h1>
             <Badge variant={status === 1 ? 'warning' : status === 2 ? 'success' : 'default'}>
               {getProjectStatus(status)}
             </Badge>
           </div>
+          {backendProject?.description && (
+            <p className="text-slate-600 text-sm mt-1 max-w-3xl">{backendProject.description}</p>
+          )}
         </div>
       </div>
 
@@ -292,6 +308,57 @@ export default function FLProjectDetailPage() {
           </div>
         </div>
       </Card>
+
+      {/* Roles Section - Backend Data */}
+      {backendRoles && backendRoles.length > 0 && (
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v2c0 .656-.126 1.283-.356 1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Required Roles</h3>
+                <p className="text-xs text-slate-500">Skills and KPIs</p>
+              </div>
+            </div>
+            <Badge variant="default">{backendRoles.length} Role{backendRoles.length !== 1 ? 's' : ''}</Badge>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {backendRoles.map((role: any) => {
+              const roleSkills = role.skills ? JSON.parse(role.skills) : [];
+              return (
+                <div key={role.id} className="border border-slate-200 rounded-xl p-3 bg-slate-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-slate-900">{role.name}</h4>
+                    <Badge variant={role.status === 'open' ? 'success' : 'default'} className="text-xs">
+                      {role.status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-600 mb-2 line-clamp-2">{role.description}</p>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">{role.kpiCount} KPI{role.kpiCount > 1 ? 's' : ''}</span>
+                    {roleSkills.length > 0 && (
+                      <div className="flex gap-1 flex-wrap">
+                        {roleSkills.slice(0, 3).map((skill: string) => (
+                          <span key={skill} className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
+                            {skill}
+                          </span>
+                        ))}
+                        {roleSkills.length > 3 && (
+                          <span className="text-slate-500">+{roleSkills.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content - Milestones */}
@@ -333,6 +400,8 @@ export default function FLProjectDetailPage() {
             const canSubmit = milestone.submissionTime === BigInt(0) && isFreelancer;
             const canWithdraw = milestone.accepted && !milestone.released && isFreelancer;
             const isClickable = canSubmit || canWithdraw;
+            const estimatedAmount = getEstimatedAmount(milestone.percentage);
+            const hasActualAmount = milestone.actualAmount > BigInt(0);
 
             return (
               <Card
@@ -388,10 +457,18 @@ export default function FLProjectDetailPage() {
                     </div>
 
                     <div className="flex flex-col items-end gap-1">
-                      <p className="text-xs text-slate-500">Amount</p>
-                      <p className="text-base sm:text-lg font-bold text-brand-600">
-                        {formatIDRX(milestone.actualAmount)} IDRX
+                      <p className="text-xs text-slate-500">
+                        {hasActualAmount ? 'Actual Amount' : 'Est. Amount'}
                       </p>
+                      <p className="text-base sm:text-lg font-bold text-brand-600">
+                        {hasActualAmount
+                          ? formatIDRX(milestone.actualAmount)
+                          : formatIDRX(estimatedAmount)
+                        } IDRX
+                      </p>
+                      {!hasActualAmount && (
+                        <p className="text-[10px] text-slate-400">before penalties</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -403,6 +480,25 @@ export default function FLProjectDetailPage() {
                         <span className="text-slate-600">Percentage</span>
                         <span className="font-medium text-slate-900">{Number(milestone.percentage) / 100}%</span>
                       </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">
+                          {hasActualAmount ? 'Actual Amount' : 'Est. Amount'}
+                        </span>
+                        <span className={`font-medium ${hasActualAmount ? 'text-brand-600' : 'text-slate-900'}`}>
+                          {hasActualAmount
+                            ? formatIDRX(milestone.actualAmount)
+                            : formatIDRX(estimatedAmount)
+                          } IDRX
+                        </span>
+                      </div>
+                      {!hasActualAmount && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600">Note</span>
+                          <span className="font-medium text-slate-500 text-xs">
+                            Amount calculated on PO approval (may include late penalty)
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Submitted</span>
                         <span className="font-medium text-slate-900">

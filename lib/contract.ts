@@ -21,8 +21,9 @@ export const CONTRACT_ADDRESSES = {
   },
   baseSepolia: {
     novaLance: '0x0000000000000000000000000000000000000000' as Address, // TODO: Update after deployment
-    // ProjectLance contracts (BaseHackathon) - Deployed 2025-01-31
-    projectLance: '0x87c5C1a665cE300B13Cf5DE7a5d206386E93049c' as Address,
+    // ProjectLance contracts (BaseHackathon) - Deployed 2025-01-31 (Fixed vault amount tracking)
+    // Uses existing MockIDRX and MockLendingProtocol
+    projectLance: '0xc6237A54029351DFcbcF374698DAB3681964809a' as Address,
     mockLendingProtocol: '0xcAD07A2741E3C08D79452F9CA337DE3a3947eae5' as Address,
     mockIDRX: '0x026632AcAAc18Bc99c3f7fa930116189B6ba8432' as Address,
   },
@@ -39,7 +40,8 @@ export const TOKEN_ADDRESSES = {
     USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address,
     USDT: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb' as Address,
     WETH: '0x4200000000000000000000000000000000000006' as Address,
-    // IDRX would be deployed separately
+    // IDRX would be deployed separately - using zero address as placeholder
+    IDRX: '0x0000000000000000000000000000000000000000' as Address,
   },
   baseSepolia: {
     USDC: '0x036CbD5A42F7E87138939B31B4eb07330dD618E9' as Address,
@@ -219,6 +221,7 @@ export function generateKPIId(roleId: Hash, index: number): Hash {
 export function getTokenDecimals(currency: string): number {
   switch (currency.toUpperCase()) {
     case 'IDRX':
+      return 18; // MockIDRX on Base Sepolia uses 18 decimals
     case 'USDC':
     case 'USDT':
       return 6; // These stablecoins typically use 6 decimals

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
@@ -8,19 +8,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
 import { formatCurrency } from '@/lib/contract';
-import {
-  usePLProjectCount,
-  usePLProject,
-  usePLYield,
-  usePLAllMilestones,
-  usePLVaultBalance,
-  usePLLendingBalance,
-} from '@/lib/hooks';
-
-// Track expansion state for each project
-interface ExpansionState {
-  [key: string]: boolean;
-}
+import { usePLProjectCount } from '@/lib/hooks';
 
 // Project data interface for contract data
 interface ContractProject {
@@ -32,90 +20,141 @@ interface ContractProject {
   vaultAmount: bigint;
   lendingAmount: bigint;
   milestoneCount: bigint;
-  milestones?: any[];
+}
+
+// Custom hook to fetch multiple projects from smart contract
+// Note: This is the smart contract integration and may cause excessive RPC calls
+// Consider using backend API instead for production
+function usePOProjects(maxProjects: number = 20) {
+  const { address, chain } = useAccount();
+  const [projects, setProjects] = useState<ContractProject[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
+
+  console.log('[PO Dashboard] usePOProjects hook called', { address, chainId: chain?.id, maxProjects, isLoading });
+
+  useEffect(() => {
+    console.log('\n-------- PO DASHBOARD USEEFFECT (FETCH PROJECTS) --------');
+    console.log('[PO Dashboard] address:', address);
+    console.log('[PO Dashboard] chainId:', chain?.id);
+    console.log('[PO Dashboard] maxProjects:', maxProjects);
+    console.log('[PO Dashboard] Current URL:', typeof window !== 'undefined' ? window.location.href : 'SSR');
+    console.log('[PO Dashboard] hasLoaded:', hasLoaded);
+    console.log('----------------------------------------------------------\n');
+
+    if (!address || !chain || hasLoaded) return; // Only load once
+
+    const fetchProjects = async () => {
+      console.log('\n[PO Dashboard] >>> FETCHING PROJECTS START <<<\n');
+      setIsLoading(true);
+      try {
+        const { getContractAddresses } = await import('@/lib/contract-adapter');
+        const { PROJECTLANCE_ABI } = await import('@/lib/abi');
+        const { createPublicClient, http } = await import('viem');
+
+        const publicClient = createPublicClient({
+          chain: chain,
+          transport: http()
+        });
+
+        const addresses = getContractAddresses(chain.id);
+        const projectLanceAddress = addresses.projectLance;
+
+        // Fetch all projects in parallel
+        const projectPromises = [];
+        for (let i = 0; i < Math.min(maxProjects, 10); i++) { // Limit to 10 to avoid spam
+          projectPromises.push(
+            publicClient.readContract({
+              address: projectLanceAddress as `0x${string}`,
+              abi: PROJECTLANCE_ABI,
+              functionName: 'getProject',
+              args: [BigInt(i)]
+            }).catch(() => null)
+          );
+        }
+
+        const results = await Promise.all(projectPromises);
+
+        const userProjects: ContractProject[] = [];
+        for (let i = 0; i < results.length; i++) {
+          const result = results[i] as any[] | null;
+          if (!result) continue;
+
+          const creator = result[0] as string;
+          const freelancer = result[1] as string;
+          const status = result[2] as number;
+          const totalDeposited = result[3] as bigint;
+          const vaultAmount = result[4] as bigint;
+          const lendingAmount = result[5] as bigint;
+          const milestoneCount = result[6] as bigint;
+
+          // Only include projects created by this user
+          if (creator.toLowerCase() === address.toLowerCase()) {
+            userProjects.push({
+              id: BigInt(i),
+              creator,
+              freelancer,
+              status,
+              totalDeposited,
+              vaultAmount,
+              lendingAmount,
+              milestoneCount,
+            });
+          }
+        }
+
+        setProjects(userProjects);
+        console.log('\n[PO Dashboard] >>> FETCHING PROJECTS COMPLETE <<<\n');
+        console.log('[PO Dashboard] Found', userProjects.length, 'user projects\n');
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+        setProjects([]);
+      } finally {
+        setIsLoading(false);
+        setHasLoaded(true); // Mark as loaded to prevent repeated calls
+      }
+    };
+
+    fetchProjects();
+  }, [address, chain?.id, maxProjects, hasLoaded]);
+
+  return { projects, isLoading };
 }
 
 export default function PODashboard() {
   const [mounted, setMounted] = useState(false);
   const [kpiExpanded, setKpiExpanded] = useState(false);
   const [yieldExpanded, setYieldExpanded] = useState(false);
-  const [expandedProjects, setExpandedProjects] = useState<ExpansionState>({});
-  const [expandedYieldProjects, setExpandedYieldProjects] = useState<ExpansionState>({});
 
   useEffect(() => {
+    console.log('\n======== PO DASHBOARD MOUNTED ========');
+    console.log('[PO Dashboard] Component mounted');
+    console.log('[PO Dashboard] Current URL:', typeof window !== 'undefined' ? window.location.href : 'SSR');
+    console.log('========================================\n');
     setMounted(true);
   }, []);
 
-  const { address, chain } = useAccount();
-
   // Smart Contract Data
-  const { count: projectCount, isLoading: isProjectCountLoading } = usePLProjectCount();
-
-  // Fetch all projects from contract
-  // Since there's no getProjectsByCreator function, we iterate through all projects
-  const userProjects = useMemo(() => {
-    if (!projectCount || !address) return [];
-    const projects: ContractProject[] = [];
-    const count = Number(projectCount);
-
-    // We'll fetch project details for each ID to check if user is the creator
-    // For now, return empty array - actual fetching will be done with individual hooks
-    return [];
-  }, [projectCount, address]);
-
-  // State to hold loaded project details
-  const [loadedProjects, setLoadedProjects] = useState<ContractProject[]>([]);
-
-  // Load project details for all projects
-  useEffect(() => {
-    if (!projectCount || !address) return;
-
-    const loadProjects = async () => {
-      const count = Number(projectCount);
-      const projects: ContractProject[] = [];
-
-      // We need to use the contract read function directly
-      // For now, we'll load a fixed number of projects for demo purposes
-      for (let i = 0; i < Math.min(count, 10); i++) {
-        const projectId = BigInt(i);
-        // Note: In production, we would use publicClient.readContract here
-        // For now, we'll skip this and let the user create projects first
-      }
-
-      setLoadedProjects(projects);
-    };
-
-    loadProjects();
-  }, [projectCount, address]);
-
-  // Filter projects by current user as creator
-  const ownerProjects = loadedProjects.filter(p =>
-    p.creator.toLowerCase() === address?.toLowerCase()
-  );
+  const { count: projectCount } = usePLProjectCount();
+  const { projects: userProjects, isLoading: isProjectsLoading } = usePOProjects(20);
 
   // Active projects (not cancelled or completed)
-  const activeProjects = ownerProjects.filter(p =>
+  const activeProjects = userProjects.filter(p =>
     p.status === 0 || p.status === 1 // Active or Assigned
   );
 
   // Calculate overall progress based on milestones
   const calculateProjectProgress = (project: ContractProject): number => {
-    if (!project.milestones || project.milestones.length === 0) return 0;
-
-    const totalMilestones = project.milestones.length;
-    const completedMilestones = project.milestones.filter((m: any) => m.released || m.accepted).length;
-
-    return Math.round((completedMilestones / totalMilestones) * 100);
+    // For now, return 0 - milestones will be fetched on project detail page
+    return 0;
   };
 
   // Calculate overall KPI progress across all active projects
   const totalMilestones = activeProjects.reduce((sum, p) =>
-    sum + (p.milestones?.length || Number(p.milestoneCount)), 0
+    sum + Number(p.milestoneCount), 0
   );
-  const completedMilestones = activeProjects.reduce((sum, p) =>
-    sum + (p.milestones?.filter((m: any) => m.released || m.accepted).length || 0), 0
-  );
-  const overallProgress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
+  const completedMilestones = 0; // Will be calculated from milestones data
+  const overallProgress = totalMilestones > 0 ? 0 : 0;
 
   // Calculate yield totals from active projects
   const calculateYieldTotals = () => {
@@ -129,8 +168,6 @@ export default function PODashboard() {
     });
 
     // Yield is calculated as the growth in lending amount
-    // Since we can't track the exact principal per project in this view,
-    // we'll estimate yield as a percentage of the lending amount
     const estimatedYield = (totalLP * BigInt(5)) / BigInt(100); // Assume 5% yield for demo
     totalYield = estimatedYield;
 
@@ -141,24 +178,13 @@ export default function PODashboard() {
 
   if (!mounted) return null;
 
-  // Helper functions for yield display
-  const getYieldColor = (rate: number): string => {
-    if (rate < 0) return 'text-red-600';
-    if (rate < 5) return 'text-slate-600';
-    if (rate < 10) return 'text-emerald-600';
-    return 'text-emerald-700';
-  };
-
-  const getYieldBgColor = (rate: number): string => {
-    if (rate < 0) return 'bg-red-50';
-    if (rate < 5) return 'bg-slate-50';
-    if (rate < 10) return 'bg-emerald-50';
-    return 'bg-emerald-100';
-  };
-
-  const formatYieldRate = (rate: number): string => {
-    return rate.toFixed(2);
-  };
+  if (isProjectsLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   // Get status badge variant based on project status
   const getStatusBadge = (status: number) => {
@@ -179,14 +205,6 @@ export default function PODashboard() {
       case 3: return 'Cancelled';
       default: return 'Unknown';
     }
-  };
-
-  const toggleProject = (projectId: string) => {
-    setExpandedProjects(prev => ({ ...prev, [projectId]: !prev[projectId] }));
-  };
-
-  const toggleYieldProject = (projectId: string) => {
-    setExpandedYieldProjects(prev => ({ ...prev, [projectId]: !prev[projectId] }));
   };
 
   return (
@@ -210,10 +228,7 @@ export default function PODashboard() {
       {/* Two Main Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* KPI Progress Card */}
-        <Card
-          className={`p-5 cursor-pointer hover:shadow-lg transition-all ${kpiExpanded ? 'ring-2 ring-brand-500' : ''}`}
-          onClick={() => setKpiExpanded(!kpiExpanded)}
-        >
+        <Card className="p-5">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg">
@@ -238,118 +253,10 @@ export default function PODashboard() {
               <div className="bg-gradient-to-r from-brand-400 to-brand-600 h-3 rounded-full transition-all" style={{ width: `${overallProgress}%` }} />
             </div>
           </div>
-
-          {/* Expanded Content - Project → Milestones */}
-          {kpiExpanded && (
-            <div className="border-t border-slate-200 pt-4 space-y-3" onClick={(e) => e.stopPropagation()}>
-              {activeProjects.map((project) => {
-                const projectProgress = calculateProjectProgress(project);
-                const isProjectExpanded = expandedProjects[project.id.toString()];
-                const projectMilestones = project.milestones || [];
-                const completedMilestones = projectMilestones.filter((m: any) => m.released || m.accepted).length;
-
-                return (
-                  <div key={project.id.toString()} className="border border-slate-200 rounded-xl overflow-hidden">
-                    {/* Project Header */}
-                    <div
-                      className="flex items-center justify-between p-3 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors"
-                      onClick={() => toggleProject(project.id.toString())}
-                    >
-                      <div className="flex items-center gap-2 flex-1">
-                        <svg
-                          className={`w-4 h-4 text-slate-500 transition-transform ${isProjectExpanded ? 'rotate-90' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                        <span className="font-semibold text-slate-900">Project #{project.id.toString()}</span>
-                        <Badge variant={getStatusBadge(project.status)} className="text-xs">
-                          {getStatusText(project.status)}
-                        </Badge>
-                      </div>
-                      <span className="text-sm font-bold text-brand-600">{projectProgress}%</span>
-                    </div>
-
-                    {/* Milestones */}
-                    {isProjectExpanded && (
-                      <div className="p-3 space-y-2">
-                        {projectMilestones.map((milestone: any, index: number) => {
-                          const isCompleted = milestone.released;
-                          const isAccepted = milestone.accepted && !milestone.released;
-                          const isPending = !milestone.accepted && !milestone.released;
-
-                          return (
-                            <div key={index} className="flex items-center gap-2 text-xs p-2 bg-white rounded-lg border border-slate-200">
-                              <span className="flex-shrink-0">
-                                {isCompleted ? (
-                                  <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
-                                ) : isAccepted ? (
-                                  <svg className="w-4 h-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                  </svg>
-                                ) : (
-                                  <div className="w-4 h-4 rounded-full border-2 border-slate-300" />
-                                )}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className={`font-medium truncate ${isCompleted ? 'text-emerald-700' : isAccepted ? 'text-amber-700' : 'text-slate-700'}`}>
-                                    Milestone {index + 1}
-                                  </span>
-                                  <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-                                    {Number(milestone.percentage) / 100}%
-                                  </span>
-                                </div>
-                                <div className="w-full bg-slate-200 rounded-full h-1.5">
-                                  <div
-                                    className={`h-1.5 rounded-full transition-all ${
-                                      isCompleted ? 'bg-emerald-500' : isAccepted ? 'bg-amber-500' : 'bg-slate-300'
-                                    }`}
-                                    style={{ width: `${isCompleted ? 100 : isAccepted ? 75 : 0}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {projectMilestones.length === 0 && (
-                          <p className="text-center text-slate-500 py-2">No milestones</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {activeProjects.length === 0 && (
-                <p className="text-center text-slate-500 py-4">No active projects. Create your first project to get started!</p>
-              )}
-            </div>
-          )}
-
-          {/* Expand indicator */}
-          <div className="flex justify-center mt-4">
-            <svg
-              className={`w-5 h-5 text-slate-400 transition-transform ${kpiExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
         </Card>
 
         {/* Yield Performance Card */}
-        <Card
-          className={`p-5 cursor-pointer hover:shadow-lg transition-all ${yieldExpanded ? 'ring-2 ring-emerald-500' : ''}`}
-          onClick={() => setYieldExpanded(!yieldExpanded)}
-        >
+        <Card className="p-5">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg">
@@ -364,13 +271,9 @@ export default function PODashboard() {
             </div>
             <div className="text-right">
               <p className="text-3xl font-bold text-emerald-600">
-                {activeProjects.reduce((count, p) => {
-                  const projectMilestones = p.milestones || [];
-                  const activeMilestones = projectMilestones.filter((m: any) => m.accepted || m.submissionTime > 0).length;
-                  return count + activeMilestones;
-                }, 0)}
+                {activeProjects.length}
               </p>
-              <p className="text-xs text-slate-500">Active Milestones</p>
+              <p className="text-xs text-slate-500">Active Projects</p>
             </div>
           </div>
 
@@ -395,142 +298,6 @@ export default function PODashboard() {
               <p className="text-xs text-emerald-600">Est. Yield</p>
             </div>
           </div>
-
-          {/* Rate Info */}
-          <div className="flex justify-center gap-4 mb-4 text-xs">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-              <span className="text-slate-600">10% LP Allocation</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-              <span className="text-slate-600">Variable Yield</span>
-            </div>
-          </div>
-
-          {/* Expanded Content - Projects with yield info */}
-          {yieldExpanded && (
-            <div className="border-t border-slate-200 pt-4 space-y-3" onClick={(e) => e.stopPropagation()}>
-              {activeProjects.map((project) => {
-                const hasDeposits = project.totalDeposited > BigInt(0);
-                if (!hasDeposits) return null;
-
-                const isYieldProjectExpanded = expandedYieldProjects[project.id.toString()];
-                const projectMilestones = project.milestones || [];
-                const acceptedMilestones = projectMilestones.filter((m: any) => m.accepted);
-
-                return (
-                  <div key={project.id.toString()} className="border border-slate-200 rounded-xl overflow-hidden">
-                    {/* Project Header */}
-                    <div
-                      className="flex items-center justify-between p-3 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors"
-                      onClick={() => toggleYieldProject(project.id.toString())}
-                    >
-                      <div className="flex items-center gap-2 flex-1">
-                        <svg
-                          className={`w-4 h-4 text-slate-500 transition-transform ${isYieldProjectExpanded ? 'rotate-90' : ''}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                        <span className="font-semibold text-slate-900">Project #{project.id.toString()}</span>
-                      </div>
-                      <Badge variant="success" className="text-xs">
-                        {acceptedMilestones.length} Active
-                      </Badge>
-                    </div>
-
-                    {/* Milestones with yield */}
-                    {isYieldProjectExpanded && (
-                      <div className="p-3 space-y-2">
-                        {projectMilestones.map((milestone: any, index: number) => {
-                          const isAccepted = milestone.accepted && !milestone.released;
-                          const isReleased = milestone.released;
-
-                          // Show only accepted/released milestones (those with yield)
-                          if (!isAccepted && !isReleased) return null;
-
-                          const milestoneAmount = (project.totalDeposited * BigInt(milestone.percentage)) / BigInt(10000);
-                          const lpAmount = milestoneAmount / BigInt(10); // 10% goes to LP
-                          const yieldRate = 5.0; // Assume 5% for demo
-                          const yieldAmount = (lpAmount * BigInt(Math.round(yieldRate * 100))) / BigInt(10000);
-
-                          return (
-                            <div key={index} className="bg-white rounded-lg p-2.5 border border-slate-200">
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="text-xs font-semibold text-slate-900">
-                                  Milestone {index + 1}
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <span className={`text-[10px] font-bold ${getYieldColor(yieldRate)} bg-white px-2 py-0.5 rounded-full border border-slate-200`}>
-                                    +{formatYieldRate(yieldRate)}%
-                                  </span>
-                                  {isReleased && (
-                                    <span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                                      Released
-                                    </span>
-                                  )}
-                                  {isAccepted && !isReleased && (
-                                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
-                                      Withdrawable
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* 3-Box Breakdown */}
-                              <div className="grid grid-cols-3 gap-1.5">
-                                <div className="bg-slate-50 rounded-lg p-2 text-center">
-                                  <p className="text-xs font-bold text-slate-800 truncate">
-                                    {formatCurrency(milestoneAmount, 'IDRX')}
-                                  </p>
-                                  <p className="text-[10px] text-slate-600">Vault (90%)</p>
-                                </div>
-                                <div className="bg-blue-50 rounded-lg p-2 text-center">
-                                  <p className="text-xs font-bold text-blue-700 truncate">
-                                    {formatCurrency(lpAmount, 'IDRX')}
-                                  </p>
-                                  <p className="text-[10px] text-blue-600">LP (10%)</p>
-                                </div>
-                                <div className={`${getYieldBgColor(yieldRate)} rounded-lg p-2 text-center`}>
-                                  <p className={`text-xs font-bold truncate ${getYieldColor(yieldRate)}`}>
-                                    {formatCurrency(yieldAmount, 'IDRX')}
-                                  </p>
-                                  <p className={`text-[10px] ${getYieldColor(yieldRate)}`}>Yield</p>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {acceptedMilestones.length === 0 && (
-                          <p className="text-center text-slate-500 py-2 text-sm">No active milestones with yield</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {activeProjects.filter(p => p.totalDeposited > BigInt(0)).length === 0 && (
-                <p className="text-center text-slate-500 py-4">No projects with deposits yet. Deposit funds to start earning yield!</p>
-              )}
-            </div>
-          )}
-
-          {/* Expand indicator */}
-          <div className="flex justify-center mt-4">
-            <svg
-              className={`w-5 h-5 text-slate-400 transition-transform ${yieldExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
         </Card>
       </div>
 
@@ -543,7 +310,7 @@ export default function PODashboard() {
           </Link>
         </div>
 
-        {ownerProjects.length === 0 ? (
+        {userProjects.length === 0 ? (
           <Card className="p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -558,7 +325,7 @@ export default function PODashboard() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {ownerProjects.slice(0, 6).map((project) => {
+            {userProjects.slice(0, 6).map((project) => {
               const progress = calculateProjectProgress(project);
               const milestoneCount = Number(project.milestoneCount);
 

@@ -41,6 +41,7 @@ import {
   type WithdrawableBalance,
 } from './contract';
 import type { Hash, Address } from 'viem';
+import { formatUnits } from 'viem';
 
 // ============================================================================
 // Helper hook to get contract address
@@ -1476,4 +1477,122 @@ export function useWatchPLMilestoneWithdrawn(callback: (logs: unknown[]) => void
     eventName: 'MilestoneWithdrawn',
     onLogs: callback,
   });
+}
+
+// ============================================================================
+// Token Balance Hooks
+// ============================================================================
+
+/**
+ * Hook for getting user's IDRX token balance
+ */
+export interface UseIDRXBalanceResult {
+  balance: bigint | undefined;
+  formatted: string;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+
+export function useIDRXBalance(userAddress?: Address): UseIDRXBalanceResult {
+  const { chain, address: connectedAddress } = useAccount();
+  const targetAddress = userAddress || connectedAddress;
+
+  // Get IDRX token address based on chain
+  const tokenAddress = useMemo(() => {
+    if (!chain) return null;
+    try {
+      const addresses = getTokenAddresses(chain.id);
+      const idrxAddress = addresses.IDRX;
+      // Check if it's a zero address (placeholder for baseMainnet)
+      if (idrxAddress === '0x0000000000000000000000000000000000000000' as Address) {
+        return null;
+      }
+      return idrxAddress;
+    } catch {
+      return null;
+    }
+  }, [chain]);
+
+  const result = useReadContract({
+    address: tokenAddress!,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: targetAddress ? [targetAddress] : undefined,
+    query: {
+      enabled: !!tokenAddress && !!targetAddress,
+      refetchInterval: 10000, // Refetch every 10 seconds
+    },
+  });
+
+  // Format the balance (IDRX uses 18 decimals)
+  const formatted = useMemo(() => {
+    if (!result.data) return '0';
+    return formatUnits(result.data as bigint, 18);
+  }, [result.data]);
+
+  return {
+    balance: result.data as bigint | undefined,
+    formatted,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+// ============================================================================
+// Token Approval Hook (for ERC20 token approvals)
+// ============================================================================
+
+export interface UseTokenApprovalResult {
+  allowance: bigint | undefined;
+  isApproved: boolean;
+  isLoading: boolean;
+  refetch: () => void;
+  approve: (amount: bigint) => Promise<Hash | null>;
+  isApproving: boolean;
+  approveHash: Hash | null;
+  approveIsSuccess: boolean;
+}
+
+export function useTokenApproval(tokenAddress: Address, spenderAddress: Address, ownerAddress?: Address): UseTokenApprovalResult {
+  const { chain } = useAccount();
+  const { writeContract, data: approveHash, isPending: isApproving, isSuccess: approveIsSuccess, error: approveError } = useWriteContract();
+
+  // Check allowance
+  const allowanceResult = useReadContract({
+    address: tokenAddress,
+    abi: ERC20_ABI,
+    functionName: 'allowance',
+    args: ownerAddress ? [ownerAddress, spenderAddress] : undefined,
+    query: {
+      enabled: !!ownerAddress,
+      refetchInterval: 10000,
+    },
+  });
+
+  const approve = async (amount: bigint): Promise<Hash | null> => {
+    if (!chain) {
+      throw new Error('Wallet not connected');
+    }
+
+    writeContract({
+      address: tokenAddress,
+      abi: ERC20_ABI,
+      functionName: 'approve',
+      args: [spenderAddress, amount],
+    });
+    return approveHash || null;
+  };
+
+  return {
+    allowance: allowanceResult.data as bigint | undefined,
+    isApproved: (allowanceResult.data as bigint | undefined) ? (allowanceResult.data as bigint) > 0n : false,
+    isLoading: allowanceResult.isLoading,
+    refetch: allowanceResult.refetch,
+    approve,
+    isApproving,
+    approveHash: approveHash || null,
+    approveIsSuccess,
+  };
 }
