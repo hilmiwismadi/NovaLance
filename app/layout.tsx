@@ -16,6 +16,20 @@ export const metadata: Metadata = {
   description: "A futuristic freelance marketplace powered by Base blockchain",
   other: {
     'base:app_id': '697df8f42aafa0bc9ad8a29e',
+    'fc:miniapp': JSON.stringify({
+      version: "next",
+      imageUrl: `${process.env.NEXT_PUBLIC_URL}/hero.svg`,
+      button: {
+        title: "Open NovaLance",
+        action: {
+          type: "launch_frame",
+          url: process.env.NEXT_PUBLIC_URL || "https://nova-lance.vercel.app",
+          name: "NovaLance",
+          splashImageUrl: `${process.env.NEXT_PUBLIC_URL}/splash.svg`,
+          splashBackgroundColor: "#0052FF",
+        },
+      },
+    }),
   },
 };
 
