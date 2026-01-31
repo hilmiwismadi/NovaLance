@@ -148,8 +148,8 @@ export default function FLDashboard() {
   // Get status badge variant based on project status
   const getStatusBadge = (status: number) => {
     switch (status) {
-      case 0: return 'default'; // Active (hiring)
-      case 1: return 'warning'; // Assigned (in progress)
+      case 0: return 'default'; // Active
+      case 1: return 'warning'; // Assigned
       case 2: return 'success'; // Completed
       case 3: return 'error'; // Cancelled
       default: return 'default';
@@ -158,8 +158,8 @@ export default function FLDashboard() {
 
   const getStatusText = (status: number) => {
     switch (status) {
-      case 0: return 'Hiring';
-      case 1: return 'In Progress';
+      case 0: return 'Active';
+      case 1: return 'Assigned';
       case 2: return 'Completed';
       case 3: return 'Cancelled';
       default: return 'Unknown';

@@ -38,8 +38,8 @@ function formatIDRX(amount: bigint | number): string {
 // Get project status text
 function getProjectStatus(status: number): string {
   switch (status) {
-    case 0: return 'Hiring';
-    case 1: return 'In Progress';
+    case 0: return 'Active';
+    case 1: return 'Assigned';
     case 2: return 'Completed';
     case 3: return 'Cancelled';
     default: return 'Unknown';

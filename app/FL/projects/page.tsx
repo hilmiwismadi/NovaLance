@@ -111,13 +111,13 @@ function useAllProjects(maxProjects: number = 50) {
   return { projects, isLoading };
 }
 
-type FilterType = 'all' | 'hiring' | 'in-progress' | 'completed';
+type FilterType = 'all' | 'active' | 'assigned' | 'completed' | 'cancelled';
 
 // Get status badge variant
 function getStatusBadge(status: number): 'success' | 'warning' | 'error' | 'default' {
   switch (status) {
-    case 0: return 'default'; // Active (hiring)
-    case 1: return 'warning'; // Assigned (in progress)
+    case 0: return 'default'; // Active
+    case 1: return 'warning'; // Assigned
     case 2: return 'success'; // Completed
     case 3: return 'error'; // Cancelled
     default: return 'default';
@@ -127,8 +127,8 @@ function getStatusBadge(status: number): 'success' | 'warning' | 'error' | 'defa
 // Get status text
 function getStatusText(status: number): string {
   switch (status) {
-    case 0: return 'Hiring';
-    case 1: return 'In Progress';
+    case 0: return 'Active';
+    case 1: return 'Assigned';
     case 2: return 'Completed';
     case 3: return 'Cancelled';
     default: return 'Unknown';
@@ -147,18 +147,20 @@ export default function FLProjectsPage() {
 
   // Filter projects based on status
   const filteredProjects = allProjects.filter(project => {
-    if (filter === 'all') return project.status !== 3; // Exclude cancelled
-    if (filter === 'hiring') return project.status === 0;
-    if (filter === 'in-progress') return project.status === 1;
+    if (filter === 'all') return true;
+    if (filter === 'active') return project.status === 0;
+    if (filter === 'assigned') return project.status === 1;
     if (filter === 'completed') return project.status === 2;
+    if (filter === 'cancelled') return project.status === 3;
     return true;
   });
 
   const stats = {
-    all: allProjects.filter(p => p.status !== 3).length,
-    hiring: allProjects.filter(p => p.status === 0).length,
-    inProgress: allProjects.filter(p => p.status === 1).length,
+    all: allProjects.length,
+    active: allProjects.filter(p => p.status === 0).length,
+    assigned: allProjects.filter(p => p.status === 1).length,
     completed: allProjects.filter(p => p.status === 2).length,
+    cancelled: allProjects.filter(p => p.status === 3).length,
   };
 
   if (!mounted) return null;
@@ -185,7 +187,7 @@ export default function FLProjectsPage() {
         </div>
 
         {/* Filter Pills */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           <button
             onClick={() => setFilter('all')}
             className={`px-3 py-2.5 sm:py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
@@ -197,24 +199,24 @@ export default function FLProjectsPage() {
             All ({stats.all})
           </button>
           <button
-            onClick={() => setFilter('hiring')}
+            onClick={() => setFilter('active')}
             className={`px-3 py-2.5 sm:py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-              filter === 'hiring'
+              filter === 'active'
+                ? 'bg-amber-100 text-amber-700 shadow-sm ring-2 ring-offset-1 ring-amber-300'
+                : 'bg-white/80 backdrop-blur text-slate-600 hover:bg-white hover:shadow-sm border border-slate-200/60'
+            }`}
+          >
+            Active ({stats.active})
+          </button>
+          <button
+            onClick={() => setFilter('assigned')}
+            className={`px-3 py-2.5 sm:py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+              filter === 'assigned'
                 ? 'bg-brand-100 text-brand-700 shadow-sm ring-2 ring-offset-1 ring-brand-300'
                 : 'bg-white/80 backdrop-blur text-slate-600 hover:bg-white hover:shadow-sm border border-slate-200/60'
             }`}
           >
-            Hiring ({stats.hiring})
-          </button>
-          <button
-            onClick={() => setFilter('in-progress')}
-            className={`px-3 py-2.5 sm:py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-              filter === 'in-progress'
-                ? 'bg-warning-100 text-warning-700 shadow-sm ring-2 ring-offset-1 ring-warning-300'
-                : 'bg-white/80 backdrop-blur text-slate-600 hover:bg-white hover:shadow-sm border border-slate-200/60'
-            }`}
-          >
-            Active ({stats.inProgress})
+            Assigned ({stats.assigned})
           </button>
           <button
             onClick={() => setFilter('completed')}
@@ -225,6 +227,16 @@ export default function FLProjectsPage() {
             }`}
           >
             Completed ({stats.completed})
+          </button>
+          <button
+            onClick={() => setFilter('cancelled')}
+            className={`px-3 py-2.5 sm:py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+              filter === 'cancelled'
+                ? 'bg-red-100 text-red-700 shadow-sm ring-2 ring-offset-1 ring-red-300'
+                : 'bg-white/80 backdrop-blur text-slate-600 hover:bg-white hover:shadow-sm border border-slate-200/60'
+            }`}
+          >
+            Cancelled ({stats.cancelled})
           </button>
         </div>
       </Card>
