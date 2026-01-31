@@ -119,14 +119,18 @@ export default function FLDashboard() {
   const { count: projectCount } = usePLProjectCount();
   const { projects: freelancerProjects, isLoading: isProjectsLoading } = useFLProjects(50);
 
-  // Active projects (not cancelled or completed)
+  // Active projects (assigned and in progress - status 1)
+  // Also show projects that are Active (status 0) if user has applied
   const activeProjects = freelancerProjects.filter(p =>
-    p.status === 1 // Assigned (in progress)
+    p.status === 1 || p.status === 0 // Assigned or Active (applied)
   );
+
+  // Display only assigned projects as "active jobs"
+  const assignedProjects = freelancerProjects.filter(p => p.status === 1);
 
   // Stats
   const stats = {
-    activeJobs: activeProjects.length,
+    activeJobs: assignedProjects.length,  // Only count assigned projects
     completedJobs: freelancerProjects.filter(p => p.status === 2).length,
     pendingApplications: 0, // Application tracking would need separate logic
   };
@@ -252,7 +256,7 @@ export default function FLDashboard() {
           </Link>
         </div>
 
-        {freelancerProjects.length === 0 ? (
+        {assignedProjects.length === 0 ? (
           <Card className="p-12 text-center border-2 border-transparent">
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -267,7 +271,7 @@ export default function FLDashboard() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {freelancerProjects.map((project) => {
+            {assignedProjects.map((project) => {
               const milestoneCount = Number(project.milestoneCount);
               const totalBudget = Number(project.totalDeposited) / 1e6;
 
