@@ -16,18 +16,8 @@ type FilterType = 'all' | 'in-progress' | 'completed';
 export default function FLProjectsPage() {
   const [mounted, setMounted] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
-
-  // KPI Detail Modal state
+  const [selectedKPI, setSelectedKPI] = useState<any>(null);
   const [kpiModalOpen, setKpiModalOpen] = useState(false);
-  const [selectedKPI, setSelectedKPI] = useState<{
-    projectId: string;
-    roleId: string;
-    roleTitle: string;
-    roleBudget: number;
-    kpi: any;
-  } | null>(null);
-
-  // Wallet address
   const { address } = useAccount();
 
   // API hook for applications (shows projects where user is assigned)
@@ -87,23 +77,28 @@ export default function FLProjectsPage() {
 
   return (
     <>
+      {/* KPI Detail Modal */}
+      {selectedKPI && (
+        <KPIDetailModal
+          isOpen={kpiModalOpen}
+          onClose={() => setKpiModalOpen(false)}
+          kpi={selectedKPI.kpi}
+          projectId={selectedKPI.projectId}
+          roleId={selectedKPI.roleId}
+          roleTitle={selectedKPI.roleTitle}
+          roleBudget={selectedKPI.roleBudget}
+        />
+      )}
+
       {/* Overview Card */}
       <Card className="p-4 sm:p-5 bg-gradient-to-br from-slate-50 to-brand-50/50 border-brand-200/40 shadow-sm">
         <div className="mb-3 sm:mb-4">
           <p className="text-xs text-slate-500 uppercase tracking-wide font-medium">
-            Project Overview
+            My Projects
           </p>
           <p className="text-xl sm:text-2xl font-bold text-slate-900 mt-1">
             {stats.all} Project{stats.all !== 1 ? 's' : ''}
           </p>
-        </div>
-
-        {/* Overall Progress */}
-        <div className="w-full bg-slate-200/80 rounded-full h-2.5 mb-4 overflow-hidden shadow-inner">
-          <div
-            className="bg-gradient-to-r from-brand-500 via-brand-400 to-emerald-400 h-2.5 rounded-full transition-all duration-700 ease-out shadow-sm"
-            style={{ width: `${overallProgress}%` }}
-          />
         </div>
 
         {/* Filter Pills */}
@@ -146,16 +141,20 @@ export default function FLProjectsPage() {
         <Card className="p-6 sm:p-12 text-center border-2 border-dashed border-slate-200 bg-gradient-to-br from-slate-50/50 to-white">
           <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-sm">
             <svg className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
             </svg>
           </div>
           <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-2">No projects found</h3>
           <p className="text-sm sm:text-base text-slate-600 mb-4 sm:mb-6">
-            {filter === 'all' ? "You haven't started any projects yet" : `No ${filter} projects`}
+            {assignedRoles.length === 0
+              ? "You haven't been assigned to any projects yet. Browse jobs to apply!"
+              : `No ${filter} projects`}
           </p>
-          <Link href="/FL/jobs">
-            <Button variant="primary" className="w-full sm:w-auto">Browse Jobs</Button>
-          </Link>
+          {assignedRoles.length === 0 && (
+            <Link href="/FL/jobs">
+              <Button variant="primary">Browse Jobs</Button>
+            </Link>
+          )}
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
@@ -227,7 +226,7 @@ export default function FLProjectsPage() {
                       </span>
                     </span>
                     <span className="text-xs sm:text-sm text-slate-600">
-                      {role.project.ownerAddress?.slice(0, 8)}
+                      {project.owner?.address?.slice(0, 8) || role.project.ownerAddress?.slice(0, 8)}
                     </span>
                   </div>
                 </Card>
@@ -235,27 +234,6 @@ export default function FLProjectsPage() {
             );
           })}
         </div>
-      )}
-
-      {/* KPI Detail Modal */}
-      {selectedKPI && (
-        <KPIDetailModal
-          isOpen={kpiModalOpen}
-          onClose={() => {
-            setKpiModalOpen(false);
-            setSelectedKPI(null);
-          }}
-          projectId={selectedKPI.projectId}
-          roleId={selectedKPI.roleId}
-          roleTitle={selectedKPI.roleTitle}
-          roleBudget={selectedKPI.roleBudget}
-          kpi={selectedKPI.kpi}
-          currency="IDRX"
-          onSuccess={() => {
-            // Refresh logic could go here
-            window.location.reload();
-          }}
-        />
       )}
     </>
   );

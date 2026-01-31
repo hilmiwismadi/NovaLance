@@ -15,7 +15,7 @@ interface ContractProject {
   id: bigint;
   creator: string;
   freelancer: string;
-  status: number; // 0=Hiring, 1=In Progress, 2=Completed, 3=Cancelled
+  status: number; // 0=Active, 2=Completed, 3=Cancelled (Assigned status is never set by contract)
   totalDeposited: bigint;
   vaultAmount: bigint;
   lendingAmount: bigint;
@@ -114,7 +114,7 @@ function usePOProjects(maxProjects: number = 50) {
   return { projects, isLoading };
 }
 
-type FilterType = 'all' | 'hiring' | 'in-progress' | 'completed';
+type FilterType = 'all' | 'active' | 'hired' | 'completed' | 'cancelled';
 
 interface FilterConfig {
   key: FilterType;
@@ -128,30 +128,37 @@ const filters: FilterConfig[] = [
   {
     key: 'all',
     label: 'All Projects',
-    icon: `<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>`,
+    icon: `<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2 2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>`,
     color: 'text-slate-700',
     bgColor: 'bg-slate-100',
   },
   {
-    key: 'hiring',
-    label: 'Hiring',
-    icon: `<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>`,
+    key: 'active',
+    label: 'Active',
+    icon: `<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>`,
     color: 'text-amber-700',
     bgColor: 'bg-amber-100',
   },
   {
-    key: 'in-progress',
-    label: 'Active',
-    icon: `<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>`,
+    key: 'hired',
+    label: 'Hired',
+    icon: `<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>`,
     color: 'text-brand-700',
     bgColor: 'bg-brand-100',
   },
   {
     key: 'completed',
     label: 'Completed',
-    icon: `<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+    icon: `<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>`,
     color: 'text-emerald-700',
     bgColor: 'bg-emerald-100',
+  },
+  {
+    key: 'cancelled',
+    label: 'Cancelled',
+    icon: `<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>`,
+    color: 'text-red-700',
+    bgColor: 'bg-red-100',
   },
 ];
 
@@ -169,30 +176,30 @@ export default function POProjectsPage() {
   // Filter projects based on selected filter
   const filteredProjects = projects.filter(project => {
     if (selectedFilter === 'all') return true;
-    if (selectedFilter === 'hiring') return project.status === 0;
-    if (selectedFilter === 'in-progress') return project.status === 1;
+    if (selectedFilter === 'active') return project.status === 0;
+    if (selectedFilter === 'hired') return project.freelancer && project.freelancer !== '0x0000000000000000000000000000000000000000';
     if (selectedFilter === 'completed') return project.status === 2;
+    if (selectedFilter === 'cancelled') return project.status === 3;
     return true;
   });
 
-  const getStatusText = (status: number) => {
-    switch (status) {
-      case 0: return 'Hiring';
-      case 1: return 'In Progress';
-      case 2: return 'Completed';
-      case 3: return 'Cancelled';
-      default: return 'Unknown';
+  const getStatusText = (project: ContractProject) => {
+    if (project.status === 3) return 'Cancelled';
+    if (project.status === 2) return 'Completed';
+    // For Active projects, show "Hired" if freelancer is assigned, otherwise "Active"
+    if (project.status === 0) {
+      return project.freelancer && project.freelancer !== '0x0000000000000000000000000000000000000000' ? 'Hired' : 'Active';
     }
+    return 'Unknown';
   };
 
-  const getStatusVariant = (status: number): string => {
-    switch (status) {
-      case 0: return 'warning';
-      case 1: return 'info';
-      case 2: return 'success';
-      case 3: return 'error';
-      default: return 'default';
+  const getStatusVariant = (project: ContractProject): string => {
+    if (project.status === 3) return 'error';
+    if (project.status === 2) return 'success';
+    if (project.status === 0) {
+      return project.freelancer && project.freelancer !== '0x0000000000000000000000000000000000000000' ? 'info' : 'warning';
     }
+    return 'default';
   };
 
   return (
@@ -233,9 +240,10 @@ export default function POProjectsPage() {
                 {filter.key === 'all'
                   ? projects.length
                   : projects.filter(p => {
-                      if (filter.key === 'hiring') return p.status === 0;
-                      if (filter.key === 'in-progress') return p.status === 1;
+                      if (filter.key === 'active') return p.status === 0;
+                      if (filter.key === 'hired') return p.freelancer && p.freelancer !== '0x0000000000000000000000000000000000000000';
                       if (filter.key === 'completed') return p.status === 2;
+                      if (filter.key === 'cancelled') return p.status === 3;
                       return true;
                     }).length
                 }
@@ -254,7 +262,7 @@ export default function POProjectsPage() {
           <Card className="p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2 2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-slate-900 mb-2">No Projects Yet</h3>
@@ -275,8 +283,8 @@ export default function POProjectsPage() {
                         {project.milestoneCount} milestone{project.milestoneCount > 1n ? 's' : ''}
                       </p>
                     </div>
-                    <Badge variant={getStatusVariant(project.status) as any}>
-                      {getStatusText(project.status)}
+                    <Badge variant={getStatusVariant(project) as any}>
+                      {getStatusText(project)}
                     </Badge>
                   </div>
 

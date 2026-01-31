@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import Link from 'next/link';
+import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
@@ -37,7 +38,13 @@ interface DisplayProject {
 function mapProjectToDisplay(project: any): DisplayProject {
   // Get all skills from all roles
   const allSkills = project.roles
-    ?.flatMap((role: any) => role.skills || [])
+    ?.flatMap((role: any) => {
+      try {
+        return role.skills ? JSON.parse(role.skills) : [];
+      } catch {
+        return role.skills || [];
+      }
+    })
     .filter((skill: string) => skill) || [];
 
   // Count total KPIs across all roles
@@ -84,7 +91,7 @@ const JobCard = memo(({
   progress: number;
 }) => {
   return (
-    <Link href={`/FL/jobs/${job.id}`} prefetch={false}>
+    <Link href={`/FL/projects/${job.id}`} prefetch={false}>
       <Card className="p-5 hover:shadow-lg transition-all cursor-pointer h-full border-2 border-transparent hover:border-brand-200">
         <div className="flex items-start justify-between mb-3">
           <h3 className="font-semibold text-slate-900 text-lg">{job.title}</h3>
@@ -99,20 +106,6 @@ const JobCard = memo(({
         <p className="text-sm text-slate-600 mb-4 line-clamp-2">
           {job.description}
         </p>
-
-        {/* Skills */}
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {job.skills.slice(0, 3).map((skill) => (
-            <span key={skill} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md">
-              {skill}
-            </span>
-          ))}
-          {job.skills.length > 3 && (
-            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md">
-              +{job.skills.length - 3} more
-            </span>
-          )}
-        </div>
 
         {/* Progress - based on KPIs */}
         {job.kpiCount > 0 && (
@@ -183,12 +176,13 @@ export default function FLJobsPage() {
     return Array.from(new Set(displayProjects.flatMap(job => job.skills))).sort();
   }, [displayProjects]);
 
-  // Filter jobs based on search and skills - memoized
+  // Filter jobs based on search - memoized
   const filteredJobs = useMemo(() => {
     return displayProjects.filter(job => {
       const matchesSearch = filters.searchTerm === '' ||
         job.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-        job.description.toLowerCase().includes(filters.searchTerm.toLowerCase());
+        job.description.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        job.skills.some(skill => skill.toLowerCase().includes(filters.searchTerm.toLowerCase()));
 
       const matchesSkills = filters.selectedSkills.length === 0 ||
         filters.selectedSkills.some(skill => job.skills.includes(skill));
@@ -247,11 +241,15 @@ export default function FLJobsPage() {
         <Card className="p-12 text-center">
           <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
           </div>
           <h3 className="text-lg font-semibold text-slate-900 mb-2">No jobs found</h3>
-          <p className="text-slate-600 mb-6">Try adjusting your search or filters</p>
+          <p className="text-slate-600 mb-6">
+            {displayProjects.length === 0
+              ? "There are no active projects yet. Switch to PO role to create one!"
+              : "Try adjusting your search or filters"}
+          </p>
           <Button variant="outline" onClick={() => handleFilterChange({ searchTerm: '', selectedSkills: [] })}>
             Clear All Filters
           </Button>

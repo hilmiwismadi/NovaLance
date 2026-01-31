@@ -26,6 +26,7 @@ import {
   showError,
 } from '@/lib/transactions';
 import { formatCurrency, parseTokenAmount, formatTokenAmount } from '@/lib/contract';
+import { formatUnits } from 'viem';
 
 export default function FundProjectPage() {
   const params = useParams();
@@ -122,7 +123,10 @@ export default function FundProjectPage() {
       // Keep 1 IDRX for gas fees
       const maxAmount = walletBalance > BigInt(1e18) ? walletBalance - BigInt(1e18) : walletBalance;
       // Format to human-readable amount (e.g., "1000" instead of "1000000000000000000000")
-      setDepositAmount(formatTokenAmount(maxAmount, 'IDRX'));
+      const formatted = formatUnits(maxAmount, 18);
+      // Remove trailing zeros after decimal point for cleaner display
+      const cleaned = formatted.endsWith('.0') ? formatted.slice(0, -2) : formatted;
+      setDepositAmount(cleaned);
     }
   }, [useMaxBalance, walletBalance]);
 
@@ -139,8 +143,11 @@ export default function FundProjectPage() {
       return;
     }
 
+    // Clean the deposit amount: remove any non-numeric characters except decimal point
+    const cleanAmount = (depositAmount || '0').replace(/[^\d.]/g, '').replace(/^(\d*\.\d*)\./, '$1');
+
     // Parse the deposit amount with correct decimals (18 for IDRX)
-    const amount = parseTokenAmount(depositAmount || '0', 'IDRX');
+    const amount = parseTokenAmount(cleanAmount || '0', 'IDRX');
     if (amount <= 0) {
       showError('Invalid Amount', 'Please enter a valid amount');
       return;
@@ -238,10 +245,11 @@ export default function FundProjectPage() {
                 Amount to Deposit (IDRX) *
               </label>
               <input
-                type="text"
+                type="number"
+                step="0.000000000000000001"
                 value={depositAmount}
                 onChange={(e) => setDepositAmount(e.target.value)}
-                placeholder="Enter amount"
+                placeholder="Enter amount (e.g., 1000)"
                 className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 outline-none transition-all"
                 required
               />
@@ -251,7 +259,15 @@ export default function FundProjectPage() {
             </div>
 
             {/* Distribution Preview */}
-            {depositAmount && BigInt(depositAmount || 0) > 0 && (
+            {depositAmount && (() => {
+              try {
+                const cleanAmount = depositAmount.replace(/[^\d.]/g, '').replace(/^(\d*\.\d*)\./, '$1');
+                const parsedAmount = parseTokenAmount(cleanAmount || '0', 'IDRX');
+                return parsedAmount > 0n;
+              } catch {
+                return false;
+              }
+            })() && (
               <div className="bg-slate-50 rounded-xl p-4 space-y-2">
                 <p className="text-sm font-medium text-slate-700">Smart Contract Will Automatically:</p>
                 <div className="space-y-1 text-sm text-slate-600">
@@ -270,7 +286,17 @@ export default function FundProjectPage() {
                 </div>
                 <div className="border-t border-slate-200 pt-2 mt-2">
                   <p className="text-xs text-slate-500">
-                    Total: <span className="font-semibold text-slate-900">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(depositAmount || 0))} IDRX</span>
+                    Total: <span className="font-semibold text-slate-900">
+                      {(() => {
+                        try {
+                          const cleanAmount = depositAmount.replace(/[^\d.]/g, '').replace(/^(\d*\.\d*)\./, '$1');
+                          const parsedAmount = parseTokenAmount(cleanAmount || '0', 'IDRX');
+                          return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(formatUnits(parsedAmount, 18)));
+                        } catch {
+                          return '0';
+                        }
+                      })()} IDRX
+                    </span>
                   </p>
                 </div>
               </div>
