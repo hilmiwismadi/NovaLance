@@ -1,13 +1,23 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useAccount } from 'wagmi';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
-import WalletConnectModal from '@/components/auth/WalletConnectModal';
 import CurrencyDisplay from '@/components/ui/CurrencyDisplay';
-import { mockPOProjects, formatCurrency } from '@/lib/mockData';
-import { useWithdrawableBalance, useWithdraw, useTransactionWait } from '@/lib/hooks';
+import WalletConnectModal from '@/components/auth/WalletConnectModal';
+import { formatCurrency } from '@/lib/contract';
+import {
+  useWithdrawableBalance,
+  useWithdraw,
+  useTransactionWait,
+  // ProjectLance hooks
+  usePLVaultBalance,
+  usePLLendingBalance,
+  usePLProjectCount,
+  usePLYield,
+} from '@/lib/hooks';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -211,6 +221,12 @@ export default function POPortfolioPage() {
   const { withdraw, isPending, error, hash, isSuccess } = useWithdraw();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useTransactionWait(hash ?? undefined);
 
+  // ProjectLance contract hooks for yield data
+  const { count: projectCount } = usePLProjectCount();
+  // Demo project ID for testing - in production, this would come from user's actual projects
+  const demoProjectId = BigInt(1);
+  const { vaultAmount, lendingAmount, yieldPercentage } = usePLYield(demoProjectId);
+
   useEffect(() => {
     setMounted(true);
 
@@ -325,11 +341,19 @@ export default function POPortfolioPage() {
     }
   };
 
-  // Calculate totals
-  const totalDeposited = mockYieldData.reduce((sum, item) => sum + item.depositedAmount, 0);
-  const totalLP = mockYieldData.reduce((sum, item) => sum + item.lpAmount, 0);
-  const totalYield = mockYieldData.reduce((sum, item) => sum + item.currentYield, 0);
-  const avgYieldRate = totalLP > 0 ? (totalYield / totalLP) * 100 : 0;
+  // Calculate totals - Use contract data when available
+  const totalDeposited = vaultAmount
+    ? Number(vaultAmount) / 1e6
+    : mockYieldData.reduce((sum, item) => sum + item.depositedAmount, 0);
+  const totalLP = lendingAmount
+    ? Number(lendingAmount) / 1e6
+    : mockYieldData.reduce((sum, item) => sum + item.lpAmount, 0);
+  const totalYield = (vaultAmount && lendingAmount)
+    ? (Number(lendingAmount) - totalLP) / 1e6
+    : mockYieldData.reduce((sum, item) => sum + item.currentYield, 0);
+  const avgYieldRate = yieldPercentage !== undefined
+    ? yieldPercentage
+    : totalLP > 0 ? (totalYield / totalLP) * 100 : 0;
 
   // Filter cards based on status
   const baseFilteredCards = mockYieldData.filter(item => {
@@ -378,9 +402,16 @@ export default function POPortfolioPage() {
   const mockWithdrawableBalance = Math.random() * (200000 - 40000) + 40000;
 
   // Calculate withdrawable balance from smart contract or fall back to mock (in IDR, no conversion needed)
+  // Use ProjectLance contract data when available
+  const contractYieldValue = lendingAmount && vaultAmount
+    ? Number(lendingAmount - (vaultAmount * BigInt(10) / BigInt(90))) / 1e6
+    : 0;
+
   const withdrawableBalance = balance
     ? Number(balance.totalWithdrawable) / 1e6
-    : mockWithdrawableBalance;
+    : contractYieldValue > 0
+      ? contractYieldValue + mockWithdrawableBalance
+      : mockWithdrawableBalance;
 
   if (!mounted) return null;
 
@@ -489,7 +520,7 @@ export default function POPortfolioPage() {
                 <p className="text-[8px] sm:text-[10px] text-slate-600 truncate">Total Deposited</p>
                 <p className="text-[10px] sm:text-sm font-bold text-slate-900 truncate">
                   <span className="inline-flex items-center gap-0.5 max-w-full overflow-hidden">
-                    <CurrencyDisplay amount={formatCurrency(totalDeposited, 'IDRX')} currency="IDRX" className="text-[9px] sm:text-xs" />
+                    <CurrencyDisplay amount={formatCurrency(vaultAmount || BigInt(Math.round(totalDeposited * 1e6)), 'IDRX')} currency="IDRX" className="text-[9px] sm:text-xs" />
                   </span>
                 </p>
               </div>
@@ -497,7 +528,7 @@ export default function POPortfolioPage() {
                 <p className="text-[8px] sm:text-[10px] text-slate-600 truncate">In LP (10%)</p>
                 <p className="text-[10px] sm:text-sm font-bold text-blue-700 truncate">
                   <span className="inline-flex items-center gap-0.5 max-w-full overflow-hidden">
-                    <CurrencyDisplay amount={formatCurrency(totalLP, 'IDRX')} currency="IDRX" className="text-[9px] sm:text-xs" />
+                    <CurrencyDisplay amount={formatCurrency(lendingAmount || BigInt(Math.round(totalLP * 1e6)), 'IDRX')} currency="IDRX" className="text-[9px] sm:text-xs" />
                   </span>
                 </p>
               </div>
@@ -718,7 +749,7 @@ export default function POPortfolioPage() {
                   <div className="bg-slate-50 rounded px-2 py-1">
                     <span className="text-slate-500">Dep: </span>
                     <span className="font-semibold text-slate-900">
-                      <CurrencyDisplay amount={formatCurrency(hoveredPoint.point.totalDeposited, 'IDRX')} currency="IDRX" className="text-[9px]" />
+                      <CurrencyDisplay amount={formatCurrency(BigInt(Math.round(hoveredPoint.point.totalDeposited * 1e6)), 'IDRX')} currency="IDRX" className="text-[9px]" />
                     </span>
                   </div>
                   <div className={`rounded px-2 py-1 ${hoveredPoint.point.yieldRate >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
@@ -868,19 +899,19 @@ export default function POPortfolioPage() {
                         <div className="bg-white/60 rounded-lg p-1.5 text-center min-w-0">
                           <p className="text-[8px] text-slate-600 truncate">Deposited</p>
                           <p className="text-[9px] font-bold text-slate-900 truncate">
-                            <CurrencyDisplay amount={formatCurrency(item.depositedAmount, 'IDRX')} currency="IDRX" className="text-[8px]" />
+                            <CurrencyDisplay amount={formatCurrency(BigInt(Math.round(item.depositedAmount * 1e6)), 'IDRX')} currency="IDRX" className="text-[8px]" />
                           </p>
                         </div>
                         <div className="bg-blue-50 rounded-lg p-1.5 text-center min-w-0">
                           <p className="text-[8px] text-blue-600 truncate">LP</p>
                           <p className="text-[9px] font-bold text-blue-700 truncate">
-                            <CurrencyDisplay amount={formatCurrency(item.lpAmount, 'IDRX')} currency="IDRX" className="text-[8px]" />
+                            <CurrencyDisplay amount={formatCurrency(BigInt(Math.round(item.lpAmount * 1e6)), 'IDRX')} currency="IDRX" className="text-[8px]" />
                           </p>
                         </div>
                         <div className={`rounded-lg p-1.5 text-center min-w-0 ${isPositive ? 'bg-emerald-50' : 'bg-red-50'}`}>
                           <p className={`text-[8px] ${isPositive ? 'text-emerald-600' : 'text-red-600'} truncate`}>Yield</p>
                           <p className={`text-[9px] font-bold truncate ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
-                            <CurrencyDisplay amount={formatCurrency(Math.abs(item.currentYield), 'IDRX')} currency="IDRX" className="text-[8px]" />
+                            <CurrencyDisplay amount={formatCurrency(BigInt(Math.round(Math.abs(item.currentYield) * 1e6)), 'IDRX')} currency="IDRX" className="text-[8px]" />
                           </p>
                         </div>
                       </div>
@@ -974,7 +1005,7 @@ export default function POPortfolioPage() {
                       <p className="text-[9px] sm:text-[10px] text-slate-600 truncate">Deposited</p>
                       <p className="text-[10px] sm:text-xs font-bold text-slate-900 truncate">
                         <span className="inline-flex items-center justify-center gap-0.5 max-w-full overflow-hidden">
-                          <CurrencyDisplay amount={formatCurrency(item.depositedAmount, 'IDRX')} currency="IDRX" className="text-[9px] sm:text-[10px]" />
+                          <CurrencyDisplay amount={formatCurrency(BigInt(Math.round(item.depositedAmount * 1e6)), 'IDRX')} currency="IDRX" className="text-[9px] sm:text-[10px]" />
                         </span>
                       </p>
                     </div>
@@ -982,7 +1013,7 @@ export default function POPortfolioPage() {
                       <p className="text-[9px] sm:text-[10px] text-blue-600 truncate">LP (10%)</p>
                       <p className="text-[10px] sm:text-xs font-bold text-blue-700 truncate">
                         <span className="inline-flex items-center justify-center gap-0.5 max-w-full overflow-hidden">
-                          <CurrencyDisplay amount={formatCurrency(item.lpAmount, 'IDRX')} currency="IDRX" className="text-[9px] sm:text-[10px]" />
+                          <CurrencyDisplay amount={formatCurrency(BigInt(Math.round(item.lpAmount * 1e6)), 'IDRX')} currency="IDRX" className="text-[9px] sm:text-[10px]" />
                         </span>
                       </p>
                     </div>
@@ -990,7 +1021,7 @@ export default function POPortfolioPage() {
                       <p className={`text-[9px] sm:text-[10px] ${isPositive ? 'text-emerald-600' : 'text-red-600'} truncate`}>Current Yield</p>
                       <p className={`text-[10px] sm:text-xs font-bold truncate ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
                         <span className="inline-flex items-center justify-center gap-0.5 max-w-full overflow-hidden">
-                          <CurrencyDisplay amount={formatCurrency(Math.abs(item.currentYield), 'IDRX')} currency="IDRX" className="text-[9px] sm:text-[10px]" />
+                          <CurrencyDisplay amount={formatCurrency(BigInt(Math.round(Math.abs(item.currentYield) * 1e6)), 'IDRX')} currency="IDRX" className="text-[9px] sm:text-[10px]" />
                         </span>
                       </p>
                     </div>

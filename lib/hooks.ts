@@ -18,8 +18,11 @@ import {
 import { base, baseSepolia } from 'wagmi/chains';
 import {
   NOVALANCE_ABI,
+  PROJECTLANCE_ABI,
+  LENDING_PROTOCOL_ABI,
   ERC20_ABI,
 } from './abi';
+import { getContractAddresses as getAdapterAddresses } from './contract-adapter';
 import {
   getContractAddresses,
   getTokenAddresses,
@@ -804,6 +807,673 @@ export function useWatchWithdrawal(callback: (logs: unknown[]) => void) {
     address: contractAddress!,
     abi: NOVALANCE_ABI,
     eventName: 'Withdrawal',
+    onLogs: callback,
+  });
+}
+
+// ============================================================================
+// ProjectLance Hooks (BaseHackathon Integration)
+// ============================================================================
+
+/**
+ * Get ProjectLance contract address for current chain
+ */
+function useProjectLanceAddress() {
+  const { chain } = useAccount();
+
+  return useMemo(() => {
+    if (!chain) return null;
+    try {
+      const addresses = getAdapterAddresses(chain.id);
+      return addresses.projectLance;
+    } catch {
+      return null;
+    }
+  }, [chain]);
+}
+
+/**
+ * Get MockLendingProtocol contract address
+ */
+function useLendingProtocolAddress() {
+  const { chain } = useAccount();
+
+  return useMemo(() => {
+    if (!chain) return null;
+    try {
+      const addresses = getAdapterAddresses(chain.id);
+      return addresses.mockLendingProtocol;
+    } catch {
+      return null;
+    }
+  }, [chain]);
+}
+
+// ============================================================================
+// ProjectLance Write Hooks
+// ============================================================================
+
+/**
+ * Hook for creating a project with milestones (ProjectLance)
+ */
+export interface UsePLCreateProjectResult {
+  createProject: (args: {
+    deadlines: bigint[];
+    percentages: bigint[];
+  }) => Promise<Hash | null>;
+  isPending: boolean;
+  error: Error | null;
+  hash: Hash | null;
+  isSuccess: boolean;
+}
+
+export function usePLCreateProject(): UsePLCreateProjectResult {
+  const contractAddress = useProjectLanceAddress();
+  const { writeContract, data: hash, isPending, error, isSuccess } = useWriteContract();
+
+  const createProject = async (args: {
+    deadlines: bigint[];
+    percentages: bigint[];
+  }) => {
+    if (!contractAddress) {
+      throw new Error('ProjectLance contract not found on this chain');
+    }
+
+    writeContract({
+      address: contractAddress,
+      abi: PROJECTLANCE_ABI,
+      functionName: 'createProject',
+      args: [args.deadlines, args.percentages],
+    });
+
+    return hash || null;
+  };
+
+  return { createProject, isPending, error, hash: hash || null, isSuccess };
+}
+
+/**
+ * Hook for applying to a project (ProjectLance)
+ */
+export interface UsePLApplyForProjectResult {
+  apply: (projectId: bigint) => Promise<Hash | null>;
+  isPending: boolean;
+  error: Error | null;
+  hash: Hash | null;
+  isSuccess: boolean;
+}
+
+export function usePLApplyForProject(): UsePLApplyForProjectResult {
+  const contractAddress = useProjectLanceAddress();
+  const { writeContract, data: hash, isPending, error, isSuccess } = useWriteContract();
+
+  const apply = async (projectId: bigint) => {
+    if (!contractAddress) {
+      throw new Error('ProjectLance contract not found on this chain');
+    }
+
+    writeContract({
+      address: contractAddress,
+      abi: PROJECTLANCE_ABI,
+      functionName: 'applyForProject',
+      args: [projectId],
+    });
+
+    return hash || null;
+  };
+
+  return { apply, isPending, error, hash: hash || null, isSuccess };
+}
+
+/**
+ * Hook for accepting a freelancer (ProjectLance)
+ */
+export interface UsePLAcceptFreelancerResult {
+  accept: (projectId: bigint, freelancer: Address) => Promise<Hash | null>;
+  isPending: boolean;
+  error: Error | null;
+  hash: Hash | null;
+  isSuccess: boolean;
+}
+
+export function usePLAcceptFreelancer(): UsePLAcceptFreelancerResult {
+  const contractAddress = useProjectLanceAddress();
+  const { writeContract, data: hash, isPending, error, isSuccess } = useWriteContract();
+
+  const accept = async (projectId: bigint, freelancer: Address) => {
+    if (!contractAddress) {
+      throw new Error('ProjectLance contract not found on this chain');
+    }
+
+    writeContract({
+      address: contractAddress,
+      abi: PROJECTLANCE_ABI,
+      functionName: 'acceptFreelancer',
+      args: [projectId, freelancer],
+    });
+
+    return hash || null;
+  };
+
+  return { accept, isPending, error, hash: hash || null, isSuccess };
+}
+
+/**
+ * Hook for depositing funds to a project (ProjectLance)
+ */
+export interface UsePLDepositFundsResult {
+  deposit: (projectId: bigint, amount: bigint) => Promise<Hash | null>;
+  isPending: boolean;
+  error: Error | null;
+  hash: Hash | null;
+  isSuccess: boolean;
+}
+
+export function usePLDepositFunds(): UsePLDepositFundsResult {
+  const contractAddress = useProjectLanceAddress();
+  const { writeContract, data: hash, isPending, error, isSuccess } = useWriteContract();
+
+  const deposit = async (projectId: bigint, amount: bigint) => {
+    if (!contractAddress) {
+      throw new Error('ProjectLance contract not found on this chain');
+    }
+
+    writeContract({
+      address: contractAddress,
+      abi: PROJECTLANCE_ABI,
+      functionName: 'depositFunds',
+      args: [projectId, amount],
+    });
+
+    return hash || null;
+  };
+
+  return { deposit, isPending, error, hash: hash || null, isSuccess };
+}
+
+/**
+ * Hook for submitting a milestone (ProjectLance)
+ */
+export interface UsePLSubmitMilestoneResult {
+  submit: (projectId: bigint, milestoneIndex: bigint) => Promise<Hash | null>;
+  isPending: boolean;
+  error: Error | null;
+  hash: Hash | null;
+  isSuccess: boolean;
+}
+
+export function usePLSubmitMilestone(): UsePLSubmitMilestoneResult {
+  const contractAddress = useProjectLanceAddress();
+  const { writeContract, data: hash, isPending, error, isSuccess } = useWriteContract();
+
+  const submit = async (projectId: bigint, milestoneIndex: bigint) => {
+    if (!contractAddress) {
+      throw new Error('ProjectLance contract not found on this chain');
+    }
+
+    writeContract({
+      address: contractAddress,
+      abi: PROJECTLANCE_ABI,
+      functionName: 'submitMilestone',
+      args: [projectId, milestoneIndex],
+    });
+
+    return hash || null;
+  };
+
+  return { submit, isPending, error, hash: hash || null, isSuccess };
+}
+
+/**
+ * Hook for accepting a milestone (ProjectLance)
+ */
+export interface UsePLAcceptMilestoneResult {
+  accept: (projectId: bigint, milestoneIndex: bigint) => Promise<Hash | null>;
+  isPending: boolean;
+  error: Error | null;
+  hash: Hash | null;
+  isSuccess: boolean;
+}
+
+export function usePLAcceptMilestone(): UsePLAcceptMilestoneResult {
+  const contractAddress = useProjectLanceAddress();
+  const { writeContract, data: hash, isPending, error, isSuccess } = useWriteContract();
+
+  const accept = async (projectId: bigint, milestoneIndex: bigint) => {
+    if (!contractAddress) {
+      throw new Error('ProjectLance contract not found on this chain');
+    }
+
+    writeContract({
+      address: contractAddress,
+      abi: PROJECTLANCE_ABI,
+      functionName: 'acceptMilestone',
+      args: [projectId, milestoneIndex],
+    });
+
+    return hash || null;
+  };
+
+  return { accept, isPending, error, hash: hash || null, isSuccess };
+}
+
+/**
+ * Hook for withdrawing a milestone (ProjectLance)
+ */
+export interface UsePLWithdrawMilestoneResult {
+  withdraw: (projectId: bigint, milestoneIndex: bigint) => Promise<Hash | null>;
+  isPending: boolean;
+  error: Error | null;
+  hash: Hash | null;
+  isSuccess: boolean;
+}
+
+export function usePLWithdrawMilestone(): UsePLWithdrawMilestoneResult {
+  const contractAddress = useProjectLanceAddress();
+  const { writeContract, data: hash, isPending, error, isSuccess } = useWriteContract();
+
+  const withdraw = async (projectId: bigint, milestoneIndex: bigint) => {
+    if (!contractAddress) {
+      throw new Error('ProjectLance contract not found on this chain');
+    }
+
+    writeContract({
+      address: contractAddress,
+      abi: PROJECTLANCE_ABI,
+      functionName: 'withdrawMilestone',
+      args: [projectId, milestoneIndex],
+    });
+
+    return hash || null;
+  };
+
+  return { withdraw, isPending, error, hash: hash || null, isSuccess };
+}
+
+/**
+ * Hook for canceling a project (ProjectLance)
+ */
+export interface UsePLCancelProjectResult {
+  cancel: (projectId: bigint) => Promise<Hash | null>;
+  isPending: boolean;
+  error: Error | null;
+  hash: Hash | null;
+  isSuccess: boolean;
+}
+
+export function usePLCancelProject(): UsePLCancelProjectResult {
+  const contractAddress = useProjectLanceAddress();
+  const { writeContract, data: hash, isPending, error, isSuccess } = useWriteContract();
+
+  const cancel = async (projectId: bigint) => {
+    if (!contractAddress) {
+      throw new Error('ProjectLance contract not found on this chain');
+    }
+
+    writeContract({
+      address: contractAddress,
+      abi: PROJECTLANCE_ABI,
+      functionName: 'cancelProject',
+      args: [projectId],
+    });
+
+    return hash || null;
+  };
+
+  return { cancel, isPending, error, hash: hash || null, isSuccess };
+}
+
+// ============================================================================
+// ProjectLance Read Hooks
+// ============================================================================
+
+/**
+ * Hook for getting project details (ProjectLance)
+ */
+export function usePLProject(projectId: bigint) {
+  const contractAddress = useProjectLanceAddress();
+
+  const result = useReadContract({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    functionName: 'getProject',
+    args: [projectId],
+    query: {
+      enabled: !!contractAddress && projectId !== undefined,
+    },
+  });
+
+  return {
+    project: result.data,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+/**
+ * Hook for getting a milestone (ProjectLance)
+ */
+export function usePLMilestone(projectId: bigint, milestoneIndex: bigint) {
+  const contractAddress = useProjectLanceAddress();
+
+  const result = useReadContract({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    functionName: 'getMilestone',
+    args: [projectId, milestoneIndex],
+    query: {
+      enabled: !!contractAddress && projectId !== undefined && milestoneIndex !== undefined,
+    },
+  });
+
+  return {
+    milestone: result.data,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+/**
+ * Hook for getting all milestones for a project (ProjectLance)
+ */
+export function usePLAllMilestones(projectId: bigint) {
+  const contractAddress = useProjectLanceAddress();
+
+  const result = useReadContract({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    functionName: 'getAllMilestones',
+    args: [projectId],
+    query: {
+      enabled: !!contractAddress && projectId !== undefined,
+      refetchInterval: 10000, // Poll every 10 seconds
+    },
+  });
+
+  return {
+    milestones: result.data,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+/**
+ * Hook for getting vault balance (ProjectLance)
+ */
+export function usePLVaultBalance(projectId: bigint) {
+  const contractAddress = useProjectLanceAddress();
+
+  const result = useReadContract({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    functionName: 'getVaultBalance',
+    args: [projectId],
+    query: {
+      enabled: !!contractAddress && projectId !== undefined,
+      refetchInterval: 15000,
+    },
+  });
+
+  return {
+    balance: result.data as bigint | undefined,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+/**
+ * Hook for getting lending balance (ProjectLance)
+ */
+export function usePLLendingBalance(projectId: bigint) {
+  const contractAddress = useProjectLanceAddress();
+
+  const result = useReadContract({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    functionName: 'getLendingBalance',
+    args: [projectId],
+    query: {
+      enabled: !!contractAddress && projectId !== undefined,
+      refetchInterval: 10000, // Poll more frequently for yield updates
+    },
+  });
+
+  return {
+    balance: result.data as bigint | undefined,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+/**
+ * Hook for calculating withdrawal amounts (ProjectLance)
+ */
+export function usePLWithdrawalAmounts(projectId: bigint, milestoneIndex: bigint) {
+  const contractAddress = useProjectLanceAddress();
+
+  const result = useReadContract({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    functionName: 'calculateWithdrawalAmounts',
+    args: [projectId, milestoneIndex],
+    query: {
+      enabled: !!contractAddress && projectId !== undefined && milestoneIndex !== undefined,
+    },
+  });
+
+  return {
+    amounts: result.data,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+/**
+ * Hook for getting milestone penalty (ProjectLance)
+ */
+export function usePLMilestonePenalty(projectId: bigint, milestoneIndex: bigint) {
+  const contractAddress = useProjectLanceAddress();
+
+  const result = useReadContract({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    functionName: 'getMilestonePenalty',
+    args: [projectId, milestoneIndex],
+    query: {
+      enabled: !!contractAddress && projectId !== undefined && milestoneIndex !== undefined,
+    },
+  });
+
+  return {
+    penalty: result.data as bigint | undefined,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+/**
+ * Hook for getting project applicants (ProjectLance)
+ */
+export function usePLApplicants(projectId: bigint) {
+  const contractAddress = useProjectLanceAddress();
+
+  const result = useReadContract({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    functionName: 'getApplicants',
+    args: [projectId],
+    query: {
+      enabled: !!contractAddress && projectId !== undefined,
+    },
+  });
+
+  return {
+    applicants: result.data as Address[] | undefined,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+/**
+ * Hook for getting project count (ProjectLance)
+ */
+export function usePLProjectCount() {
+  const contractAddress = useProjectLanceAddress();
+
+  const result = useReadContract({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    functionName: 'projectCount',
+    query: {
+      enabled: !!contractAddress,
+    },
+  });
+
+  return {
+    count: result.data as bigint | undefined,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+// ============================================================================
+// Combined Yield Hook
+// ============================================================================
+
+/**
+ * Hook for getting complete yield information for a project
+ */
+export function usePLYield(projectId: bigint) {
+  const vaultBalance = usePLVaultBalance(projectId);
+  const lendingBalance = usePLLendingBalance(projectId);
+  const project = usePLProject(projectId);
+
+  // Calculate yield percentage
+  const yieldPercentage = useMemo(() => {
+    if (!project.project || !lendingBalance.balance) return 0;
+    const projectArray = project.project as any[];
+    const lendingAmount = projectArray[5] as bigint; // lendingAmount
+    if (lendingAmount === BigInt(0)) return 0;
+    if (lendingBalance.balance <= lendingAmount) return 0;
+    const yieldAmount = lendingBalance.balance - lendingAmount;
+    return Number((yieldAmount * BigInt(10000)) / lendingAmount) / 100; // Basis points to percentage
+  }, [project.project, lendingBalance.balance]);
+
+  // Calculate total value
+  const totalValue = useMemo(() => {
+    const vault = vaultBalance.balance || BigInt(0);
+    const lending = lendingBalance.balance || BigInt(0);
+    return vault + lending;
+  }, [vaultBalance.balance, lendingBalance.balance]);
+
+  return {
+    vaultAmount: vaultBalance.balance,
+    lendingAmount: lendingBalance.balance,
+    lendingPrincipal: (project.project as any[])?.[5] as bigint | undefined,
+    yieldPercentage,
+    totalValue,
+    isLoading: vaultBalance.isLoading || lendingBalance.isLoading,
+    error: vaultBalance.error || lendingBalance.error,
+    refetch: () => {
+      vaultBalance.refetch();
+      lendingBalance.refetch();
+    },
+  };
+}
+
+// ============================================================================
+// ProjectLance Event Watching Hooks
+// ============================================================================
+
+/**
+ * Watch for project created events
+ */
+export function useWatchPLProjectCreated(callback: (logs: unknown[]) => void) {
+  const contractAddress = useProjectLanceAddress();
+
+  useWatchContractEvent({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    eventName: 'ProjectCreated',
+    onLogs: callback,
+  });
+}
+
+/**
+ * Watch for freelancer applied events
+ */
+export function useWatchPLFreelancerApplied(callback: (logs: unknown[]) => void) {
+  const contractAddress = useProjectLanceAddress();
+
+  useWatchContractEvent({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    eventName: 'FreelancerApplied',
+    onLogs: callback,
+  });
+}
+
+/**
+ * Watch for funds deposited events
+ */
+export function useWatchPLFundsDeposited(callback: (logs: unknown[]) => void) {
+  const contractAddress = useProjectLanceAddress();
+
+  useWatchContractEvent({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    eventName: 'FundsDeposited',
+    onLogs: callback,
+  });
+}
+
+/**
+ * Watch for milestone submitted events
+ */
+export function useWatchPLMilestoneSubmitted(callback: (logs: unknown[]) => void) {
+  const contractAddress = useProjectLanceAddress();
+
+  useWatchContractEvent({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    eventName: 'MilestoneSubmitted',
+    onLogs: callback,
+  });
+}
+
+/**
+ * Watch for milestone accepted events
+ */
+export function useWatchPLMilestoneAccepted(callback: (logs: unknown[]) => void) {
+  const contractAddress = useProjectLanceAddress();
+
+  useWatchContractEvent({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    eventName: 'MilestoneAccepted',
+    onLogs: callback,
+  });
+}
+
+/**
+ * Watch for milestone withdrawn events
+ */
+export function useWatchPLMilestoneWithdrawn(callback: (logs: unknown[]) => void) {
+  const contractAddress = useProjectLanceAddress();
+
+  useWatchContractEvent({
+    address: contractAddress!,
+    abi: PROJECTLANCE_ABI,
+    eventName: 'MilestoneWithdrawn',
     onLogs: callback,
   });
 }
