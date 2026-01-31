@@ -200,13 +200,30 @@ function generateKPIs(count: number, startDate: string): Array<{
   const totalDuration = 90; // days
   const interval = Math.floor(totalDuration / count);
 
+  // Generate percentages ensuring last milestone >= 10%
   let remainingPercentage = 100;
+  const percentages: number[] = [];
 
   for (let i = 0; i < count; i++) {
     const isLast = i === count - 1;
-    const percentage = isLast ? remainingPercentage : Math.floor(Math.random() * (remainingPercentage - (count - i - 1) * 5)) + 5;
-    remainingPercentage -= percentage;
+    if (isLast) {
+      // Last milestone gets whatever remains (will be >= 10% due to logic below)
+      percentages.push(remainingPercentage);
+    } else {
+      // For non-last milestones, leave at least 10% for each remaining milestone
+      const remainingMilestones = count - i;
+      const minForLast = 10; // Last milestone must be >= 10%
+      const minForOthers = (remainingMilestones - 1) * 5; // At least 5% for each other remaining
+      const maxPercentage = remainingPercentage - minForLast - minForOthers;
+      const minPercentage = 5;
+      const percentage = Math.floor(Math.random() * (maxPercentage - minPercentage + 1)) + minPercentage;
+      percentages.push(percentage);
+      remainingPercentage -= percentage;
+    }
+  }
 
+  // Create KPIs with the calculated percentages
+  for (let i = 0; i < count; i++) {
     const deadline = new Date(baseDate);
     deadline.setDate(deadline.getDate() + interval);
     const deadlineStr = deadline.toISOString().split('T')[0];
@@ -214,7 +231,7 @@ function generateKPIs(count: number, startDate: string): Array<{
     kpis.push({
       id: `kpi-${Date.now()}-${i}`,
       name: names[i],
-      percentage,
+      percentage: percentages[i],
       description: descriptions[i],
       deadline: deadlineStr
     });
@@ -493,7 +510,24 @@ export default function CreateProjectPage() {
   // Handle ProjectLance transaction confirmation - extract projectId from logs
   useEffect(() => {
     const syncProjectToBackend = async (projectId: bigint) => {
-      if (!address || !title || !description || !startDate || !endDate) return;
+      console.log('🔍 syncProjectToBackend called', {
+        projectId: projectId.toString(),
+        hasAddress: !!address,
+        address,
+        hasTitle: !!title,
+        title,
+        hasDescription: !!description,
+        description,
+        hasStartDate: !!startDate,
+        startDate,
+        hasEndDate: !!endDate,
+        endDate,
+      });
+
+      if (!address || !title || !description || !startDate || !endDate) {
+        console.error('❌ Missing required data for backend sync');
+        return;
+      }
 
       try {
         console.log('🔄 Syncing project to backend...', projectId.toString());
@@ -518,6 +552,11 @@ export default function CreateProjectPage() {
     };
 
     if (isPLConfirmed && plReceipt) {
+      console.log('📋 Transaction confirmed, extracting projectId from logs...', {
+        logsCount: plReceipt.logs.length,
+        hash: plHash,
+      });
+
       // Extract projectId from ProjectCreated event
       let projectId: bigint | undefined;
 
@@ -529,13 +568,18 @@ export default function CreateProjectPage() {
             topics: log.topics,
           });
 
+          console.log('📝 Decoded log:', { eventName: decoded.eventName, args: decoded.args });
+
           if (decoded.eventName === 'ProjectCreated' && decoded.args) {
-            // args is readonly unknown[], access by index (projectId is first indexed arg)
-            projectId = decoded.args[0] as bigint;
+            // args is an object with named properties: { projectId, creator, milestoneCount }
+            const args = decoded.args as { projectId: bigint; creator: string; milestoneCount: bigint };
+            projectId = args.projectId;
+            console.log('✅ Found projectId:', projectId.toString());
             break;
           }
-        } catch {
+        } catch (e) {
           // Skip logs that don't match the expected event format
+          console.log('⏭️ Skipping log (not matching ABI)', e);
           continue;
         }
       }
