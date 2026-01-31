@@ -26,12 +26,9 @@ import {
   showError,
 } from '@/lib/transactions';
 
-// Format currency for IDRX (18 decimals as stored in contract, then converted for display)
+// Format currency for IDRX (18 decimals - standard ERC20)
 function formatIDRX(amount: bigint | number): string {
-  // Contract stores values in 18 decimals (standard ERC20)
-  // But IDRX token uses 6 decimals, so we need to divide by 1e18 then multiply by 1e6
-  // Or simply divide by 1e12 to go from 18 decimals to 6 decimals
-  const value = typeof amount === 'bigint' ? Number(amount) / 1e12 : amount / 1e6;
+  const value = typeof amount === 'bigint' ? Number(amount) / 1e18 : amount;
   return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
