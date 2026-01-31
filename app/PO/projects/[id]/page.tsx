@@ -313,7 +313,7 @@ export default function POProjectDetailPage() {
             <Badge variant={
               status === 3 ? 'error' :
               status === 2 ? 'success' :
-              (status === 0 && freelancer && freelancer !== '0x0000000000000000000000000000000000000000') ? 'info' : 'default'
+              (status === 0 && freelancer && freelancer !== '0x0000000000000000000000000000000000000000') ? 'pending' : 'default'
             }>
               {getProjectStatus(status, freelancer as string)}
             </Badge>

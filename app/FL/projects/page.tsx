@@ -226,7 +226,7 @@ export default function FLProjectsPage() {
                       </span>
                     </span>
                     <span className="text-xs sm:text-sm text-slate-600">
-                      {project.owner?.address?.slice(0, 8) || role.project.ownerAddress?.slice(0, 8)}
+                      {role.project.ownerAddress?.slice(0, 8)}
                     </span>
                   </div>
                 </Card>

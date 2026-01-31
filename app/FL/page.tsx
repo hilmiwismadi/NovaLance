@@ -150,7 +150,7 @@ export default function FLDashboard() {
   // Display projects where user is hired as freelancer (regardless of status)
   // A project can be Active (0) but still have a hired freelancer
   const assignedProjects = freelancerProjects.filter(p =>
-    p.freelancer && p.freelancer.toLowerCase() === address.toLowerCase()
+    p.freelancer && address && p.freelancer.toLowerCase() === address.toLowerCase()
   );
   const appliedProjects = freelancerProjects.filter(p =>
     p.hasApplied && (!p.freelancer || p.freelancer === '0x0000000000000000000000000000000000000000')

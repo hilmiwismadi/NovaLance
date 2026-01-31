@@ -618,7 +618,7 @@ export default function CreateProjectPage() {
 
           if (decoded.eventName === 'ProjectCreated' && decoded.args) {
             // args is an object with named properties: { projectId, creator, milestoneCount }
-            const args = decoded.args as { projectId: bigint; creator: string; milestoneCount: bigint };
+            const args = decoded.args as unknown as { projectId: bigint; creator: string; milestoneCount: bigint };
             projectId = args.projectId;
             console.log('✅ Found projectId:', projectId.toString());
             break;
