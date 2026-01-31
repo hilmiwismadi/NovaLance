@@ -89,9 +89,8 @@ export default function FundProjectPage() {
     if (isConfirmed && hash) {
       showTransactionSuccess(hash, 'Funds deposited successfully!');
       refetchProject();
-      setTimeout(() => {
-        router.push(`/PO/projects/${projectId}`);
-      }, 2000);
+      // Navigate immediately after showing success
+      router.push(`/PO/projects/${projectId}`);
     }
   }, [isConfirmed, hash, router, projectId, refetchProject]);
 
