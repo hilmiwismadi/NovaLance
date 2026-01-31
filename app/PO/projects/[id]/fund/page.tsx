@@ -34,6 +34,7 @@ export default function FundProjectPage() {
   const [mounted, setMounted] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [useMaxBalance, setUseMaxBalance] = useState(false);
+  const [pendingDepositAmount, setPendingDepositAmount] = useState<bigint | null>(null);
 
   const projectId = params.id as string;
   const projectLanceId = BigInt(parseInt(projectId) || 0);
@@ -69,13 +70,27 @@ export default function FundProjectPage() {
     setMounted(true);
   }, [projectId]);
 
-  // Refetch allowance after approval is confirmed
+  // Refetch allowance after approval is confirmed and auto-deposit if pending
   useEffect(() => {
     if (isApproveConfirmed && approveHash) {
-      showTransactionSuccess(approveHash, 'Token approved! You can now deposit funds.');
+      showTransactionSuccess(approveHash, 'Token approved! Depositing funds...');
       refetchAllowance();
+
+      // Auto-trigger deposit if there's a pending amount
+      if (pendingDepositAmount) {
+        setTimeout(async () => {
+          try {
+            await deposit(projectLanceId, pendingDepositAmount);
+            setPendingDepositAmount(null);
+          } catch (err) {
+            const error = err as Error;
+            showError('Deposit Failed', error.message);
+            setPendingDepositAmount(null);
+          }
+        }, 500);
+      }
     }
-  }, [isApproveConfirmed, approveHash, refetchAllowance]);
+  }, [isApproveConfirmed, approveHash, refetchAllowance, pendingDepositAmount, projectLanceId]);
 
   // Handle deposit success
   useEffect(() => {
@@ -140,8 +155,9 @@ export default function FundProjectPage() {
       // Check if we need to approve tokens first
       if (!isApproved || (allowance !== undefined && allowance < amount)) {
         showInfo('Approving Tokens', 'Please approve IDRX spending in your wallet...');
+        setPendingDepositAmount(amount);
         await approve(amount);
-        // After approval, user will need to click deposit again
+        // Deposit will auto-trigger after approval is confirmed
         return;
       }
 
@@ -150,6 +166,7 @@ export default function FundProjectPage() {
     } catch (err) {
       const error = err as Error;
       showError('Transaction Failed', error.message);
+      setPendingDepositAmount(null);
     }
   };
 
