@@ -135,6 +135,7 @@ export const projectApi = {
   },
 
   async create(data: {
+    id?: string;
     title: string;
     description: string;
     timelineStart: string;
@@ -144,6 +145,46 @@ export const projectApi = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    return res.json();
+  },
+
+  // Create a role for a project
+  async createRole(projectId: string, data: {
+    name: string;
+    description: string;
+    kpiCount: number;
+    paymentPerKpi: string;
+    skills?: string[];
+  }): Promise<{ role: any }> {
+    const res = await apiFetch(`/api/projects/${projectId}/roles`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  // Get roles for a project
+  async getRoles(projectId: string): Promise<{ roles: any[] }> {
+    const res = await apiFetch(`/api/projects/${projectId}/roles`);
+    return res.json();
+  },
+
+  // Create KPIs for a role
+  async createKpis(projectId: string, roleId: string, kpis: Array<{
+    kpiNumber: number;
+    description: string;
+    deadline: string;
+  }>): Promise<{ kpis: any[] }> {
+    const res = await apiFetch(`/api/projects/${projectId}/roles/${roleId}/kpis`, {
+      method: 'POST',
+      body: JSON.stringify({ kpis }),
+    });
+    return res.json();
+  },
+
+  // Get KPIs for a role
+  async getKpis(projectId: string, roleId: string): Promise<{ kpis: any[] }> {
+    const res = await apiFetch(`/api/projects/${projectId}/roles/${roleId}/kpis`);
     return res.json();
   },
 };

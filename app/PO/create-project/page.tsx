@@ -522,6 +522,8 @@ export default function CreateProjectPage() {
         startDate,
         hasEndDate: !!endDate,
         endDate,
+        hasRoles: roles.length > 0,
+        rolesCount: roles.length,
       });
 
       if (!address || !title || !description || !startDate || !endDate) {
@@ -536,15 +538,59 @@ export default function CreateProjectPage() {
         const { projectApi } = await import('@/lib/api-client');
 
         // Create the offchain project record with on-chain projectId as id
-        const result = await projectApi.create({
+        const projectResult = await projectApi.create({
           id: projectId.toString(),
           title,
           description,
           timelineStart: new Date(startDate).toISOString(),
           timelineEnd: new Date(endDate).toISOString(),
         });
+        console.log('✅ Project synced to backend:', projectResult);
 
-        console.log('✅ Project synced to backend:', result);
+        // Sync roles and KPIs for each role
+        for (const role of roles) {
+          if (!role.title || !role.description) {
+            console.log('⏭️ Skipping role with missing data:', role.id);
+            continue;
+          }
+
+          // Calculate payment per KPI from role KPIs
+          // For on-chain milestones, we don't have a budget, so use a default
+          const kpiCount = role.kpis.filter(k => k.name || k.description).length || role.kpis.length;
+          const paymentPerKpi = '0'; // Will be determined by on-chain deposits
+
+          // Create role
+          console.log('🔄 Creating role:', role.title);
+          const roleResult = await projectApi.createRole(projectId.toString(), {
+            name: role.title,
+            description: role.description,
+            kpiCount: kpiCount > 0 ? kpiCount : 1,
+            paymentPerKpi,
+            skills: role.skills.length > 0 ? role.skills : undefined,
+          });
+          console.log('✅ Role created:', roleResult);
+
+          // Create KPIs for this role
+          const validKpis = role.kpis
+            .map((kpi, idx) => ({
+              kpiNumber: idx + 1,
+              description: kpi.description || kpi.name || `KPI ${idx + 1}`,
+              deadline: kpi.deadline ? new Date(kpi.deadline).toISOString() : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            }))
+            .filter(kpi => kpi.description && kpi.description.length > 0);
+
+          if (validKpis.length > 0) {
+            console.log(`🔄 Creating ${validKpis.length} KPIs for role ${roleResult.role.id}`);
+            const kpisResult = await projectApi.createKpis(
+              projectId.toString(),
+              roleResult.role.id,
+              validKpis
+            );
+            console.log('✅ KPIs created:', kpisResult);
+          }
+        }
+
+        console.log('✅ All project data synced to backend!');
       } catch (error) {
         console.error('❌ Failed to sync project to backend:', error);
         // Don't show error to user - on-chain creation succeeded

@@ -21,6 +21,7 @@ import {
   usePLCancelProject,
   useTransactionWait,
 } from '@/lib/hooks';
+import { useProject, useProjectRoles } from '@/lib/api-hooks';
 import {
   showTransactionPending,
   showTransactionSuccess,
@@ -69,12 +70,16 @@ export default function POProjectDetailPage() {
   const projectId = params.id as string;
   const projectLanceId = BigInt(parseInt(projectId) || 0);
 
-  // ProjectLance hooks
+  // ProjectLance hooks (on-chain data)
   const { project, isLoading: isProjectLoading, refetch: refetchProject } = usePLProject(projectLanceId);
   const { milestones, isLoading: isMilestonesLoading, refetch: refetchMilestones } = usePLAllMilestones(projectLanceId);
   const { balance: vaultBalance } = usePLVaultBalance(projectLanceId);
   const { balance: lendingBalance } = usePLLendingBalance(projectLanceId);
   const { applicants } = usePLApplicants(projectLanceId);
+
+  // Backend hooks (off-chain metadata)
+  const { data: backendProject, isLoading: isBackendLoading } = useProject(projectId);
+  const { data: backendRoles, isLoading: isRolesLoading } = useProjectRoles(projectId);
 
   // Write hooks
   const { accept: acceptMilestone, isPending: isAcceptPending, error: acceptError, hash: acceptHash, isSuccess: isAcceptSuccess } = usePLAcceptMilestone();
@@ -290,7 +295,7 @@ export default function POProjectDetailPage() {
   return (
     <div className="w-full max-w-6xl mx-auto px-3 sm:px-4 md:px-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="space-y-3">
         <div>
           <Link
             href="/PO/projects"
@@ -302,7 +307,9 @@ export default function POProjectDetailPage() {
             Back to Projects
           </Link>
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">Project #{projectId}</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900">
+              {backendProject?.title || `Project #${projectId}`}
+            </h1>
             <Badge variant={
               status === 3 ? 'error' :
               status === 2 ? 'success' :
@@ -311,6 +318,9 @@ export default function POProjectDetailPage() {
               {getProjectStatus(status, freelancer as string)}
             </Badge>
           </div>
+          {backendProject?.description && (
+            <p className="text-slate-600 text-sm mt-1 max-w-3xl">{backendProject.description}</p>
+          )}
         </div>
       </div>
 
@@ -365,6 +375,57 @@ export default function POProjectDetailPage() {
           </div>
         </div>
       </Card>
+
+      {/* Roles Section - Backend Data */}
+      {backendRoles && backendRoles.length > 0 && (
+        <Card className="p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v2c0 .656-.126 1.283-.356 1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Project Roles</h3>
+                <p className="text-xs text-slate-500">KPIs and requirements</p>
+              </div>
+            </div>
+            <Badge variant="default">{backendRoles.length} Role{backendRoles.length !== 1 ? 's' : ''}</Badge>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {backendRoles.map((role: any) => {
+              const roleSkills = role.skills ? JSON.parse(role.skills) : [];
+              return (
+                <div key={role.id} className="border border-slate-200 rounded-xl p-3 bg-slate-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-slate-900">{role.name}</h4>
+                    <Badge variant={role.status === 'open' ? 'pending' : 'default'} className="text-xs">
+                      {role.status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-600 mb-2 line-clamp-2">{role.description}</p>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">{role.kpiCount} KPI{role.kpiCount > 1 ? 's' : ''}</span>
+                    {roleSkills.length > 0 && (
+                      <div className="flex gap-1 flex-wrap">
+                        {roleSkills.slice(0, 3).map((skill: string) => (
+                          <span key={skill} className="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">
+                            {skill}
+                          </span>
+                        ))}
+                        {roleSkills.length > 3 && (
+                          <span className="text-slate-500">+{roleSkills.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content - Milestones */}

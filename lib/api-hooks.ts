@@ -26,6 +26,8 @@ export const queryKeys = {
   projectBalances: ['balance', 'projects'] as const,
   projects: ['projects'] as const,
   project: (id: string) => ['project', id] as const,
+  projectRoles: (id: string) => ['project', id, 'roles'] as const,
+  roleKpis: (projectId: string, roleId: string) => ['project', projectId, 'role', roleId, 'kpis'] as const,
   myApplications: ['applications', 'mine'] as const,
   roleApplicants: (roleId: string) => ['applications', 'role', roleId] as const,
   pendingKpis: ['kpis', 'pending'] as const,
@@ -249,6 +251,51 @@ export function useRejectKpi() {
       kpiApi.rejectKpi(id, comment),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.pendingKpis });
+    },
+  });
+}
+
+// Role hooks
+export function useProjectRoles(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.projectRoles(projectId),
+    queryFn: () => projectApi.getRoles(projectId),
+    select: (data) => data.roles,
+    enabled: !!projectId,
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useRoleKpis(projectId: string, roleId: string) {
+  return useQuery({
+    queryKey: queryKeys.roleKpis(projectId, roleId),
+    queryFn: () => projectApi.getKpis(projectId, roleId),
+    select: (data) => data.kpis,
+    enabled: !!(projectId && roleId),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useCreateRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, data }: { projectId: string; data: { name: string; description: string; kpiCount: number; paymentPerKpi: string; skills?: string[] } }) =>
+      projectApi.createRole(projectId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projectRoles(variables.projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+  });
+}
+
+export function useCreateKpis() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, roleId, kpis }: { projectId: string; roleId: string; kpis: Array<{ kpiNumber: number; description: string; deadline: string }> }) =>
+      projectApi.createKpis(projectId, roleId, kpis),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.roleKpis(variables.projectId, variables.roleId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
     },
   });
 }
